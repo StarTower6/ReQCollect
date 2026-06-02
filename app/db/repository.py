@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import ChatMessageModel, GeneratedPRD, RequirementProfileModel
@@ -79,6 +79,7 @@ class ProfileRepository:
             "covered_topics": profile.covered_topics,
             "pending_questions": profile.pending_questions,
             "sufficiency_score": profile.sufficiency_score,
+            "is_pinned": profile.is_pinned,
         }
 
 
@@ -88,6 +89,7 @@ class SessionRepository:
     async def list_sessions(session: AsyncSession) -> list[dict]:
         result = await session.execute(
             select(RequirementProfileModel).order_by(
+                RequirementProfileModel.is_pinned.desc(),
                 RequirementProfileModel.updated_at.desc()
             ).limit(50)
         )
@@ -97,10 +99,62 @@ class SessionRepository:
                 "project_name": p.project_name or "未命名项目",
                 "status": p.status.value if p.status else "mining",
                 "sufficiency_score": p.sufficiency_score,
+                "is_pinned": bool(p.is_pinned),
                 "updated_at": p.updated_at.isoformat() if p.updated_at else "",
             }
             for p in result.scalars().all()
         ]
+
+    @staticmethod
+    async def set_pinned(
+        session: AsyncSession,
+        session_id: str,
+        is_pinned: bool,
+    ) -> dict | None:
+        result = await session.execute(
+            select(RequirementProfileModel).where(
+                RequirementProfileModel.session_id == session_id
+            )
+        )
+        profile = result.scalar_one_or_none()
+        if profile is None:
+            return None
+
+        profile.is_pinned = is_pinned
+        await session.commit()
+        await session.refresh(profile)
+        return {
+            "session_id": profile.session_id,
+            "project_name": profile.project_name or "未命名项目",
+            "status": profile.status.value if profile.status else "mining",
+            "sufficiency_score": profile.sufficiency_score,
+            "is_pinned": bool(profile.is_pinned),
+            "updated_at": profile.updated_at.isoformat() if profile.updated_at else "",
+        }
+
+    @staticmethod
+    async def delete_session(session: AsyncSession, session_id: str) -> bool:
+        result = await session.execute(
+            select(RequirementProfileModel.id).where(
+                RequirementProfileModel.session_id == session_id
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            return False
+
+        await session.execute(
+            delete(ChatMessageModel).where(ChatMessageModel.session_id == session_id)
+        )
+        await session.execute(
+            delete(GeneratedPRD).where(GeneratedPRD.session_id == session_id)
+        )
+        await session.execute(
+            delete(RequirementProfileModel).where(
+                RequirementProfileModel.session_id == session_id
+            )
+        )
+        await session.commit()
+        return True
 
 
 class PRDRepository:

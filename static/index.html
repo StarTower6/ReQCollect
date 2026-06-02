@@ -193,6 +193,10 @@
             box-shadow: 0 8px 20px rgba(31, 69, 126, 0.07);
         }
 
+        .session-item.pinned {
+            background: rgba(237, 244, 255, 0.74);
+        }
+
         .session-title {
             min-width: 0;
             flex: 1;
@@ -212,6 +216,49 @@
             margin-top: 2px;
             color: var(--muted-light);
             font-size: 11px;
+        }
+
+        .session-actions {
+            display: flex;
+            flex: 0 0 auto;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .session-action-btn {
+            display: inline-flex;
+            width: 25px;
+            height: 25px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 7px;
+            color: #7a879b;
+            background: transparent;
+            font-size: 12px;
+            font-weight: 760;
+            line-height: 1;
+        }
+
+        .session-action-btn svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            stroke-width: 2.2;
+        }
+
+        .session-action-btn:hover {
+            color: var(--brand-dark);
+            background: #ffffff;
+        }
+
+        .session-action-btn.active {
+            color: #ffffff;
+            background: var(--brand);
+        }
+
+        .session-action-btn.danger:hover {
+            color: #b42318;
+            background: #fff0ee;
         }
 
         .session-empty {
@@ -1495,15 +1542,105 @@
             }
             for (const s of sessions) {
                 const item = document.createElement('div');
-                item.className = 'session-item' + (s.session_id === sessionId ? ' active' : '');
+                item.className = 'session-item' +
+                    (s.session_id === sessionId ? ' active' : '') +
+                    (s.is_pinned ? ' pinned' : '');
                 const projectName = s.project_name || '未命名项目';
                 const updatedAt = s.updated_at ? new Date(s.updated_at).toLocaleDateString() : '刚刚';
-                item.innerHTML = '<div class="session-title">' +
-                    '<span class="name">' + escapeHtml(projectName) + '</span>' +
-                    '<span class="meta">' + escapeHtml(updatedAt) + ' · ' + Math.round((s.sufficiency_score || 0) * 100) + '%</span>' +
-                    '</div>';
+
+                const title = document.createElement('div');
+                title.className = 'session-title';
+
+                const name = document.createElement('span');
+                name.className = 'name';
+                name.textContent = projectName;
+
+                const meta = document.createElement('span');
+                meta.className = 'meta';
+                meta.textContent = updatedAt + ' · ' + Math.round((s.sufficiency_score || 0) * 100) + '%';
+
+                const actions = document.createElement('div');
+                actions.className = 'session-actions';
+
+                const pinButton = document.createElement('button');
+                pinButton.className = 'session-action-btn' + (s.is_pinned ? ' active' : '');
+                pinButton.type = 'button';
+                pinButton.innerHTML = iconSvg('arrow-up');
+                pinButton.title = s.is_pinned ? '取消置顶' : '置顶会话';
+                pinButton.setAttribute('aria-label', s.is_pinned ? '取消置顶会话' : '置顶会话');
+                pinButton.onclick = function(event) {
+                    toggleSessionPin(s.session_id, !s.is_pinned, event);
+                };
+
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'session-action-btn danger';
+                deleteButton.type = 'button';
+                deleteButton.innerHTML = iconSvg('x');
+                deleteButton.title = '删除会话';
+                deleteButton.setAttribute('aria-label', '删除会话');
+                deleteButton.onclick = function(event) {
+                    deleteSession(s.session_id, event);
+                };
+
+                title.appendChild(name);
+                title.appendChild(meta);
+                actions.appendChild(pinButton);
+                actions.appendChild(deleteButton);
+                item.appendChild(title);
+                item.appendChild(actions);
                 item.onclick = function() { switchSession(s.session_id); };
                 list.appendChild(item);
+            }
+        }
+
+        function iconSvg(name) {
+            if (name === 'arrow-up') {
+                return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">' +
+                    '<path d="M12 19V5"></path><path d="M6 11l6-6 6 6"></path></svg>';
+            }
+            if (name === 'x') {
+                return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">' +
+                    '<path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>';
+            }
+            return '';
+        }
+
+        async function toggleSessionPin(sid, isPinned, event) {
+            event.stopPropagation();
+            try {
+                const resp = await fetch('/api/pm/sessions/' + encodeURIComponent(sid) + '/pin', {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_pinned: isPinned}),
+                });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                await loadSessions();
+            } catch (e) {
+                console.error('Failed to update pinned session:', e);
+            }
+        }
+
+        async function deleteSession(sid, event) {
+            event.stopPropagation();
+            if (!confirm('确定删除这个历史会话吗？删除后无法恢复。')) return;
+            try {
+                const resp = await fetch('/api/pm/sessions/' + encodeURIComponent(sid), {
+                    method: 'DELETE',
+                });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                sessionsCache = sessionsCache.filter(s => s.session_id !== sid);
+                if (sid === sessionId) {
+                    sessionId = null;
+                    document.getElementById('main-header').textContent = 'PM Agent';
+                    document.getElementById('score-label').textContent = '完整度 0%';
+                    updateSessionLabel();
+                    chatInner().innerHTML = welcomeHtml();
+                    inputEl.value = '';
+                    autoGrowInput();
+                }
+                renderSessions();
+            } catch (e) {
+                console.error('Failed to delete session:', e);
             }
         }
 

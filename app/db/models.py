@@ -3,7 +3,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Float, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -36,6 +36,7 @@ class RequirementProfileModel(Base):
     covered_topics: Mapped[dict] = mapped_column(JSON, default=list)
     pending_questions: Mapped[dict] = mapped_column(JSON, default=list)
     sufficiency_score: Mapped[float] = mapped_column(Float, default=0.0)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[ProfileStatus] = mapped_column(
         SAEnum(ProfileStatus), default=ProfileStatus.MINING
     )

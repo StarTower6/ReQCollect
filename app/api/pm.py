@@ -12,11 +12,17 @@ Core endpoints:
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from loguru import logger
 from sse_starlette.sse import EventSourceResponse
 
-from app.models.pm import AgentRequest, ChatRequest, ContinueRequest, GenerateRequest
+from app.models.pm import (
+    AgentRequest,
+    ChatRequest,
+    ContinueRequest,
+    GenerateRequest,
+    SessionPinRequest,
+)
 from app.services.pm_agent_service import pm_agent_service
 from app.services.vector_index_service import vector_index_service
 
@@ -41,6 +47,31 @@ async def pm_get_history(session_id: str):
     async with AsyncSessionLocal() as session:
         messages = await ChatHistoryRepository.list_by_session(session, session_id)
     return {"success": True, "session_id": session_id, "messages": messages}
+
+
+@router.patch("/pm/sessions/{session_id}/pin")
+async def pm_pin_session(session_id: str, request: SessionPinRequest):
+    """Pin or unpin a persisted session."""
+    from app.db.database import AsyncSessionLocal
+    from app.db.repository import SessionRepository
+    async with AsyncSessionLocal() as session:
+        updated = await SessionRepository.set_pinned(session, session_id, request.is_pinned)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"success": True, "session": updated}
+
+
+@router.delete("/pm/sessions/{session_id}")
+async def pm_delete_session(session_id: str):
+    """Delete a persisted session and its related history."""
+    from app.db.database import AsyncSessionLocal
+    from app.db.repository import SessionRepository
+    async with AsyncSessionLocal() as session:
+        deleted = await SessionRepository.delete_session(session, session_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Session not found")
+    await pm_agent_service.forget_session(session_id)
+    return {"success": True, "session_id": session_id}
 
 
 @router.post("/pm/chat")

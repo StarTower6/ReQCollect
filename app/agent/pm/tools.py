@@ -41,6 +41,11 @@ def get_profile_store() -> dict[str, dict]:
     return _profile_store
 
 
+def remove_profile(thread_id: str) -> None:
+    thread_id = resolve_thread_id(thread_id)
+    _profile_store.pop(thread_id, None)
+
+
 def get_profile(thread_id: str) -> dict:
     thread_id = resolve_thread_id(thread_id)
     if thread_id not in _profile_store:

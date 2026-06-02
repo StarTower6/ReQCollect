@@ -32,6 +32,14 @@ class ContinueRequest(BaseModel):
     }}}
 
 
+class SessionPinRequest(BaseModel):
+    is_pinned: bool = Field(..., description="Whether the session should be pinned")
+
+    model_config = {"json_schema_extra": {"example": {
+        "is_pinned": True,
+    }}}
+
+
 class AgentRequest(BaseModel):
     """Convenience wrapper: auto-routes to chat / generate / continue."""
     message: str = Field(..., description="User message")

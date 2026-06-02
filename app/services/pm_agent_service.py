@@ -19,7 +19,7 @@ from app.agent.pm.phase1.profile_extractor import apply_profile_hints
 from app.agent.pm.phase1.sufficiency import evaluate_profile_sufficiency
 from app.agent.pm.phase2.assembler import prd_assembler
 from app.agent.pm.phase2.planner import prd_planner
-from app.agent.pm.tools import get_profile, hydrate_profile
+from app.agent.pm.tools import get_profile, hydrate_profile, remove_profile
 
 _session_state: dict[str, dict] = {}
 
@@ -269,6 +269,10 @@ class PMAgentService:
 
     async def get_profile(self, thread_id: str = "default") -> dict:
         return await self._load_profile(thread_id)
+
+    async def forget_session(self, thread_id: str) -> None:
+        _session_state.pop(thread_id, None)
+        remove_profile(thread_id)
 
     async def cleanup(self):
         await get_mining_agent().close()

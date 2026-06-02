@@ -5,6 +5,7 @@ import random
 
 from loguru import logger
 from pymysql.err import OperationalError as PyMySQLOperationalError
+from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import config
@@ -42,6 +43,7 @@ async def init_db():
         try:
             async with _engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+                await conn.run_sync(_ensure_requirement_profile_schema)
             logger.info("MySQL tables created/verified")
             return
         except PyMySQLOperationalError as e:
@@ -57,3 +59,18 @@ async def get_session() -> AsyncSession:
     _ensure_engine()
     async with AsyncSessionLocal() as session:
         yield session
+
+
+def _ensure_requirement_profile_schema(sync_conn) -> None:
+    """Add columns that create_all cannot add to existing deployments."""
+    inspector = inspect(sync_conn)
+    table_names = inspector.get_table_names()
+    if "requirement_profiles" not in table_names:
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("requirement_profiles")}
+    if "is_pinned" not in columns:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE requirement_profiles ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0"
+        )
+        logger.info("Added requirement_profiles.is_pinned column")

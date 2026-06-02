@@ -110,3 +110,53 @@ async def test_message_save_creates_recent_session(session):
     assert len(sessions) == 1
     assert sessions[0]["session_id"] == "recent-session"
     assert sessions[0]["project_name"] == "未命名项目"
+    assert sessions[0]["is_pinned"] is False
+
+
+@pytest.mark.asyncio
+async def test_pin_session_orders_before_recent_unpinned(session):
+    await ChatHistoryRepository.add_message(
+        session,
+        session_id="old-session",
+        role="user",
+        content="旧会话",
+    )
+    await ChatHistoryRepository.add_message(
+        session,
+        session_id="new-session",
+        role="user",
+        content="新会话",
+    )
+
+    updated = await SessionRepository.set_pinned(session, "old-session", True)
+    sessions = await SessionRepository.list_sessions(session)
+
+    assert updated is not None
+    assert updated["is_pinned"] is True
+    assert sessions[0]["session_id"] == "old-session"
+    assert sessions[0]["is_pinned"] is True
+
+
+@pytest.mark.asyncio
+async def test_delete_session_removes_profile_history_and_prds(session):
+    await ChatHistoryRepository.add_message(
+        session,
+        session_id="delete-session",
+        role="user",
+        content="要删除的会话",
+    )
+    await PRDRepository.save(
+        session,
+        session_id="delete-session",
+        title="删除测试 PRD",
+        mode="one_shot",
+        sections=[],
+        markdown="# 删除测试",
+    )
+
+    deleted = await SessionRepository.delete_session(session, "delete-session")
+
+    assert deleted is True
+    assert await ChatHistoryRepository.list_by_session(session, "delete-session") == []
+    assert await PRDRepository.list_by_session(session, "delete-session") == []
+    assert await SessionRepository.delete_session(session, "delete-session") is False
