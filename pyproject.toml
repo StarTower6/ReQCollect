@@ -1,0 +1,79 @@
+[project]
+name = "pm-agent"
+version = "0.1.0"
+description = "AI Product Manager Agent - automated requirement mining and PRD generation"
+authors = [{name = "chief"}]
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "sse-starlette>=2.1.0",
+    "langchain>=0.1.0",
+    "langchain-community>=0.0.20",
+    "langchain-core>=0.1.0",
+    "langchain-openai>=1.0.0",
+    "langgraph>=0.3.0",
+    "langgraph-checkpoint-redis>=0.1.0",
+    "openai>=1.10.0",
+    "pymilvus>=2.3.5",
+    "pydantic>=2.5.0,<3.0.0",
+    "pydantic-settings>=2.1.0",
+    "httpx>=0.26.0",
+    "aiohttp>=3.9.0",
+    "aiofiles>=23.2.0",
+    "python-multipart>=0.0.6",
+    "loguru>=0.7.2",
+    "python-dotenv>=1.0.0",
+    "langchain-milvus>=0.3.3",
+    "langchain-text-splitters>=1.1.0",
+    "redis>=5.0.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "aiomysql>=0.2.0",
+    "cryptography>=41.0.0",
+    "alembic>=1.13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "aiosqlite>=0.20.0",
+    "black>=23.12.0",
+    "ruff>=0.1.9",
+    "isort>=5.13.0",
+    "mypy>=1.8.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".git", "__pycache__", ".venv", "venv", "logs", "*.pyc", "*.egg-info"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "C", "B", "UP"]
+ignore = ["E501", "B008", "C901", "W191"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = ["-ra", "-q", "--strict-markers"]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+asyncio_mode = "auto"

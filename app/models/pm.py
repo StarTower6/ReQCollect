@@ -1,0 +1,47 @@
+"""PM Agent request/response models."""
+
+from pydantic import BaseModel, Field
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., description="User message")
+    session_id: str = Field(default="default", description="Session ID")
+    use_knowledge: bool = Field(default=False, description="Force knowledge retrieval")
+
+    model_config = {"json_schema_extra": {"example": {
+        "message": "我想做一个企业报销审批系统",
+        "session_id": "session-001",
+        "use_knowledge": True,
+    }}}
+
+
+class GenerateRequest(BaseModel):
+    session_id: str = Field(default="default", description="Session ID")
+    mode: str = Field(default="one_shot", description="one_shot | incremental")
+
+    model_config = {"json_schema_extra": {"example": {
+        "session_id": "session-001", "mode": "incremental",
+    }}}
+
+
+class ContinueRequest(BaseModel):
+    session_id: str = Field(default="default", description="Session ID")
+
+    model_config = {"json_schema_extra": {"example": {
+        "session_id": "session-001",
+    }}}
+
+
+class AgentRequest(BaseModel):
+    """Convenience wrapper: auto-routes to chat / generate / continue."""
+    message: str = Field(..., description="User message")
+    session_id: str = Field(default="default", description="Session ID")
+    mode: str = Field(default="one_shot", description="one_shot | incremental")
+    use_knowledge: bool = Field(default=False, description="Force knowledge retrieval")
+
+    model_config = {"json_schema_extra": {"example": {
+        "message": "我想做一个企业报销审批系统",
+        "session_id": "session-001",
+        "mode": "one_shot",
+        "use_knowledge": True,
+    }}}
