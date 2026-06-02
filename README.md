@@ -18,7 +18,9 @@
 
 <br>
 
-<!-- Replace with your own screenshot: <img src="docs/screenshot.png" width="700" alt="PM Agent Flow"> -->
+<p align="center">
+  <img src="docs/screenshot.png" width="700" alt="PM Agent Screenshot">
+</p>
 
 <details open>
 <summary><b>工作流程预览</b></summary>
