@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "AI Product Manager Agent - automated requirement mining and PRD generation"
 authors = [{name = "chief"}]
 readme = "README.md"
+license = { text = "Apache-2.0" }
 requires-python = ">=3.11,<3.14"
 dependencies = [
     "fastapi>=0.109.0",

@@ -6,6 +6,7 @@
 <img src="https://img.shields.io/badge/DeepSeek-V4-4B32C3?style=for-the-badge&logo=openai&logoColor=white" alt="DeepSeek V4">
 <img src="https://img.shields.io/badge/Milvus-2.4+-00AEAE?style=for-the-badge&logo=milvus&logoColor=white" alt="Milvus">
 <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
+<img src="https://img.shields.io/badge/License-Apache_2.0-D22128?style=for-the-badge&logo=apache&logoColor=white" alt="License">
 
 </div>
 
@@ -17,9 +18,7 @@
 
 <br>
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/nicedoc/screenshots/main/conversation.svg" width="700" alt="PM Agent Flow">
-</p>
+<!-- Replace with your own screenshot: <img src="docs/screenshot.png" width="700" alt="PM Agent Flow"> -->
 
 <details open>
 <summary><b>工作流程预览</b></summary>
@@ -46,7 +45,7 @@ PM Agent: 明白了 [更新需求画像: user_roles ✅]
 
 PM Agent: 好的 [更新: functional_modules ✅]
          
-         ── 📊 当前需求完整度: 65% ──
+         ── 当前需求完整度: 65% ──
          已覆盖: 项目名称, 用户角色, 审批规则
          待挖掘: 非功能需求, 业务流程, 系统集成...
          
@@ -54,7 +53,7 @@ PM Agent: 好的 [更新: functional_modules ✅]
 
 ...
 
-PM Agent: ── 📊 当前需求完整度: 82% ──
+PM Agent: ── 当前需求完整度: 82% ──
          信息比较充分了，要我生成 PRD 吗？
 
 用户: "生成PRD"
@@ -68,6 +67,19 @@ PM Agent: [开始生成 8 章 PRD]
 ```
 
 </details>
+
+---
+
+## 目录
+
+- [架构](#架构)
+- [快速开始](#快速开始)
+- [API](#api)
+- [配置](#配置)
+- [项目结构](#项目结构)
+- [PRD 输出格式](#prd-输出格式)
+- [开发指南](#开发指南)
+- [许可证](#许可证)
 
 ---
 
@@ -134,7 +146,7 @@ PM Agent: [开始生成 8 章 PRD]
 ### 本地开发
 
 ```bash
-git clone <repo-url> pm_agent && cd pm_agent
+git clone https://github.com/Tomato-love-potato/PMAgent.git pm_agent && cd pm_agent
 
 python -m venv .venv && source .venv/Scripts/activate   # Windows
 # python -m venv .venv && source .venv/bin/activate      # macOS/Linux
@@ -264,7 +276,7 @@ curl "localhost:9900/api/pm/profile/demo-1" | python -m json.tool
 |:-----|:-----|:-----|
 | `DEEPSEEK_API_KEY` | **必填** | DeepSeek 官方 API Key |
 | `DEEPSEEK_MODEL` | `deepseek-chat` | 对话模型 |
-| `EMBEDDING_API_KEY` | 可选 | Embedding API Key（默认复用 DEEPSEEK_API_KEY） |
+| `EMBEDDING_API_KEY` | 可选 | Embedding API Key |
 | `EMBEDDING_BASE_URL` | `api.siliconflow.cn/v1` | Embedding 服务地址 |
 | `EMBEDDING_MODEL` | `BAAI/bge-m3` | 向量嵌入模型 (1024d) |
 | `MILVUS_HOST` | `localhost` | Milvus 地址 |
@@ -297,6 +309,7 @@ pm_agent/
 │   │   ├── tools.py                         @tool: 画像增删改查
 │   │   ├── phase1/
 │   │   │   ├── mining_agent.py              ReAct Agent · 需求对话
+│   │   │   ├── profile_extractor.py         需求画像提取器
 │   │   │   └── sufficiency.py               结构化输出 · 信息打分
 │   │   └── phase2/
 │   │       ├── planner.py                   章节规划器
@@ -327,7 +340,8 @@ pm_agent/
 ├── Dockerfile                                Python 3.11-slim
 ├── docker-compose.yml                        7 容器编排
 ├── nginx.conf                                负载均衡 + SSE 适配
-└── .env.docker                               Docker 环境变量
+├── LICENSE                                   Apache License 2.0
+└── .env.template                             环境变量模板
 ```
 
 ---
@@ -385,3 +399,9 @@ python -m pytest tests/ -v       # 运行测试
 black app/ && ruff check app/    # 格式化 + lint
 mypy app/                        # 类型检查
 ```
+
+---
+
+## 许可证
+
+本项目基于 [Apache License 2.0](LICENSE) 开源。
