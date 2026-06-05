@@ -2,8 +2,9 @@
 
 ## 概述
 
-当前为单页原生 HTML/CSS/JS 前端。升级为 Vue 3 CDN + Element Plus CDN 组件化架构，
-保留现有全部 CSS 设计变量和配色体系，零构建工具。
+当前为单页原生 HTML/CSS/JS 前端（`static/index.html`，1828 行）。
+升级为 **Vue 3 项目级架构**（Vite + Element Plus + Vue Router），
+独立目录开发，保留现有全部 CSS 设计变量和配色体系。
 
 ## 当前状态 ✅ 已实现
 
@@ -28,11 +29,63 @@
 
 ## 待实现 🔲
 
+### 项目架构
+
+```
+reqcollect-web/                    ← 独立前端项目目录
+├── index.html                     ← 入口 HTML
+├── vite.config.ts                 ← Vite 配置（proxy API 到 :9900）
+├── package.json
+├── src/
+│   ├── main.ts                    ← 应用入口
+│   ├── App.vue                    ← 根组件
+│   ├── assets/
+│   │   └── styles/
+│   │       ├── variables.css      ← 现有 CSS 设计系统变量（完整保留）
+│   │       ├── chat-bubbles.css   ← 对话气泡样式
+│   │       └── layout.css         ← 三栏布局样式
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── AppLayout.vue      ← 三栏布局容器
+│   │   │   ├── TopBar.vue         ← 顶部导航栏
+│   │   │   └── SideBar.vue        ← 左侧会话列表
+│   │   ├── chat/
+│   │   │   ├── ChatArea.vue       ← 中间对话区
+│   │   │   ├── MessageBubble.vue  ← 单条消息（头像+气泡+时间戳）
+│   │   │   ├── MessageList.vue    ← 消息列表 + 自动滚动
+│   │   │   ├── QuickReplyBar.vue  ← 快捷回复按钮组
+│   │   │   └── ChatInput.vue      ← 输入框 + 发送
+│   │   ├── profile/
+│   │   │   ├── ProfilePanel.vue   ← 右侧需求画像面板
+│   │   │   ├── SufficiencyRing.vue ← 完整度进度环
+│   │   │   └── FieldStatusList.vue ← 字段状态列表
+│   │   └── prd/
+│   │       ├── PrdPreview.vue     ← PRD 预览页
+│   │       └── PrdToc.vue         ← PRD 目录导航
+│   ├── views/
+│   │   ├── ChatView.vue           ← 主对话页
+│   │   ├── PrdView.vue            ← PRD 预览页（独立路由）
+│   │   └── DashboardView.vue      ← 仪表盘（P2）
+│   ├── router/
+│   │   └── index.ts               ← 路由定义
+│   ├── stores/
+│   │   ├── chat.ts                ← 对话状态（消息列表、流式）
+│   │   ├── session.ts             ← 会话列表状态
+│   │   ├── profile.ts             ← 需求画像状态
+│   │   └── prd.ts                 ← PRD 状态
+│   └── api/
+│       ├── client.ts              ← axios/fetch 封装
+│       ├── session.ts             ← 会话 API
+│       ├── chat.ts                ← 对话 API（SSE）
+│       ├── profile.ts             ← 画像 API
+│       └── prd.ts                 ← PRD API
+```
+
 ### P0 — 三栏布局
-- [ ] **Vue 3 CDN + Element Plus CDN** 替代原生 JS
-  - 零构建，单 HTML 文件
-  - 保留现有全部 CSS 设计变量，Element Plus 仅用于组件结构
-  - 样式通过 CSS 变量覆盖为现有设计系统
+- [ ] **Vite + Vue 3 项目** — `reqcollect-web/` 独立前端目录
+- [ ] **Element Plus** — 成熟中文企业 UI 组件库
+- [ ] **Vue Router** — `/chat` `/prd/:id` 路由支持
+- [ ] **Pinia** — 全局状态管理（会话/消息/画像/PRD）
 - [ ] **三栏布局**
   ```
   ┌──────────┬──────────────────────┬──────────────┐
@@ -44,6 +97,7 @@
   └──────────┴──────────────────────┴──────────────┘
   ```
 - [ ] **响应式** — 大屏固定三栏(左≤260px/中自适应/右≤320px)；1200px以下右侧折叠为抽屉按钮
+- [ ] **设计约束** — 完整保留现有 CSS 变量体系，不替换任何配色/间距/阴影
 
 ### P0 — 需求画像面板
 - [ ] 完整度进度环（实时更新）
@@ -59,7 +113,7 @@
 - [ ] 流式打字效果 — 逐词出现的动画效果
 
 ### P1 — PRD 预览页
-- [ ] **PRD 独立预览页** — 左侧目录导航 + 章节定位
+- [ ] **PRD 独立页面** — `/prd/:id` 路由，左侧目录导航 + 章节定位
 - [ ] **下载按钮** — 下载 Markdown/Word/PDF
 - [ ] **导出进度** — 导出时显示进度条
 
@@ -87,9 +141,9 @@
 - [ ] 消息复制按钮
 
 ## 技术约束
-- Vue 3 CDN：`unpkg.com/vue@3/dist/vue.global.prod.js`
-- Element Plus CDN：UMD + CSS
-- Markdown：`marked.js`
-- 代码高亮：`highlight.js`
-- ❌ 不引入 Vite/Webpack 等构建工具
 - ❌ 不替换现有 CSS 设计系统
+- Vue 3 + Vite + TypeScript（推荐，不强制）
+- Element Plus 组件库
+- Vue Router 路由
+- Pinia 状态管理
+- 生产构建输出到 `reqcollect-web/dist/`，由 Nginx 或 FastAPI 静态文件服务承载
