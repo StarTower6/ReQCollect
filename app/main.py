@@ -1,4 +1,4 @@
-"""PM Agent FastAPI application entry point."""
+"""PM Agent FastAPI application entry point (Lite: no Milvus/MySQL/Redis)."""
 
 import os
 from contextlib import asynccontextmanager
@@ -9,11 +9,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
-import app.core.llm_factory  # noqa: F401 — apply DeepSeek reasoning fix before any LLM imports
 from app.api.pm import router as pm_router
 from app.config import config
-from app.core.milvus_client import milvus_manager
-from app.db.database import init_db
 
 
 @asynccontextmanager
@@ -24,31 +21,19 @@ async def lifespan(app: FastAPI):
     logger.info(f"Listening on: http://{config.host}:{config.port}")
     logger.info(f"API docs: http://{config.host}:{config.port}/docs")
 
-    logger.info("Connecting to Milvus...")
-    milvus_manager.connect()
-    logger.info("Milvus connected")
-
-    logger.info("Initializing MySQL...")
-    await init_db()
-    logger.info("MySQL initialized")
-
-    logger.info("Initializing VectorStore...")
-    from app.services.vector_store_manager import vector_store_manager
-    vector_store_manager.initialize()
-    logger.info("VectorStore initialized")
+    os.makedirs(config.data_dir, exist_ok=True)
+    logger.info(f"Data directory: {config.data_dir}")
 
     logger.info("=" * 60)
     yield
 
-    logger.info("Shutting down...")
-    milvus_manager.close()
     logger.info(f"{config.app_name} stopped")
 
 
 app = FastAPI(
     title=config.app_name,
     version=config.app_version,
-    description="AI Product Manager Agent — automated requirement mining and PRD generation",
+    description="ReQCollect — conversational business requirement elicitation and analysis system",
     lifespan=lifespan,
 )
 

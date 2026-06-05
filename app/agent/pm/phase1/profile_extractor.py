@@ -1,43 +1,21 @@
-"""Lightweight fallback extraction for requirement profile fields."""
+"""Lightweight fallback extraction for business requirement profile fields."""
 
 import re
 
 from app.agent.pm.tools import get_profile
 
-PROJECT_TYPES = [
-    "SaaS",
-    "内部系统",
-    "管理系统",
-    "Web",
-    "网站",
-    "移动应用",
-    "小程序",
-    "APP",
-    "平台",
-    "工具",
-    "Agent",
-    "助手",
+BUSINESS_SYSTEMS = [
+    "用友", "ERP", "OA", "MES", "HR", "CRM", "WMS", "SCM", "PLM",
+    "企业微信", "钉钉", "飞书", "金蝶", "SAP", "Oracle",
 ]
 
-INDUSTRIES = [
-    "餐饮",
-    "外卖",
-    "电商",
-    "教育",
-    "金融",
-    "医疗",
-    "制造",
-    "物流",
-    "零售",
-    "人力资源",
-    "企业服务",
-    "政务",
-    "旅游",
-    "房产",
+PROJECT_TYPES = [
+    "报销", "审批", "采购", "仓储", "物流", "生产", "质检",
+    "财务", "人事", "考勤", "绩效", "培训", "文档", "合同",
 ]
 
 LIST_SPLIT_RE = re.compile(r"[、,，;/；\s]+")
-SENTENCE_SPLIT_RE = re.compile(r"[。！？!?；;\n]")
+SENTENCE_SPLIT_RE = re.compile(r"[。！？!?；;\\n]")
 
 
 def _first_sentence(text: str) -> str:
@@ -77,23 +55,10 @@ def _merge_role_objects(existing: list, roles: list[str]) -> list:
     return merged
 
 
-def _merge_module_objects(existing: list, modules: list[str]) -> list:
-    seen = {
-        item.get("module", "") if isinstance(item, dict) else str(item)
-        for item in existing
-    }
-    merged = list(existing)
-    for module in modules:
-        if module and module not in seen:
-            merged.append({"module": module})
-            seen.add(module)
-    return merged
-
-
 def _extract_project_name(message: str) -> str:
     patterns = [
-        r"(?:项目|产品|系统)?(?:叫|名称是|名字是)[:：]?\s*([^，。；;\n]{2,40})",
-        r"(?:我想|想要|准备|计划)?(?:做|开发|建设|打造)(?:一个|一套)?([^，。；;\n]{2,40}?(?:系统|平台|工具|应用|小程序|APP|Agent|助手))",
+        r"(?:项目|系统)?(?:叫|名称是|名字是)[:：]?\s*([^，。；;\\n]{2,40})",
+        r"(?:我想|想要|准备|计划|需要)?(?:做|建设|开发|搭建|搞)(?:一个|一套)?([^，。；;\\n]{2,40}?(?:系统|平台|工具|功能|模块))",
     ]
     for pattern in patterns:
         match = re.search(pattern, message, re.IGNORECASE)
@@ -104,7 +69,7 @@ def _extract_project_name(message: str) -> str:
 
 def _extract_list_after_keywords(message: str, keywords: list[str]) -> list[str]:
     keyword_pattern = "|".join(re.escape(keyword) for keyword in keywords)
-    pattern = rf"(?:{keyword_pattern})[^。；;\n]*?(?:包括|有|是|为)[:：]?\s*([^。；;\n]+)"
+    pattern = rf"(?:{keyword_pattern})[^。；;\\n]*?(?:包括|有|是|为|涉及)[:：]?\s*([^。；;\\n]+)"
     match = re.search(pattern, message)
     if not match:
         return []
@@ -124,70 +89,74 @@ def apply_profile_hints(thread_id: str, message: str) -> list[str]:
     profile = get_profile(thread_id)
     changed: list[str] = []
 
+    # project_name
     if not profile.get("project_name"):
         project_name = _extract_project_name(text)
         if project_name:
             profile["project_name"] = project_name
             changed.append("project_name")
 
-    if not profile.get("project_type"):
-        for project_type in PROJECT_TYPES:
-            if project_type.lower() in text.lower():
-                profile["project_type"] = project_type
-                changed.append("project_type")
-                break
+    # business_background
+    if not profile.get("business_background") and re.search(r"痛点|问题|麻烦|现状|目前|现在|困扰|效率低|手工|纸质|烦", text):
+        profile["business_background"] = _first_sentence(text)
+        changed.append("business_background")
 
-    if not profile.get("industry"):
-        industry_match = re.search(r"(?:行业|领域|场景)(?:是|为|：|:)?\s*([^，。；;\n]{2,20})", text)
-        if industry_match:
-            profile["industry"] = industry_match.group(1).strip()
-            changed.append("industry")
-        else:
-            for industry in INDUSTRIES:
-                if industry in text:
-                    profile["industry"] = industry
-                    changed.append("industry")
-                    break
+    # current_process
+    if not profile.get("current_process") and re.search(r"流程|步骤|手工|纸质|Excel|邮件|OA|系统", text):
+        profile["current_process"] = _first_sentence(text)
+        changed.append("current_process")
 
-    if not profile.get("elevator_pitch") and re.search(r"痛点|解决|目标|价值|为了|希望", text):
-        profile["elevator_pitch"] = _first_sentence(text)
-        changed.append("elevator_pitch")
+    # existing_systems
+    found_systems = [sys for sys in BUSINESS_SYSTEMS if sys in text]
+    if found_systems:
+        before = len(profile.get("existing_systems", []))
+        profile["existing_systems"] = _merge_strings(profile.get("existing_systems", []), found_systems)
+        if len(profile["existing_systems"]) > before:
+            changed.append("existing_systems")
 
-    roles = _extract_list_after_keywords(text, ["主要用户", "用户角色", "用户", "角色", "面向"])
+    # user_roles
+    roles = _extract_list_after_keywords(text, ["主要用户", "使用角色", "角色", "部门", "面向", "谁用"])
     if roles:
         before = len(profile.get("user_roles", []))
         profile["user_roles"] = _merge_role_objects(profile.get("user_roles", []), roles)
         if len(profile["user_roles"]) > before:
             changed.append("user_roles")
 
-    modules = _extract_list_after_keywords(text, ["核心功能", "功能模块", "功能", "模块"])
+    # functional_requirements
+    modules = _extract_list_after_keywords(text, ["核心功能", "功能需求", "功能", "模块", "需要支持", "要能做"])
     if modules:
-        before = len(profile.get("functional_modules", []))
-        profile["functional_modules"] = _merge_module_objects(
-            profile.get("functional_modules", []),
-            modules,
-        )
-        if len(profile["functional_modules"]) > before:
-            changed.append("functional_modules")
+        before = len(profile.get("functional_requirements", []))
+        existing = profile.get("functional_requirements", [])
+        seen = {item.get("module", "") if isinstance(item, dict) else str(item) for item in existing}
+        for m in modules:
+            if m not in seen:
+                existing.append({"module": m})
+                seen.add(m)
+        profile["functional_requirements"] = existing
+        if len(profile["functional_requirements"]) > before:
+            changed.append("functional_requirements")
 
-    if re.search(r"性能|安全|并发|可用性|稳定性|合规|权限|响应时间", text):
-        non_functional = dict(profile.get("non_functional") or {})
-        if "raw" not in non_functional:
-            non_functional["raw"] = _first_sentence(text)
-            profile["non_functional"] = non_functional
-            changed.append("non_functional")
+    # business_flow
+    if not profile.get("business_flow") and re.search(r"业务流|流程|链路|步骤|先是|然后|最后", text):
+        profile["business_flow"] = _first_sentence(text)
+        changed.append("business_flow")
 
-    if re.search(r"约束|限制|预算|周期|上线|技术栈|必须|不能", text):
+    # data_scale
+    if not profile.get("data_scale") and re.search(r"数据量|并发|每天|每月|条|用户数|几千|几万|上百", text):
+        profile["data_scale"] = _first_sentence(text)
+        changed.append("data_scale")
+
+    # constraints
+    if re.search(r"约束|限制|预算|工期|周期|上线|必须|不能| deadline|截止", text):
         before = len(profile.get("constraints", []))
         profile["constraints"] = _merge_strings(profile.get("constraints", []), [_first_sentence(text)])
         if len(profile["constraints"]) > before:
             changed.append("constraints")
 
-    if re.search(r"假设|默认|先按|暂定|认为", text):
-        before = len(profile.get("assumptions", []))
-        profile["assumptions"] = _merge_strings(profile.get("assumptions", []), [_first_sentence(text)])
-        if len(profile["assumptions"]) > before:
-            changed.append("assumptions")
+    # success_criteria
+    if not profile.get("success_criteria") and re.search(r"验收|标准|做成|目标|期望|效果|指标| KPI", text):
+        profile["success_criteria"] = [_first_sentence(text)]
+        changed.append("success_criteria")
 
     if changed:
         profile["covered_topics"] = _merge_strings(profile.get("covered_topics", []), changed)

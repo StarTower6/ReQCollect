@@ -8,14 +8,16 @@ from loguru import logger
 
 PROFILE_DEFAULTS = {
     "project_name": "",
-    "project_type": "",
-    "industry": "",
-    "elevator_pitch": "",
+    "business_background": "",
+    "current_process": "",
     "user_roles": [],
-    "functional_modules": [],
+    "business_flow": "",
+    "functional_requirements": [],
+    "existing_systems": [],
     "non_functional": {},
+    "data_scale": "",
     "constraints": [],
-    "assumptions": [],
+    "success_criteria": [],
     "covered_topics": [],
     "pending_questions": [],
     "sufficiency_score": 0.0,
@@ -90,11 +92,13 @@ def update_requirement_profile(
 
     Args:
         field: The profile field to update. One of:
-            project_name, project_type, industry, elevator_pitch,
-            user_roles (JSON array string), functional_modules (JSON array string),
-            non_functional (JSON object string), constraints (JSON array string),
-            assumptions (JSON array string), covered_topics (JSON array string),
-            pending_questions (JSON array string)
+            project_name, business_background, current_process,
+            user_roles (JSON array string), business_flow,
+            functional_requirements (JSON array string),
+            existing_systems (JSON array string),
+            non_functional (JSON object string), data_scale,
+            constraints (JSON array string), success_criteria (JSON array string),
+            covered_topics (JSON array string), pending_questions (JSON array string)
         value: The value to set. For list/dict fields, pass a JSON string.
         thread_id: Session thread ID
 
@@ -103,8 +107,8 @@ def update_requirement_profile(
     """
     thread_id = resolve_thread_id(thread_id)
     profile = get_profile(thread_id)
-    list_fields = {"user_roles", "functional_modules", "constraints",
-                   "assumptions", "covered_topics", "pending_questions"}
+    list_fields = {"user_roles", "functional_requirements", "existing_systems",
+                   "constraints", "success_criteria", "covered_topics", "pending_questions"}
     dict_fields = {"non_functional"}
 
     if field in list_fields:

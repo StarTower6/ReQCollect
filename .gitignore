@@ -34,4 +34,10 @@ volumes/
 htmlcov/
 .coverage
 
+# Data
+pm_data/
+
+# Run script
+run.sh
+
 .claude/

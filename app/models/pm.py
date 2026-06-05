@@ -1,4 +1,4 @@
-"""PM Agent request/response models."""
+"""PM Agent request models (Lite)."""
 
 from pydantic import BaseModel, Field
 
@@ -29,14 +29,6 @@ class ContinueRequest(BaseModel):
 
     model_config = {"json_schema_extra": {"example": {
         "session_id": "session-001",
-    }}}
-
-
-class SessionPinRequest(BaseModel):
-    is_pinned: bool = Field(..., description="Whether the session should be pinned")
-
-    model_config = {"json_schema_extra": {"example": {
-        "is_pinned": True,
     }}}
 
 

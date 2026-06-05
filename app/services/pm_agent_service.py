@@ -1,14 +1,7 @@
-"""PM agent service — individual endpoints for each phase + unified wrapper.
+"""PM agent service — conversational requirement mining and PRD generation (Lite: no DB)."""
 
-Core endpoints:
-  - chat(message, thread_id)        → Phase 1 mining
-  - generate_prd(thread_id, mode)   → Phase 2 full generation
-  - continue_generation(thread_id)  → Phase 2 incremental next section
-
-Convenience wrapper:
-  - handle(message, thread_id, mode) → auto-routes based on intent
-"""
-
+import json
+import os
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -20,8 +13,11 @@ from app.agent.pm.phase1.sufficiency import evaluate_profile_sufficiency
 from app.agent.pm.phase2.assembler import prd_assembler
 from app.agent.pm.phase2.planner import prd_planner
 from app.agent.pm.tools import get_profile, hydrate_profile, remove_profile
+from app.config import config
 
 _session_state: dict[str, dict] = {}
+_message_history: dict[str, list[dict]] = {}
+_prd_store: dict[str, dict] = {}
 
 
 def _get_session(thread_id: str) -> dict:
@@ -50,9 +46,29 @@ def _detect_intent(message: str) -> str:
     return "chat"
 
 
-class PMAgentService:
+def _save_to_file(data: dict, filename: str):
+    """Save data to JSON file for persistence across restarts."""
+    try:
+        filepath = os.path.join(config.data_dir, filename)
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning(f"Failed to save {filename}: {e}")
 
-    # ── Core endpoints (individually callable) ──
+
+def _load_from_file(filename: str) -> dict | None:
+    """Load data from JSON file."""
+    try:
+        filepath = os.path.join(config.data_dir, filename)
+        if os.path.exists(filepath):
+            with open(filepath, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to load {filename}: {e}")
+    return None
+
+
+class PMAgentService:
 
     async def chat(
         self,
@@ -62,13 +78,16 @@ class PMAgentService:
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Phase 1: Conversational requirement mining."""
         logger.info(f"[{thread_id}] Chat: {message[:100]}..., use_knowledge={use_knowledge}")
-        await self._load_profile(thread_id)
+
+        # Apply profile extraction hints from the user message
         hinted_fields = apply_profile_hints(thread_id, message)
         if hinted_fields:
             logger.info(f"[{thread_id}] Profile hints extracted: {', '.join(hinted_fields)}")
             evaluate_profile_sufficiency(thread_id)
-            await self._save_profile(thread_id)
-        await self._save_message(thread_id, "user", message)
+
+        # Save user message to in-memory history
+        _save_message(thread_id, "user", message)
+
         assistant_content = ""
         async for event in get_mining_agent().chat(
             message,
@@ -78,17 +97,19 @@ class PMAgentService:
             if event.get("type") == "content" and isinstance(event.get("data"), str):
                 assistant_content += event["data"]
             yield event
+
         if assistant_content.strip():
-            await self._save_message(thread_id, "assistant", assistant_content)
-        # Persist profile to MySQL for session history
-        await self._save_profile(thread_id)
+            _save_message(thread_id, "assistant", assistant_content)
+
+        # Save profile to file for persistence
+        profile = get_profile(thread_id)
+        _save_to_file(profile, f"profile_{thread_id}.json")
 
     async def generate_prd(
         self, thread_id: str = "default", mode: str = "one_shot",
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Phase 2: Full PRD generation from current profile."""
         logger.info(f"[{thread_id}] Generate PRD, mode={mode}")
-        await self._load_profile(thread_id)
         session = _get_session(thread_id)
         session["mode"] = mode
 
@@ -99,21 +120,23 @@ class PMAgentService:
 
         async for event in prd_assembler.assemble(sections, profile, mode):
             if event.get("type") == "prd_complete":
-                await self._save_prd(thread_id, profile, mode, sections, event["data"]["markdown"])
-                await self._save_message(
-                    thread_id,
-                    "assistant",
-                    event["data"]["markdown"],
-                    event_type="prd_complete",
-                    meta={"mode": mode},
-                )
+                markdown = event["data"]["markdown"]
+                # Save PRD to in-memory store + file
+                prd_data = {
+                    "project_name": profile.get("project_name", "PRD"),
+                    "mode": mode,
+                    "sections": [{"key": s["key"], "title": s["title"], "status": s.get("status", "done")} for s in sections],
+                    "markdown": markdown,
+                }
+                _prd_store[thread_id] = prd_data
+                _save_to_file(prd_data, f"prd_{thread_id}.json")
+                _save_message(thread_id, "assistant", markdown, event_type="prd_complete", meta={"mode": mode})
             yield event
 
     async def continue_generation(
         self, thread_id: str = "default",
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Phase 2: Continue incremental generation from last completed section."""
-        await self._load_profile(thread_id)
         session = _get_session(thread_id)
         sections = session.get("prd_sections")
         if sections is None:
@@ -162,17 +185,19 @@ class PMAgentService:
         title += f"> {profile.get('elevator_pitch', '')}\n\n---\n\n"
         full_md = title + "\n\n".join(s["content"] for s in sections if s.get("content"))
 
-        await self._save_prd(thread_id, profile, session["mode"], sections, full_md)
-        await self._save_message(
-            thread_id,
-            "assistant",
-            full_md,
-            event_type="prd_complete",
-            meta={"mode": session["mode"]},
-        )
+        prd_data = {
+            "project_name": profile.get("project_name", "PRD"),
+            "mode": session["mode"],
+            "sections": [{"key": s["key"], "title": s["title"], "status": s.get("status", "done")} for s in sections],
+            "markdown": full_md,
+        }
+        _prd_store[thread_id] = prd_data
+        _save_to_file(prd_data, f"prd_{thread_id}.json")
+        _save_message(thread_id, "assistant", full_md, event_type="prd_complete", meta={"mode": session["mode"]})
+
         yield {"type": "prd_complete", "data": {
             "markdown": full_md,
-            "sections": [{"key": s["key"], "title": s["title"], "status": s.get("status","done")} for s in sections],
+            "sections": [{"key": s["key"], "title": s["title"], "status": s.get("status", "done")} for s in sections],
         }}
 
     # ── Convenience wrapper ──
@@ -189,93 +214,73 @@ class PMAgentService:
         logger.info(f"[{thread_id}] handle, intent={intent}, use_knowledge={use_knowledge}")
 
         if intent == "generate":
-            await self._save_message(thread_id, "user", message, event_type="command")
+            _save_message(thread_id, "user", message, event_type="command")
             async for event in self.generate_prd(thread_id, mode):
                 yield event
         elif intent == "continue":
-            await self._save_message(thread_id, "user", message, event_type="command")
+            _save_message(thread_id, "user", message, event_type="command")
             async for event in self.continue_generation(thread_id):
                 yield event
         else:
             async for event in self.chat(message, thread_id, use_knowledge=use_knowledge):
                 yield event
 
-    # ── Helpers ──
-
-    async def _load_profile(self, thread_id: str) -> dict:
-        try:
-            from app.db.database import AsyncSessionLocal
-            from app.db.repository import ProfileRepository
-            async with AsyncSessionLocal() as db_session:
-                persisted = await ProfileRepository.get_by_session(db_session, thread_id)
-            return hydrate_profile(thread_id, persisted)
-        except Exception as e:
-            logger.warning(f"[{thread_id}] Failed to load persisted profile: {e}")
-            return get_profile(thread_id)
-
-    async def _save_profile(self, thread_id: str) -> None:
-        try:
-            from app.db.database import AsyncSessionLocal
-            from app.db.repository import ProfileRepository
-            profile = get_profile(thread_id)
-            async with AsyncSessionLocal() as db_session:
-                await ProfileRepository.update_from_dict(db_session, thread_id, profile)
-        except Exception as e:
-            logger.error(f"Failed to save profile: {e}")
-
-    async def _save_message(
-        self,
-        thread_id: str,
-        role: str,
-        content: str,
-        event_type: str = "message",
-        meta: dict | None = None,
-    ) -> None:
-        if not content.strip():
-            return
-        try:
-            from app.db.database import AsyncSessionLocal
-            from app.db.repository import ChatHistoryRepository
-            async with AsyncSessionLocal() as db_session:
-                await ChatHistoryRepository.add_message(
-                    db_session,
-                    session_id=thread_id,
-                    role=role,
-                    content=content,
-                    event_type=event_type,
-                    meta=meta,
-                )
-        except Exception as e:
-            logger.warning(f"[{thread_id}] Failed to save chat message: {e}")
-
-    async def _save_prd(self, thread_id: str, profile: dict, mode: str,
-                        sections: list, markdown: str) -> None:
-        try:
-            from app.db.database import AsyncSessionLocal
-            from app.db.repository import PRDRepository
-            async with AsyncSessionLocal() as db_session:
-                await PRDRepository.save(
-                    db_session,
-                    session_id=thread_id,
-                    title=profile.get("project_name", "PRD"),
-                    mode=mode,
-                    sections=[{"key": s["key"], "title": s["title"], "status": s["status"]}
-                              for s in sections],
-                    markdown=markdown,
-                )
-            logger.info(f"[{thread_id}] PRD saved to MySQL")
-        except Exception as e:
-            logger.warning(f"[{thread_id}] Failed to save PRD to MySQL: {e}")
+    # ── Message / profile helpers ──
 
     async def get_profile(self, thread_id: str = "default") -> dict:
-        return await self._load_profile(thread_id)
+        return get_profile(thread_id)
 
-    async def forget_session(self, thread_id: str) -> None:
+    async def get_prd(self, thread_id: str = "default") -> dict | None:
+        return _prd_store.get(thread_id)
+
+    async def get_message_history(self, thread_id: str = "default") -> list[dict]:
+        return _message_history.get(thread_id, [])
+
+    async def list_sessions(self) -> list[dict]:
+        """List all sessions from in-memory state and file backup."""
+        sessions = []
+        from app.agent.pm.tools import get_profile_store
+        store = get_profile_store()
+        for sid, profile in store.items():
+            if sid == "default":
+                continue
+            sessions.append({
+                "session_id": sid,
+                "project_name": profile.get("project_name") or "未命名项目",
+                "status": "mining",
+                "sufficiency_score": profile.get("sufficiency_score", 0),
+                "updated_at": "",
+            })
+        return sorted(sessions, key=lambda s: s["project_name"])
+
+    async def delete_session(self, thread_id: str) -> bool:
         _session_state.pop(thread_id, None)
+        _message_history.pop(thread_id, None)
+        _prd_store.pop(thread_id, None)
         remove_profile(thread_id)
+        # Also remove file backups
+        for f in [f"profile_{thread_id}.json", f"prd_{thread_id}.json"]:
+            fp = os.path.join(config.data_dir, f)
+            if os.path.exists(fp):
+                os.remove(fp)
+        return True
 
     async def cleanup(self):
         await get_mining_agent().close()
+
+
+def _save_message(thread_id: str, role: str, content: str,
+                  event_type: str = "message", meta: dict | None = None):
+    if not content.strip():
+        return
+    if thread_id not in _message_history:
+        _message_history[thread_id] = []
+    _message_history[thread_id].append({
+        "role": role,
+        "content": content,
+        "event_type": event_type,
+        "meta": meta or {},
+    })
 
 
 pm_agent_service = PMAgentService()

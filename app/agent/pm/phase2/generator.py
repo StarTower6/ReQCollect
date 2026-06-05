@@ -12,7 +12,7 @@ class SectionGenerator:
 
     def __init__(self):
         self.model = llm_factory.create_chat_model(
-            model=config.rag_model,
+            model=config.llm_model,
             temperature=0.3,
             streaming=True,
         )
