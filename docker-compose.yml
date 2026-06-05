@@ -1,133 +1,77 @@
+# ReQCollect — Docker Compose 编排
+# 包含: 应用服务 + MySQL 8.0 + Nginx 反向代理
+# 使用: docker compose up -d
+
 services:
+  # ── Nginx 反向代理 ──
   nginx:
     image: nginx:alpine
-    container_name: pm-nginx
+    container_name: reqcollect-nginx
     ports:
-      - "8080:80"
+      - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - pm-agent
+      reqcollect:
+        condition: service_started
     restart: unless-stopped
     networks:
-      - pm-network
+      - reqcollect-net
 
-  pm-agent:
-    build: .
+  # ── ReQCollect 应用 ──
+  reqcollect:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: reqcollect-app
     env_file:
       - .env.docker
+    ports:
+      - "9900:9900"
     volumes:
-      - ./uploads:/app/uploads
+      - ./pm_data:/app/pm_data
       - ./logs:/app/logs
     depends_on:
       mysql:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      milvus:
-        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9900/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     networks:
-      - pm-network
+      - reqcollect-net
 
+  # ── MySQL 8.0 数据库 ──
   mysql:
     image: mysql:8.0
-    container_name: pm-mysql
+    container_name: reqcollect-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root_pass
-      MYSQL_DATABASE: pm_agent
-      MYSQL_USER: pm_agent
-      MYSQL_PASSWORD: pm_agent_pass
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-reqcollect_root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-reqcollect}
+      MYSQL_USER: ${MYSQL_USER:-reqcollect}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-reqcollect_pass}
     ports:
-      - "3307:3306"
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-reqcollect_root}"]
       interval: 10s
       timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - pm-network
-
-  redis:
-    image: redis/redis-stack-server:7.4.0-v1
-    container_name: pm-redis
-    ports:
-      - "6380:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - pm-network
-
-  milvus:
-    image: milvusdb/milvus:v2.4.0
-    container_name: pm-milvus
-    command: ["milvus", "run", "standalone"]
-    environment:
-      ETCD_ENDPOINTS: etcd:2379
-      MINIO_ADDRESS: minio:9000
-    ports:
-      - "19531:19530"
-    depends_on:
-      etcd:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/19530'"]
-      interval: 15s
-      timeout: 10s
-      retries: 6
+      retries: 10
       start_period: 30s
     restart: unless-stopped
     networks:
-      - pm-network
-
-  etcd:
-    image: quay.io/coreos/etcd:v3.5.5
-    container_name: pm-etcd
-    environment:
-      ETCD_AUTO_COMPACTION_MODE: revision
-      ETCD_AUTO_COMPACTION_RETENTION: "1000"
-      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
-    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls http://0.0.0.0:2379
-    healthcheck:
-      test: ["CMD", "etcdctl", "endpoint", "health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - pm-network
-
-  minio:
-    image: minio/minio:latest
-    container_name: pm-minio
-    command: minio server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - pm-network
+      - reqcollect-net
 
 volumes:
   mysql_data:
-  redis_data:
+    name: reqcollect-mysql-data
 
 networks:
-  pm-network:
+  reqcollect-net:
     driver: bridge

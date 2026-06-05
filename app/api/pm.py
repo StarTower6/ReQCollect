@@ -29,7 +29,14 @@ from loguru import logger
 from sse_starlette.sse import EventSourceResponse
 
 from app.models.pm import AgentRequest, ChatRequest, ContinueRequest, GenerateRequest
-from app.services.pm_agent_service import pm_agent_service
+# Deferred lazy accessor to avoid circular import:
+# app.main → app.api.pm → (would) → app.main
+def _svc():
+    from app.main import get_pm_agent_service
+    s = get_pm_agent_service()
+    if s is None:
+        raise RuntimeError("PM Agent service not initialized (server still starting)")
+    return s
 
 router = APIRouter()
 
@@ -45,7 +52,7 @@ async def pm_list_sessions(
     offset: int = Query(default=0, ge=0),
 ):
     """List sessions with optional filters, ordered by updated_at desc."""
-    sessions = await pm_agent_service.list_sessions()
+    sessions = await _svc().list_sessions()
     # Filtering (DataStore supports server-side, but we do client-side for file fallback compat)
     if user_id:
         sessions = [s for s in sessions if s.get("user_id") == user_id]
@@ -61,7 +68,7 @@ async def pm_get_history(
     offset: int = Query(default=0, ge=0),
 ):
     """Get chat messages for a session (persistent)."""
-    messages = await pm_agent_service.get_message_history(session_id)
+    messages = await _svc().get_message_history(session_id)
     return {
         "success": True,
         "session_id": session_id,
@@ -73,8 +80,8 @@ async def pm_get_history(
 @router.delete("/pm/sessions/{session_id}")
 async def pm_delete_session(session_id: str):
     """Delete a session and all related data."""
-    deleted = await pm_agent_service.delete_session(session_id)
-    await pm_agent_service.log_audit("delete", session_id=session_id)
+    deleted = await _svc().delete_session(session_id)
+    await _svc().log_audit("delete", session_id=session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"success": True, "session_id": session_id}
@@ -89,7 +96,7 @@ async def pm_chat(request: ChatRequest):
     logger.info(f"[{request.session_id}] Chat: {request.message[:100]}...")
 
     async def gen():
-        async for event in pm_agent_service.chat(
+        async for event in _svc().chat(
             request.message,
             request.session_id,
             use_knowledge=request.use_knowledge,
@@ -108,7 +115,7 @@ async def pm_generate(request: GenerateRequest):
     logger.info(f"[{request.session_id}] Generate PRD, mode={request.mode}")
 
     async def gen():
-        async for event in pm_agent_service.generate_prd(request.session_id, request.mode):
+        async for event in _svc().generate_prd(request.session_id, request.mode):
             yield {"event": "message", "data": json.dumps(event, ensure_ascii=False)}
 
     return EventSourceResponse(gen())
@@ -120,7 +127,7 @@ async def pm_continue(request: ContinueRequest):
     logger.info(f"[{request.session_id}] Continue generation")
 
     async def gen():
-        async for event in pm_agent_service.continue_generation(request.session_id):
+        async for event in _svc().continue_generation(request.session_id):
             yield {"event": "message", "data": json.dumps(event, ensure_ascii=False)}
 
     return EventSourceResponse(gen())
@@ -135,7 +142,7 @@ async def pm_agent(request: AgentRequest):
     logger.info(f"[{request.session_id}] Agent: {request.message[:100]}...")
 
     async def gen():
-        async for event in pm_agent_service.handle(
+        async for event in _svc().handle(
             request.message,
             request.session_id,
             request.mode,
@@ -152,14 +159,14 @@ async def pm_agent(request: AgentRequest):
 @router.get("/pm/profile/{session_id}")
 async def pm_get_profile(session_id: str):
     """Get current requirement profile."""
-    profile = await pm_agent_service.get_profile(session_id)
+    profile = await _svc().get_profile(session_id)
     return {"success": True, "session_id": session_id, "profile": profile}
 
 
 @router.get("/pm/prd/{session_id}")
 async def pm_get_prd(session_id: str):
     """Get generated PRD for a session."""
-    prd = await pm_agent_service.get_prd(session_id)
+    prd = await _svc().get_prd(session_id)
     if prd is None:
         raise HTTPException(status_code=404, detail="No PRD generated for this session yet")
     return {"success": True, "session_id": session_id, "prd": prd}
@@ -171,7 +178,7 @@ async def pm_get_prd(session_id: str):
 @router.get("/pm/dashboard/overview")
 async def pm_dashboard_overview():
     """Get aggregated dashboard overview: sessions by status, avg sufficiency, totals."""
-    overview = await pm_agent_service.get_dashboard_overview()
+    overview = await _svc().get_dashboard_overview()
     return {"success": True, "data": overview}
 
 
@@ -181,7 +188,7 @@ async def pm_dashboard_trend(
     days: int = Query(default=30, ge=1, le=365),
 ):
     """Get time-series trend data of session and PRD creation counts."""
-    trend = await pm_agent_service.get_trend_data(granularity, days)
+    trend = await _svc().get_trend_data(granularity, days)
     return {"success": True, "data": trend}
 
 
@@ -193,7 +200,7 @@ async def pm_export_sessions(
     format: str = Query(default="csv", pattern="^(csv|xlsx)$"),
 ):
     """Export session list as CSV or XLSX."""
-    sessions = await pm_agent_service.export_sessions()
+    sessions = await _svc().export_sessions()
 
     if format == "csv":
         output = io.StringIO()
@@ -239,7 +246,7 @@ async def pm_export_prds(
     format: str = Query(default="xlsx", pattern="^(csv|xlsx)$"),
 ):
     """Export generated PRDs as XLSX or CSV."""
-    prds = await pm_agent_service.export_prds()
+    prds = await _svc().export_prds()
 
     if format == "csv":
         output = io.StringIO()

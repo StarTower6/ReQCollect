@@ -1,12 +1,17 @@
 """PM Agent FastAPI application entry point.
 
 Bootstrap sequence:
-  1. Try MySQL (asyncmy + SQLAlchemy)
-  2. Fall back to JSON file storage if MySQL unavailable
-  3. Wire DataStore into the service layer
+  1. Validate critical config
+  2. Try MySQL (asyncmy + SQLAlchemy)
+  3. Fall back to JSON file storage if MySQL unavailable
+  4. Wire DataStore into the service layer
+
+Graceful shutdown: SIGTERM handled by uvicorn/gunicorn automatically.
 """
 
 import os
+import signal
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -22,6 +27,9 @@ from app.config import config
 _datastore = None
 _pm_agent_service = None
 
+# ── Graceful shutdown flag ──
+_shutting_down = False
+
 
 def get_datastore():
     """Return the initialized DataStore instance."""
@@ -31,6 +39,37 @@ def get_datastore():
 def get_pm_agent_service():
     """Return the initialized PMAgentService instance."""
     return _pm_agent_service
+
+
+def _validate_config():
+    """Warn about missing but non-critical config at startup.
+
+    Returns True if config is minimally viable.
+    """
+    issues = []
+
+    if not config.llm_api_key:
+        issues.append("LLM_API_KEY not set — LLM calls will fail")
+    if not config.llm_base_url:
+        issues.append("LLM_BASE_URL not set — using default")
+
+    if config.mysql_required and not config.mysql_host:
+        issues.append("MYSQL_HOST not set but mysql_required=True — will fail")
+
+    for issue in issues:
+        logger.warning(f"Config issue: {issue}")
+
+    # LLM API key is critical — warn but don't block (dev can start without LLM)
+    if not config.llm_api_key:
+        logger.warning("LLM not configured. Chat/PRD endpoints will fail until LLM_API_KEY is set.")
+
+
+def _handle_sigterm(signum, frame):
+    """Handle SIGTERM for graceful shutdown (Docker stop)."""
+    global _shutting_down
+    _shutting_down = True
+    logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+    sys.exit(0)
 
 
 @asynccontextmanager
@@ -43,6 +82,9 @@ async def lifespan(app: FastAPI):
 
     os.makedirs(config.data_dir, exist_ok=True)
     logger.info(f"Data directory: {config.data_dir}")
+
+    # Step 0: Validate config
+    _validate_config()
 
     # Step 1: Try MySQL, fall back to JSON files
     from app.db import create_datastore
@@ -58,13 +100,16 @@ async def lifespan(app: FastAPI):
     logger.info(f"Using storage backend: {'MySQL' if use_mysql else 'JSON file'}")
 
     # Step 2: Create service with DataStore
-    from app.services.pm_agent_service import PMAgentService as _PAS, pm_agent_service as _svc_sentinel
+    from app.services.pm_agent_service import PMAgentService as _PAS
 
     _pm_agent_service = _PAS(_datastore)
 
     # Wire into API module (swap the sentinel)
     import app.services.pm_agent_service as _svc_mod
     _svc_mod.pm_agent_service = _pm_agent_service
+
+    # Step 3: Register SIGTERM handler for graceful shutdown
+    signal.signal(signal.SIGTERM, _handle_sigterm)
 
     logger.info("=" * 60)
     yield
@@ -121,4 +166,8 @@ async def health():
             backend_type = h.get("backend", "unknown")
         except Exception:
             backend_status = "degraded"
-    return {"status": backend_status, "backend": backend_type}
+    return {
+        "status": backend_status,
+        "backend": backend_type,
+        "shutting_down": _shutting_down,
+    }

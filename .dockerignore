@@ -1,0 +1,43 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Environment ──
+.env
+.env.local
+.env.docker
+
+# ── Data ──
+pm_data/
+logs/
+uploads/
+
+# ── Git ──
+.git/
+.gitignore
+.gitattributes
+
+# ── IDE ──
+.vscode/
+.idea/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Docs & process ──
+node_modules/
+docs/
+.execution/
+.claude/
+# Keep root README.md for build
+**/README.md
+!/README.md
