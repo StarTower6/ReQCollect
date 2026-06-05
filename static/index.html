@@ -464,9 +464,17 @@
                                                 <span v-if="msg.created_at">· {{ formatTime(msg.created_at) }}</span>
                                                 <button v-if="msg.content" class="msg-copy-btn" @click="copyText(msg.content)" title="复制">📋</button>
                                             </div>
-                                            <div class="msg" :class="msg.role"
+                                            <!-- Content message -->
+                                            <div v-if="msg.content" class="msg" :class="msg.role"
                                                  :ref="el => { if (el && idx === displayMessages.length - 1 && msg.role === 'assistant' && streaming) { lastMsgRef = el; } }"
                                                  v-html="renderContent(msg)">
+                                            </div>
+                                            <!-- Typing indicator (inline, not separate element) -->
+                                            <div v-if="streaming && idx === displayMessages.length - 1 && msg.role === 'assistant' && !msg.content"
+                                                 class="msg assistant" style="padding:10px 0;display:flex;gap:4px;align-items:center;min-height:24px">
+                                                <span class="typing-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted)"></span>
+                                                <span class="typing-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted)"></span>
+                                                <span class="typing-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted)"></span>
                                             </div>
                                         </div>
                                     </div>
@@ -486,16 +494,6 @@
                                             <button class="quick-reply-submit" :disabled="!msg._qrSelected || msg._qrSelected.size === 0"
                                                     @click="submitMultiQuickReply(msg)">确认选择</button>
                                             <button class="quick-reply-clear" @click="clearMultiQuickReply(msg)">清空</button>
-                                        </div>
-                                    </div>
-
-                                    <!-- Typing indicator -->
-                                    <div v-if="streaming && idx === displayMessages.length - 1 && msg.role === 'assistant' && !msg.content" class="msg-row assistant">
-                                        <div class="avatar">PM</div>
-                                        <div class="msg assistant" style="padding:10px 0;display:flex;gap:4px;align-items:center;min-height:24px">
-                                            <span class="typing-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted)"></span>
-                                            <span class="typing-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted)"></span>
-                                            <span class="typing-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted)"></span>
                                         </div>
                                     </div>
                                 </template>
@@ -523,7 +521,7 @@
                                             {{ mode === 'one_shot' ? '一键生成' : '逐章确认' }}
                                         </button>
                                     </div>
-                                    <button id="send-btn" type="button" @click="sendMessage" :disabled="streaming" aria-label="发送">↑</button>
+                                    <button id="send-btn" type="button" @click="sendMessage()" :disabled="streaming" aria-label="发送">↑</button>
                                 </div>
                             </div>
                         </div>
@@ -853,7 +851,9 @@
                     const originalMsg = messages.value[i];
                     if (!originalMsg) continue;
                     const m = msgs[i];
-                    if (m.role === 'assistant' && m.content) {
+                    // Bug fix: only process quick replies when streaming is done
+                    // to avoid extracting from incomplete content
+                    if (m.role === 'assistant' && m.content && !streaming.value) {
                         if (!originalMsg._qrProcessed) {
                             originalMsg._qrProcessed = true;
                             const groups = extractQuickReplyGroups(m.content);
