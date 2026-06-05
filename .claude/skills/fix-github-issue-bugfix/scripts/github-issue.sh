@@ -10,6 +10,15 @@
 
 set -euo pipefail
 
+# Auto-load token from local config files
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+  if [ -f /home/startower/.claude/.github.env ]; then
+    source /home/startower/.claude/.github.env
+  elif [ -f ~/.github.env ]; then
+    source ~/.github.env
+  fi
+fi
+
 API_BASE="https://api.github.com"
 
 _require_token() {
