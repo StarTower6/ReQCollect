@@ -7,7 +7,20 @@
 ## 规则
 
 ### 0. 严格按计划执行（核心规则）
-- **只做 Plan 阶段确认的内容**，不做计划外的任何事
+
+从 `plan.md` 提取任务清单到 `.execution/<feature-name>/tasks.md`：
+
+```markdown
+# Tasks: <功能名称>
+
+## 任务清单
+- [ ] 任务1: 实现 xxx — 负责人: Claude Code Agent
+- [ ] 任务2: 实现 yyy — 负责人: Claude Code Agent
+- [ ] 任务3: 实现 zzz — 负责人: sub-agent-1
+```
+
+- 任务可以分配给多个子 agent 并行执行
+- **只做 tasks.md 中的内容**，不做任何额外改动
 - 如果发现计划遗漏了某些明显需要做的事情：
   1. 停下来
   2. 标注"计划外发现: xxx"
