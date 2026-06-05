@@ -1,4 +1,7 @@
-"""PM agent service — conversational requirement mining and PRD generation (Lite: no DB)."""
+"""PM agent service — conversational requirement mining and PRD generation.
+
+Now backed by DataStore (MySQL or JSON file fallback) instead of in-memory dicts.
+"""
 
 import json
 import os
@@ -12,22 +15,13 @@ from app.agent.pm.phase1.profile_extractor import apply_profile_hints
 from app.agent.pm.phase1.sufficiency import evaluate_profile_sufficiency
 from app.agent.pm.phase2.assembler import prd_assembler
 from app.agent.pm.phase2.planner import prd_planner
-from app.agent.pm.tools import get_profile, hydrate_profile, remove_profile
+from app.agent.pm.tools import get_profile, hydrate_profile, set_datastore_for_tools
+from app.db import DataStore
 from app.config import config
 
-_session_state: dict[str, dict] = {}
-_message_history: dict[str, list[dict]] = {}
-_prd_store: dict[str, dict] = {}
-
-
-def _get_session(thread_id: str) -> dict:
-    if thread_id not in _session_state:
-        _session_state[thread_id] = {
-            "mode": "one_shot",
-            "prd_sections": None,
-            "current_section_index": 0,
-        }
-    return _session_state[thread_id]
+_session_state: dict[str, dict] = {}  # kept for incremental generation state
+# Module-level sentinel — swapped by main.py lifespan with real instance
+pm_agent_service: "PMAgentService | None" = None
 
 
 def _detect_intent(message: str) -> str:
@@ -46,29 +40,15 @@ def _detect_intent(message: str) -> str:
     return "chat"
 
 
-def _save_to_file(data: dict, filename: str):
-    """Save data to JSON file for persistence across restarts."""
-    try:
-        filepath = os.path.join(config.data_dir, filename)
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.warning(f"Failed to save {filename}: {e}")
-
-
-def _load_from_file(filename: str) -> dict | None:
-    """Load data from JSON file."""
-    try:
-        filepath = os.path.join(config.data_dir, filename)
-        if os.path.exists(filepath):
-            with open(filepath, "r", encoding="utf-8") as f:
-                return json.load(f)
-    except Exception as e:
-        logger.warning(f"Failed to load {filename}: {e}")
-    return None
-
-
 class PMAgentService:
+    """PM Agent service with DataStore persistence."""
+
+    def __init__(self, datastore: DataStore):
+        self._ds = datastore
+        # Wire the DataStore into tools for profile access
+        set_datastore_for_tools(datastore)
+
+    # ── Phase 1: Chat / Requirement Mining ──
 
     async def chat(
         self,
@@ -79,14 +59,19 @@ class PMAgentService:
         """Phase 1: Conversational requirement mining."""
         logger.info(f"[{thread_id}] Chat: {message[:100]}..., use_knowledge={use_knowledge}")
 
+        # Ensure session exists
+        session = await self._ds.get_session(thread_id)
+        if session is None:
+            session = await self._ds.create_session(thread_id)
+
         # Apply profile extraction hints from the user message
         hinted_fields = apply_profile_hints(thread_id, message)
         if hinted_fields:
             logger.info(f"[{thread_id}] Profile hints extracted: {', '.join(hinted_fields)}")
             evaluate_profile_sufficiency(thread_id)
 
-        # Save user message to in-memory history
-        _save_message(thread_id, "user", message)
+        # Save user message
+        await self._ds.save_message(thread_id, "user", message)
 
         assistant_content = ""
         async for event in get_mining_agent().chat(
@@ -99,11 +84,13 @@ class PMAgentService:
             yield event
 
         if assistant_content.strip():
-            _save_message(thread_id, "assistant", assistant_content)
+            await self._ds.save_message(thread_id, "assistant", assistant_content)
 
-        # Save profile to file for persistence
+        # Persist profile via DataStore
         profile = get_profile(thread_id)
-        _save_to_file(profile, f"profile_{thread_id}.json")
+        await self._ds.save_profile(thread_id, profile)
+
+    # ── Phase 2: PRD Generation ──
 
     async def generate_prd(
         self, thread_id: str = "default", mode: str = "one_shot",
@@ -121,16 +108,25 @@ class PMAgentService:
         async for event in prd_assembler.assemble(sections, profile, mode):
             if event.get("type") == "prd_complete":
                 markdown = event["data"]["markdown"]
-                # Save PRD to in-memory store + file
                 prd_data = {
                     "project_name": profile.get("project_name", "PRD"),
                     "mode": mode,
                     "sections": [{"key": s["key"], "title": s["title"], "status": s.get("status", "done")} for s in sections],
                     "markdown": markdown,
                 }
-                _prd_store[thread_id] = prd_data
-                _save_to_file(prd_data, f"prd_{thread_id}.json")
-                _save_message(thread_id, "assistant", markdown, event_type="prd_complete", meta={"mode": mode})
+                # Save via DataStore
+                project_name = profile.get("project_name", "PRD")
+                await self._ds.save_prd(
+                    thread_id,
+                    project_name=project_name,
+                    mode=mode,
+                    sections=prd_data["sections"],
+                    markdown=markdown,
+                )
+                await self._ds.save_message(
+                    thread_id, "assistant", markdown,
+                    event_type="prd_complete", meta={"mode": mode},
+                )
             yield event
 
     async def continue_generation(
@@ -185,15 +181,17 @@ class PMAgentService:
         title += f"> {profile.get('elevator_pitch', '')}\n\n---\n\n"
         full_md = title + "\n\n".join(s["content"] for s in sections if s.get("content"))
 
-        prd_data = {
-            "project_name": profile.get("project_name", "PRD"),
-            "mode": session["mode"],
-            "sections": [{"key": s["key"], "title": s["title"], "status": s.get("status", "done")} for s in sections],
-            "markdown": full_md,
-        }
-        _prd_store[thread_id] = prd_data
-        _save_to_file(prd_data, f"prd_{thread_id}.json")
-        _save_message(thread_id, "assistant", full_md, event_type="prd_complete", meta={"mode": session["mode"]})
+        await self._ds.save_prd(
+            thread_id,
+            project_name=profile.get("project_name", "PRD"),
+            mode=session["mode"],
+            sections=[{"key": s["key"], "title": s["title"], "status": s.get("status", "done")} for s in sections],
+            markdown=full_md,
+        )
+        await self._ds.save_message(
+            thread_id, "assistant", full_md,
+            event_type="prd_complete", meta={"mode": session["mode"]},
+        )
 
         yield {"type": "prd_complete", "data": {
             "markdown": full_md,
@@ -214,73 +212,79 @@ class PMAgentService:
         logger.info(f"[{thread_id}] handle, intent={intent}, use_knowledge={use_knowledge}")
 
         if intent == "generate":
-            _save_message(thread_id, "user", message, event_type="command")
+            await self._ds.save_message(thread_id, "user", message, event_type="command")
             async for event in self.generate_prd(thread_id, mode):
                 yield event
         elif intent == "continue":
-            _save_message(thread_id, "user", message, event_type="command")
+            await self._ds.save_message(thread_id, "user", message, event_type="command")
             async for event in self.continue_generation(thread_id):
                 yield event
         else:
             async for event in self.chat(message, thread_id, use_knowledge=use_knowledge):
                 yield event
 
-    # ── Message / profile helpers ──
+    # ── Data accessors ──
 
     async def get_profile(self, thread_id: str = "default") -> dict:
-        return get_profile(thread_id)
+        return await self._ds.get_profile(thread_id)
 
     async def get_prd(self, thread_id: str = "default") -> dict | None:
-        return _prd_store.get(thread_id)
+        return await self._ds.get_prd(thread_id)
 
     async def get_message_history(self, thread_id: str = "default") -> list[dict]:
-        return _message_history.get(thread_id, [])
+        return await self._ds.get_message_history(thread_id)
 
     async def list_sessions(self) -> list[dict]:
-        """List all sessions from in-memory state and file backup."""
-        sessions = []
-        from app.agent.pm.tools import get_profile_store
-        store = get_profile_store()
-        for sid, profile in store.items():
-            if sid == "default":
-                continue
-            sessions.append({
-                "session_id": sid,
-                "project_name": profile.get("project_name") or "未命名项目",
-                "status": "mining",
-                "sufficiency_score": profile.get("sufficiency_score", 0),
-                "updated_at": "",
-            })
-        return sorted(sessions, key=lambda s: s["project_name"])
+        return await self._ds.list_sessions()
 
-    async def delete_session(self, thread_id: str) -> bool:
-        _session_state.pop(thread_id, None)
-        _message_history.pop(thread_id, None)
-        _prd_store.pop(thread_id, None)
-        remove_profile(thread_id)
-        # Also remove file backups
-        for f in [f"profile_{thread_id}.json", f"prd_{thread_id}.json"]:
-            fp = os.path.join(config.data_dir, f)
-            if os.path.exists(fp):
-                os.remove(fp)
-        return True
+    async def delete_session(self, session_id: str) -> bool:
+        _session_state.pop(session_id, None)
+        return await self._ds.delete_session(session_id)
 
     async def cleanup(self):
         await get_mining_agent().close()
 
+    # ── Dashboard / Stats (P1) ──
 
-def _save_message(thread_id: str, role: str, content: str,
-                  event_type: str = "message", meta: dict | None = None):
-    if not content.strip():
-        return
-    if thread_id not in _message_history:
-        _message_history[thread_id] = []
-    _message_history[thread_id].append({
-        "role": role,
-        "content": content,
-        "event_type": event_type,
-        "meta": meta or {},
-    })
+    async def get_dashboard_overview(self) -> dict:
+        return await self._ds.get_dashboard_overview()
+
+    async def get_trend_data(self, granularity: str = "day", days: int = 30) -> list[dict]:
+        return await self._ds.get_trend_data(granularity, days)
+
+    # ── Export (P1) ──
+
+    async def export_sessions(self) -> list[dict]:
+        """Return all sessions for export (no pagination)."""
+        return await self._ds.list_sessions(limit=10000)
+
+    async def export_prds(self) -> list[dict]:
+        """Return all PRDs across sessions for export."""
+        sessions = await self._ds.list_sessions(limit=10000)
+        results = []
+        for s in sessions:
+            prd = await self._ds.get_prd(s["session_id"])
+            if prd:
+                results.append({
+                    "session_id": s["session_id"],
+                    "project_name": s.get("project_name", ""),
+                    "version": prd.get("version", 1),
+                    "mode": prd.get("mode", ""),
+                    "created_at": prd.get("created_at", ""),
+                    "markdown_preview": prd.get("markdown", "")[:200],
+                })
+        return results
+
+    async def log_audit(self, action: str, user_id: str = "", session_id: str = "",
+                        detail: dict | None = None, ip_address: str = "") -> None:
+        await self._ds.log_audit(action, user_id, session_id, detail, ip_address)
 
 
-pm_agent_service = PMAgentService()
+def _get_session(thread_id: str) -> dict:
+    if thread_id not in _session_state:
+        _session_state[thread_id] = {
+            "mode": "one_shot",
+            "prd_sections": None,
+            "current_section_index": 0,
+        }
+    return _session_state[thread_id]

@@ -1,4 +1,10 @@
-"""PM Agent FastAPI application entry point (Lite: no Milvus/MySQL/Redis)."""
+"""PM Agent FastAPI application entry point.
+
+Bootstrap sequence:
+  1. Try MySQL (asyncmy + SQLAlchemy)
+  2. Fall back to JSON file storage if MySQL unavailable
+  3. Wire DataStore into the service layer
+"""
 
 import os
 from contextlib import asynccontextmanager
@@ -13,6 +19,20 @@ from app.api.pm import router as pm_router
 from app.config import config
 
 
+_datastore = None
+_pm_agent_service = None
+
+
+def get_datastore():
+    """Return the initialized DataStore instance."""
+    return _datastore
+
+
+def get_pm_agent_service():
+    """Return the initialized PMAgentService instance."""
+    return _pm_agent_service
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("=" * 60)
@@ -24,10 +44,37 @@ async def lifespan(app: FastAPI):
     os.makedirs(config.data_dir, exist_ok=True)
     logger.info(f"Data directory: {config.data_dir}")
 
+    # Step 1: Try MySQL, fall back to JSON files
+    from app.db import create_datastore
+    from app.db.database import init_db as init_mysql
+
+    use_mysql = await init_mysql()
+    if not use_mysql and config.mysql_required:
+        logger.error("MySQL required by config but unavailable — shutting down.")
+        raise RuntimeError("MySQL connection failed and mysql_required=True")
+
+    global _datastore, _pm_agent_service
+    _datastore = create_datastore(use_mysql)
+    logger.info(f"Using storage backend: {'MySQL' if use_mysql else 'JSON file'}")
+
+    # Step 2: Create service with DataStore
+    from app.services.pm_agent_service import PMAgentService as _PAS, pm_agent_service as _svc_sentinel
+
+    _pm_agent_service = _PAS(_datastore)
+
+    # Wire into API module (swap the sentinel)
+    import app.services.pm_agent_service as _svc_mod
+    _svc_mod.pm_agent_service = _pm_agent_service
+
     logger.info("=" * 60)
     yield
 
     logger.info(f"{config.app_name} stopped")
+    from app.db.database import close_db as close_mysql
+    await close_mysql()
+
+    if _pm_agent_service is not None:
+        await _pm_agent_service.cleanup()
 
 
 app = FastAPI(
@@ -66,4 +113,12 @@ async def root():
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    backend_status = "ok"
+    backend_type = "unknown"
+    if _datastore is not None:
+        try:
+            h = await _datastore.health()
+            backend_type = h.get("backend", "unknown")
+        except Exception:
+            backend_status = "degraded"
+    return {"status": backend_status, "backend": backend_type}

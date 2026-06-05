@@ -1,4 +1,4 @@
-"""PM Agent configuration using pydantic-settings (Lite: no Milvus/MySQL/Redis)."""
+"""PM Agent configuration."""
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -25,6 +25,18 @@ class Settings(BaseSettings):
     # PM Agent
     sufficiency_threshold: float = 0.75
     data_dir: str = "./pm_data"
+
+    # MySQL (asyncmy)
+    mysql_host: str = ""
+    mysql_port: int = 3306
+    mysql_user: str = "reqcollect"
+    mysql_password: str = ""
+    mysql_database: str = "reqcollect"
+    mysql_pool_size: int = 20
+    mysql_max_overflow: int = 10
+
+    # Force MySQL (if True, fail on connection error instead of falling back)
+    mysql_required: bool = False
 
 
 config = Settings()

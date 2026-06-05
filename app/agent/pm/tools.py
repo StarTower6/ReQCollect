@@ -1,10 +1,22 @@
-"""PM-specific LangChain tools for requirement profile management."""
+"""PM-specific LangChain tools for requirement profile management.
+
+Maintains an in-memory _profile_store for synchronous agent tool access.
+DataStore integration: the service syncs profiles to the DataStore after
+each chat turn and loads them at session start.
+"""
+
+from __future__ import annotations
 
 import json
 from contextvars import ContextVar
 
 from langchain_core.tools import tool
 from loguru import logger
+
+from app.db import DataStore
+
+# Lazy-import to avoid circular dependency at module level
+_datastore: DataStore | None = None
 
 PROFILE_DEFAULTS = {
     "project_name": "",
@@ -25,6 +37,26 @@ PROFILE_DEFAULTS = {
 
 _profile_store: dict[str, dict] = {}
 _current_thread_id: ContextVar[str] = ContextVar("pm_current_thread_id", default="default")
+
+
+def set_datastore_for_tools(ds: DataStore):
+    """Register the DataStore instance so tools can persist profiles."""
+    global _datastore
+    _datastore = ds
+
+
+async def sync_profile_from_datastore(thread_id: str):
+    """Load a profile from DataStore into the in-memory store."""
+    global _datastore
+    if _datastore is None:
+        return
+    try:
+        profile = await _datastore.get_profile(thread_id)
+        if profile:
+            _profile_store[thread_id] = profile
+            logger.debug(f"[{thread_id}] Profile loaded from DataStore")
+    except Exception as e:
+        logger.warning(f"[{thread_id}] Failed to load profile from DataStore: {e}")
 
 
 def set_current_thread_id(thread_id: str):
