@@ -21,6 +21,21 @@
 
 - 任务可以分配给多个子 agent 并行执行
 - **只做 tasks.md 中的内容**，不做任何额外改动
+
+### 0.1 实时同步 tasks.md（重要）
+- **每完成一个任务，立即更新 tasks.md** 将对应的 `- [ ]` 改为 `- [x]`
+- 更新 tasks.md 后立即 `git add` 和 `git commit`（引用任务名）
+- 不允许攒到 Evaluate 阶段再统一改 tasks.md
+- 示例：
+  ```
+  # 任务完成前
+  - [ ] 任务1: 实现 database.py
+  
+  # 任务完成后 → 立即改为
+  - [x] 任务1: 实现 database.py — commit: abc1234
+  ```
+- 如果使用了子 agent 并行执行，主 agent 在合并结果时一并更新 tasks.md
+- 最终 Evaluate 阶段 tasks.md 中所有条目应均为 `- [x]` 状态
 - 如果发现计划遗漏了某些明显需要做的事情：
   1. 停下来
   2. 标注"计划外发现: xxx"
