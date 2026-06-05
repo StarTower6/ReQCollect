@@ -44,7 +44,9 @@ node_modules/
 package-lock.json
 package.json
 
-# Keep claude rules + skills (project-level)
+# Keep claude rules + hooks + settings (project-level)
 .claude/
 !.claude/rules/
 !.claude/skills/
+!.claude/hooks/
+!.claude/settings.json

@@ -30,6 +30,8 @@
 - ...
 ```
 
+写入 report.md 后，PostToolUse hook 会自动提交所有改动（plan.md + tasks.md + report.md + 代码）并推送到 GitHub。无需手动 git push。
+
 ## 验证清单
 
 ### 0. 验收标准逐条验证

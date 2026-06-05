@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write(*.md)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pge-auto-commit.sh",
+            "timeout": 10,
+            "statusMessage": "PGE: checking if evaluation report was written..."
+          }
+        ]
+      }
+    ]
+  }
+}
