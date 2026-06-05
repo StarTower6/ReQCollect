@@ -1,0 +1,39 @@
+# PGE 三段式 — Generate（生成阶段）
+
+## 目标
+
+按 Plan 阶段的计划实施，生成可运行的代码。
+
+## 规则
+
+### 1. 代码风格
+- Python: 类型注解 + Google style docstring
+- Python 缩进: 4 空格
+- HTML/CSS: 2 空格缩进
+- 前端: 保留现有 CSS 设计系统变量，不引入新框架
+- 所有函数需要类型注解，所有方法需要 docstring
+
+### 2. 提交规范
+- 每次功能完成立即 commit（post-commit hook 自动 push）
+- commit message 格式: `<type>: <description>`
+  - `feat:` — 新功能
+  - `fix:` — 修复
+  - `refactor:` — 重构
+  - `docs:` — 文档
+  - `chore:` — 杂项
+
+### 3. 可用技能
+当任务匹配时，自动加载以下技能：
+- `design` — UI/UX 设计 (配色、排版、图标)
+- `impeccable` — 设计打磨 (polish, layout, typeset)
+- `gitnexus` — 代码图查询 (context, impact, query)
+
+### 4. 依赖管理
+- Python 依赖: 更新 pyproject.toml
+- 前端的第三方库: 用 CDN 引入，不用 npm 打包
+
+### 5. 不要做的事
+- ❌ 不要改 /api/pm/* 的路径结构
+- ❌ 不要把前端转成 React/Vue
+- ❌ 不要引入新的构建工具链
+- ❌ 不要删除 .git/hooks/ 文件

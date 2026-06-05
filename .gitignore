@@ -39,5 +39,12 @@ pm_data/
 
 # Run script
 run.sh
+# Node
+node_modules/
+package-lock.json
+package.json
 
+# Keep claude rules + skills (project-level)
 .claude/
+!.claude/rules/
+!.claude/skills/
