@@ -1,0 +1,19 @@
+/* ── ReQCollect Design System — 完整保留 ── */
+:root {
+  --bg: #f7f9fd;
+  --sidebar: #f2f5fb;
+  --sidebar-hover: #e8eef8;
+  --panel: #ffffff;
+  --line: #e4e9f2;
+  --line-strong: #d4deec;
+  --text: #202634;
+  --muted: #6f7d92;
+  --muted-light: #9aa6b8;
+  --brand: #3f7df6;
+  --brand-dark: #2366dc;
+  --brand-soft: #edf4ff;
+  --bubble-user: #e8f1ff;
+  --bubble-assistant: #ffffff;
+  --radius: 8px;
+  --shadow: 0 16px 44px rgba(31, 69, 126, 0.11);
+}

@@ -1,184 +1,156 @@
-# Plan: 06 — 前端界面升级
+# Plan: 06 — 前端界面升级 (Vite + Vue 3 项目)
 
 ## 1. 任务理解
 
 - **需求来源**: `docs/requirements/06-前端界面/README.md`
-- **核心目标**: 将 1828 行原生 JS 单页升级为 Vue 3 CDN + Element Plus CDN 组件化架构，保留全部 CSS 设计系统变量
-- **技术约束**: 零构建工具，单 HTML 文件，CDN 引入
+- **核心目标**: 将当前 1356 行单 HTML CDN 前端，升级为 **Vite + Vue 3 + TypeScript 项目级架构**，独立目录 `reqcollect-web/`
+- **用户选择**: 完整实现（P0 三栏布局+画像 + P1 对话增强+PRD预览 + P2 仪表盘）
 
-## 2. 架构设计
+## 2. 架构图
 
-### 当前架构（二栏）
 ```
-┌──────────┬──────────────────────┐
-│  会话列表 │      对话区          │
-│  268px   │    自适应            │
-└──────────┴──────────────────────┘
-```
-
-### 目标架构（三栏）
-```
-┌──────────┬──────────────────────┬──────────────┐
-│  会话列表 │      对话区          │  需求画像     │
-│  ≤260px  │    自适应            │  ≤320px      │
-│  Vue 组件│    Vue 组件          │  Vue 组件    │
-└──────────┴──────────────────────┴──────────────┘
-         ↓ <1200px 时右侧折叠为 el-drawer
+Dev 模式:                              Production 模式:
+┌──────────────────┐                    ┌──────────────────┐
+│ Vite Dev Server  │                    │  FastAPI :9900   │
+│ localhost:5173   │                    │  ┌────────────┐  │
+│ proxy /api → :9900│                    │  │ static/    │  │
+└────────┬─────────┘                    │  │   index.html│  │
+         │                              │  ├────────────┤  │
+         │ proxy /api                   │  │ reqcollect- │  │
+         ▼                              │  │  web/dist/  │  │
+┌──────────────────┐                    │  │   (Vue SPA) │  │
+│ FastAPI :9900    │                    └──┴────────────┴──┘
+│ /api/pm/*        │
+└──────────────────┘
 ```
 
-### 组件树
+## 3. 目录结构
+
 ```
-<App>
-  ├── <Sidebar>              — 会话列表 + 搜索 + 新建
-  │     ├── BrandHeader
-  │     ├── SessionSearch
-  │     ├── SessionList
-  │     │    └── SessionItem (×N)
-  │     └── SidebarFooter
-  ├── <ChatArea>            — 对话区 + 输入框
-  │     ├── TopBar (标题 + 完整度标签)
-  │     ├── MessageList
-  │     │    ├── WelcomeScreen
-  │     │    ├── MessageBubble (user)
-  │     │    ├── MessageBubble (assistant, Markdown)
-  │     │    ├── EventBadge
-  │     │    └── QuickReplies
-  │     └── Composer (输入框 + 工具栏 + 发送)
-  └── <ProfilePanel>        — 需求画像面板
-        ├── SufficiencyRing
-        ├── FieldList
-        │    └── FieldItem (×11, 可展开)
-        └── MissingFieldGuide
+reqcollect-web/
+├── index.html                 ← 入口 HTML
+├── package.json
+├── tsconfig.json
+├── tsconfig.node.json
+├── vite.config.ts             ← proxy /api → :9900
+├── src/
+│   ├── main.ts                ← 应用入口 (createApp + router + pinia)
+│   ├── App.vue                ← 根组件 (router-view)
+│   ├── env.d.ts               ← TypeScript 声明
+│   ├── assets/
+│   │   └── styles/
+│   │       ├── variables.css  ← 现有 CSS 设计系统变量（完整保留）
+│   │       └── global.css     ← 全局样式 + 气泡 + 布局
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── AppLayout.vue  ← 三栏布局容器
+│   │   │   ├── TopBar.vue     ← 顶部导航栏
+│   │   │   └── SideBar.vue    ← 左侧会话列表
+│   │   ├── chat/
+│   │   │   ├── ChatArea.vue   ← 中间对话区
+│   │   │   ├── MessageBubble.vue  ← 单条消息
+│   │   │   ├── MessageList.vue    ← 消息列表
+│   │   │   ├── QuickReplyBar.vue  ← 快捷回复
+│   │   │   └── ChatInput.vue      ← 输入框
+│   │   ├── profile/
+│   │   │   ├── ProfilePanel.vue   ← 右侧画像面板
+│   │   │   ├── SufficiencyRing.vue ← 进度环
+│   │   │   └── FieldStatusList.vue ← 字段列表
+│   │   └── prd/
+│   │       ├── PrdPreview.vue     ← PRD 预览
+│   │       └── PrdToc.vue         ← PRD 目录
+│   ├── views/
+│   │   ├── ChatView.vue       ← 主对话页
+│   │   ├── PrdView.vue        ← PRD 预览页
+│   │   └── DashboardView.vue  ← 仪表盘
+│   ├── router/
+│   │   └── index.ts           ← /chat /prd/:id /dashboard
+│   ├── stores/
+│   │   ├── chat.ts            ← 消息列表、SSE 流式
+│   │   ├── session.ts         ← 会话列表、CRUD
+│   │   ├── profile.ts         ← 需求画像
+│   │   └── prd.ts             ← PRD
+│   ├── api/
+│   │   ├── client.ts          ← fetch 封装
+│   │   ├── session.ts         ← 会话 API
+│   │   ├── chat.ts            ← SSE 对话
+│   │   ├── profile.ts         ← 画像 API
+│   │   └── prd.ts             ← PRD API
+│   └── types/
+│       └── index.ts           ← 类型定义
 ```
 
-## 3. CDN 依赖
+## 4. 验收标准
 
-```html
-<!-- Vue 3 (runtime only is fine since templates are in-DOM) -->
-<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<!-- Element Plus -->
-<link href="https://unpkg.com/element-plus/dist/index.css" rel="stylesheet">
-<script src="https://unpkg.com/element-plus/dist/index.full.min.js"></script>
-<!-- 已有: marked.js -->
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<!-- 新增: highlight.js -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-```
+### P0 — 布局
+- [ ] P0: `npm run dev` 启动 Vite 开发服务器，页面正常渲染
+- [ ] P0: 三栏布局正常显示（左≤260px/中自适应/右≤320px）
+- [ ] P0: 窗口 <1200px 右侧折叠为抽屉
+- [ ] P0: 所有对话功能正常（发送/流式/快捷回复/新建/切换/删除）
 
-## 4. 改动清单
-
-### 修改文件
-| 文件 | 改动 |
-|------|------|
-| `static/index.html` | 全量重写为 Vue 3 组件架构（保留全部 CSS 变量和设计系统） |
-
-### 无后端改动
-所有 API 端点已在前两轮实现完毕，前端仅消费现有端点。
-
-## 5. 验收标准
-
-### P0 — 三栏布局
-- [ ] P0: 三栏布局正常显示，切换会话时右侧画像内容同步更新
-- [ ] P0: 窗口 <1200px 时右侧面板折叠为抽屉按钮
-- [ ] P0: 所有现有对话功能不受影响（发送/流式/快捷回复/新建/切换/删除）
-
-### P0 — 需求画像面板
-- [ ] P0: 完整度进度环实时更新（SVG 圆环，百分比显示）
-- [ ] P0: 11 字段按权重排序显示，绿色圆点=已填，灰色=待填
-- [ ] P0: 点击已填字段展开详情
-- [ ] P0: 缺失字段引导提示
+### P0 — 画像
+- [ ] P0: 完整度进度环实时更新
+- [ ] P0: 11 字段按权重排序，已填/待填区分
+- [ ] P0: 点击已填字段展开详情，缺失字段引导提示
 
 ### P1 — 对话增强
-- [ ] P1: 消息显示头像（用户蓝/AI PM 图标）
-- [ ] P1: 消息显示时间戳
+- [ ] P1: 消息头像 + 时间戳
 - [ ] P1: 代码块语法高亮（highlight.js）
-- [ ] P1: 消息复制按钮（悬停显示）
-- [ ] P1: 流式打字效果（逐词出现动画）
+- [ ] P1: 悬停复制按钮
 
-### 不做（明确排除）
-- ❌ 暗色模式 (P2)
-- ❌ 仪表盘与需求看板 (P2)
-- ❌ 消息搜索与日期分组 (P2)
-- ❌ PRD 独立预览页（仅保留现有内嵌展示）
-- ❌ Markdown/Word/PDF 下载
+### P1 — PRD 预览
+- [ ] P1: `/prd/:id` 独立页面，左侧目录导航 + 章节定位
+- [ ] P1: 下载 Markdown 按钮
 
-## 6. 实施策略
+### P2 — 仪表盘
+- [ ] P2: `/dashboard` 页面，展示会话数量、PRD 数量趋势
+- [ ] P2: `npm run build` 产出到 `reqcollect-web/dist/`
 
-### 渐进式迁移方案
+### 技术约束
+- [ ] 保留全部现有 CSS 设计系统变量
+- [ ] 零构建工具引入（Vite 仅用于前端，不涉及后端构建）
 
-由于是单页 1828 行，最佳方案是**全量重写**而非增量迁移，原因：
-1. Vue 3 的模板语法与原生 JS DOM 操作不兼容
-2. 事件绑定方式完全不同（`onclick` vs `@click`）
-3. 状态管理需要从全局变量迁移到 Vue reactive data
+## 5. 实施步骤
 
-### 保留的资产
-- 全部 CSS 变量（`:root` 中的 25 个 token）
-- 全部气泡/侧栏/输入框/快捷回复样式
-- 品牌 Logo 样式
-- 响应式断点
-- SSE 流式处理逻辑（函数式保留，接入 Vue）
+### Step 1: 项目初始化
+- package.json, vite.config.ts, tsconfig.json
+- main.ts, App.vue, env.d.ts
+- 安装依赖: vue3, vue-router, pinia, element-plus, echarts, highlight.js
 
-## 7. 实施步骤
+### Step 2: CSS 设计系统 + 类型定义
+- variables.css (完整保留 25 个 token)
+- global.css (布局、气泡、滚动条)
+- types/index.ts (Session, Message, Profile, PRD)
 
-### Step 1: 骨架 + Vue 3 挂载
-- CDN 引入 Vue 3, Element Plus, highlight.js
-- 三栏 HTML 结构
-- Vue app 挂载 + data 初始化
+### Step 3: API 层 + Pinia Stores
+- api/client.ts (fetch 封装)
+- api/session.ts, chat.ts, profile.ts, prd.ts
+- stores/session.ts, chat.ts, profile.ts, prd.ts
 
-### Step 2: 会话列表组件 (Sidebar)
-- SessionList 组件（v-for 渲染）
-- 搜索过滤（computed）
-- 新建/切换/删除/置顶
+### Step 4: 路由 + 布局组件
+- router/index.ts
+- components/layout/AppLayout.vue, TopBar.vue, SideBar.vue
 
-### Step 3: 对话区 + SSE 流式
-- MessageList + MessageBubble 组件
-- SSE 流式接入（与原有逻辑兼容）
-- QuickReplies 组件化
-- 打字效果
+### Step 5: 对话区组件
+- ChatView.vue (组合所有 chat 子组件)
+- ChatArea.vue, MessageList.vue, MessageBubble.vue, QuickReplyBar.vue, ChatInput.vue
 
-### Step 4: 需求画像面板
-- SufficiencyRing 组件（SVG 圆环）
-- FieldList + FieldItem 组件
-- 展开/折叠详情
-- 缺失引导
+### Step 6: 画像面板 + PRD 预览
+- ProfilePanel.vue, SufficiencyRing.vue, FieldStatusList.vue
+- PrdPreview.vue, PrdToc.vue, PrdView.vue
 
-### Step 5: P1 增强
-- 头像和时间戳
-- highlight.js 代码高亮
-- 复制按钮
-- 打字动画
+### Step 7: 仪表盘
+- DashboardView.vue (ECharts 图表)
 
-### Step 6: 响应式 + 抽屉
-- <1200px 右侧 el-drawer 折叠
-- el-drawer 样式覆写为设计系统
+### Step 8: FastAPI 集成
+- 更新 main.py 在 production 模式下 serve `reqcollect-web/dist/`
 
-### Step 7: Evaluate
+### Step 9: Evaluate
 - 验收验证
 - 写 report.md
 
-## 8. 数据流
-
-```
-Vue App State:
-  sessionId: string
-  mode: 'one_shot' | 'incremental'
-  useKnowledge: boolean
-  sessions: Session[]
-  messages: Message[]
-  profile: Profile | null
-  
-  computed:
-    sufficiencyPercent: number
-    fields Status: {filled: boolean, weight: number}[]
-    filteredSessions: Session[]
-    isMobile: boolean (window width)
-```
-
-```
-window resize → computed isMobile → el-drawer toggle
-API /sessions → sessions[]
-API /profile/{sid} → profile → fields rendered
-API /history/{sid} → messages[] → rendered
-SSE /agent → append to messages[] → auto-scroll
-```
+## 6. 不做（明确排除）
+- ❌ 暗色模式
+- ❌ 消息搜索与日期分组
+- ❌ Word/PDF 下载（仅 Markdown）
+- ❌ 替换现有 static/index.html（新旧共存）
