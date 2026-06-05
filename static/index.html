@@ -878,7 +878,7 @@
         <aside class="sidebar" aria-label="历史会话">
             <div class="brand-row">
                 <div class="brand-mark" aria-hidden="true"></div>
-                <div class="brand-name">PM Agent</div>
+                <div class="brand-name">ReQCollect</div>
             </div>
             <button class="sidebar-action" type="button" onclick="newChat()">
                 <span aria-hidden="true">＋</span>
@@ -898,8 +898,8 @@
         <main class="main">
             <header class="topbar">
                 <button class="mobile-menu" type="button" onclick="newChat()" aria-label="新对话">＋</button>
-                <div id="main-header">PM Agent</div>
-                <div class="topbar-actions">
+                <div id="main-header">ReQCollect</div>
+                 <div class="topbar-actions">
                     <span class="status-chip" id="score-label">完整度 0%</span>
                     <span class="status-chip" id="session-label">未开始</span>
                 </div>
@@ -911,8 +911,8 @@
                         <div class="welcome">
                             <div class="welcome-card">
                                 <div class="welcome-logo" aria-hidden="true"></div>
-                                <div class="welcome-title">我是 PM Agent，很高兴见到你！</div>
-                                <div class="welcome-subtitle">开始描述你的产品想法，我会帮你追问需求并生成 PRD。</div>
+                                <div class="welcome-title">我是 ReQCollect，很高兴见到你！</div>
+                                 <div class="welcome-subtitle">开始描述您的业务需求，我会帮您梳理并生成需求文档。</div>
                                 <div class="prompt-grid">
                                     <button class="prompt-card" type="button" onclick="usePrompt('我想做一个企业报销审批系统')">企业报销审批系统</button>
                                     <button class="prompt-card" type="button" onclick="usePrompt('我想做一个餐厅外卖智能客服系统')">餐厅外卖智能客服</button>
@@ -926,7 +926,7 @@
 
                 <div class="composer-wrap">
                     <div class="composer">
-                        <textarea id="msg-input" rows="1" placeholder="给 PM Agent 发送消息"></textarea>
+                        <textarea id="msg-input" rows="1" placeholder="描述您的业务需求..."></textarea>
                         <div class="composer-bar">
                             <div class="tool-group">
                                 <button class="tool-btn active" type="button">深度挖掘</button>
@@ -981,7 +981,7 @@
             return escapeHtml(text);
         }
 
-        function welcomeHtml(title = '我是 PM Agent，很高兴见到你！', subtitle = '开始描述你的产品想法，我会帮你追问需求并生成 PRD。') {
+        function welcomeHtml(title = '我是 ReQCollect，很高兴见到你！', subtitle = '开始描述您的业务需求，我会帮您梳理并生成需求文档。') {
             return `<div class="welcome"><div class="welcome-card">
                 <div class="welcome-logo" aria-hidden="true"></div>
                 <div class="welcome-title">${escapeHtml(title)}</div>
@@ -1506,7 +1506,7 @@
 
         function newChat() {
             sessionId = 'session-' + Date.now();
-            document.getElementById('main-header').textContent = 'PM Agent';
+            document.getElementById('main-header').textContent = 'ReQCollect';
             document.getElementById('score-label').textContent = '完整度 0%';
             updateSessionLabel();
             chatInner().innerHTML = welcomeHtml();
@@ -1631,7 +1631,7 @@
                 sessionsCache = sessionsCache.filter(s => s.session_id !== sid);
                 if (sid === sessionId) {
                     sessionId = null;
-                    document.getElementById('main-header').textContent = 'PM Agent';
+                    document.getElementById('main-header').textContent = 'ReQCollect';
                     document.getElementById('score-label').textContent = '完整度 0%';
                     updateSessionLabel();
                     chatInner().innerHTML = welcomeHtml();
@@ -1649,7 +1649,7 @@
                 const resp = await fetch('/api/pm/profile/' + encodeURIComponent(sid));
                 const data = await resp.json();
                 if (data.profile) {
-                    document.getElementById('main-header').textContent = data.profile.project_name || 'PM Agent';
+                    document.getElementById('main-header').textContent = data.profile.project_name || 'ReQCollect';
                     document.getElementById('score-label').textContent =
                         '完整度 ' + Math.round((data.profile.sufficiency_score || 0) * 100) + '%';
                 }
