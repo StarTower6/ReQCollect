@@ -4,7 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ReQCollect — 业务需求分析</title>
+
+    <!-- ── CDN Dependencies ── -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/element-plus"></script>
+    <link href="https://unpkg.com/element-plus/dist/index.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <!-- ── Design System (全部保留，不做任何改动) ── -->
     <style>
         :root {
             --bg: #f7f9fd;
@@ -25,1804 +34,1275 @@
             --shadow: 0 16px 44px rgba(31, 69, 126, 0.11);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        html,
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
         body {
-            height: 100%;
-        }
-
-        body {
-            overflow: hidden;
-            color: var(--text);
-            background: var(--bg);
+            overflow: hidden; color: var(--text); background: var(--bg);
             font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             letter-spacing: 0;
         }
+        button, textarea, input { font: inherit; }
+        button { border: 0; cursor: pointer; }
 
-        button,
-        textarea,
-        input {
-            font: inherit;
-        }
-
-        button {
-            border: 0;
-            cursor: pointer;
-        }
-
-        .app {
-            display: grid;
-            height: 100vh;
-            grid-template-columns: 268px minmax(0, 1fr);
-        }
-
+        /* ── Layout: 三栏 ── */
+        .app { display: flex; height: 100vh; }
         .sidebar {
-            display: flex;
-            min-width: 0;
+            display: flex; width: 260px; min-width: 0;
+            flex-direction: column; padding: 12px;
+            border-right: 1px solid var(--line); background: var(--sidebar);
+        }
+        .main-area {
+            display: flex; flex: 1; min-width: 0;
             flex-direction: column;
-            padding: 12px;
-            border-right: 1px solid var(--line);
-            background: var(--sidebar);
+        }
+        .profile-panel {
+            width: 300px; min-width: 0; overflow-y: auto;
+            border-left: 1px solid var(--line); background: var(--panel);
+            padding: 16px;
         }
 
+        /* ── Brand ── */
         .brand-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            min-height: 42px;
-            padding: 4px 6px 12px;
+            display: flex; align-items: center; gap: 10px;
+            min-height: 42px; padding: 4px 6px 12px;
         }
-
         .brand-mark {
-            position: relative;
-            width: 30px;
-            height: 30px;
-            flex: 0 0 30px;
+            position: relative; width: 30px; height: 30px; flex: 0 0 30px;
             border-radius: 50%;
             background: linear-gradient(140deg, #7db0ff, var(--brand) 58%, #2c62cf);
             box-shadow: 0 10px 24px rgba(63, 125, 246, 0.24);
         }
-
-        .brand-mark::before,
-        .brand-mark::after {
-            position: absolute;
-            content: "";
-            border-radius: 50%;
-            background: #ffffff;
+        .brand-mark::before, .brand-mark::after {
+            position: absolute; content: ""; border-radius: 50%; background: #ffffff;
         }
-
-        .brand-mark::before {
-            width: 13px;
-            height: 13px;
-            left: 6px;
-            top: 7px;
-        }
-
-        .brand-mark::after {
-            width: 7px;
-            height: 7px;
-            right: 6px;
-            bottom: 7px;
-            opacity: 0.82;
-        }
-
+        .brand-mark::before { width: 13px; height: 13px; left: 6px; top: 7px; }
+        .brand-mark::after { width: 7px; height: 7px; right: 6px; bottom: 7px; opacity: 0.82; }
         .brand-name {
-            overflow: hidden;
-            font-size: 16px;
-            font-weight: 760;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            overflow: hidden; font-size: 16px; font-weight: 760;
+            text-overflow: ellipsis; white-space: nowrap;
         }
 
+        /* ── Sidebar ── */
         .sidebar-action {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            width: 100%;
-            min-height: 42px;
-            padding: 0 12px;
-            border-radius: var(--radius);
-            color: #24334b;
-            background: #ffffff;
-            font-size: 14px;
-            font-weight: 680;
+            display: flex; align-items: center; gap: 9px; width: 100%;
+            min-height: 42px; padding: 0 12px; border-radius: var(--radius);
+            color: #24334b; background: #ffffff; font-size: 14px; font-weight: 680;
             box-shadow: 0 8px 20px rgba(31, 69, 126, 0.06);
         }
-
-        .sidebar-action:hover {
-            background: #fbfdff;
-        }
-
+        .sidebar-action:hover { background: #fbfdff; }
         .sidebar-search {
-            margin-top: 10px;
-            height: 38px;
-            padding: 0 11px;
-            border: 1px solid transparent;
-            border-radius: var(--radius);
-            outline: none;
-            color: var(--text);
-            background: #e9eef7;
-            font-size: 13px;
+            margin-top: 10px; height: 38px; padding: 0 11px;
+            border: 1px solid transparent; border-radius: var(--radius);
+            outline: none; color: var(--text); background: #e9eef7; font-size: 13px;
         }
-
         .sidebar-search:focus {
-            border-color: rgba(63, 125, 246, 0.35);
-            background: #ffffff;
+            border-color: rgba(63, 125, 246, 0.35); background: #ffffff;
         }
-
-        .history-label {
-            margin: 18px 6px 8px;
-            color: var(--muted-light);
-            font-size: 12px;
-            font-weight: 720;
-        }
-
-        #session-list {
-            flex: 1;
-            min-height: 0;
-            overflow-y: auto;
-            padding-right: 2px;
-        }
-
+        .history-label { margin: 18px 6px 8px; color: var(--muted-light); font-size: 12px; font-weight: 720; }
+        #session-list { flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px; }
         .session-item {
-            position: relative;
-            display: flex;
-            min-height: 40px;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 3px;
-            padding: 8px 10px;
-            border-radius: var(--radius);
-            color: #354258;
-            background: transparent;
-            cursor: pointer;
+            position: relative; display: flex; min-height: 40px; align-items: center; gap: 8px;
+            margin-bottom: 3px; padding: 8px 10px; border-radius: var(--radius);
+            color: #354258; background: transparent; cursor: pointer;
         }
-
-        .session-item:hover {
-            background: var(--sidebar-hover);
-        }
-
-        .session-item.active {
-            color: #17356b;
-            background: #ffffff;
-            box-shadow: 0 8px 20px rgba(31, 69, 126, 0.07);
-        }
-
-        .session-item.pinned {
-            background: rgba(237, 244, 255, 0.74);
-        }
-
-        .session-title {
-            min-width: 0;
-            flex: 1;
-        }
-
-        .session-title .name {
-            display: block;
-            overflow: hidden;
-            font-size: 13px;
-            font-weight: 590;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .session-title .meta {
-            display: block;
-            margin-top: 2px;
-            color: var(--muted-light);
-            font-size: 11px;
-        }
-
-        .session-actions {
-            display: flex;
-            flex: 0 0 auto;
-            align-items: center;
-            gap: 3px;
-        }
-
+        .session-item:hover { background: var(--sidebar-hover); }
+        .session-item.active { color: #17356b; background: #ffffff; box-shadow: 0 8px 20px rgba(31, 69, 126, 0.07); }
+        .session-item.pinned { background: rgba(237, 244, 255, 0.74); }
+        .session-title { min-width: 0; flex: 1; }
+        .session-title .name { display: block; overflow: hidden; font-size: 13px; font-weight: 590; text-overflow: ellipsis; white-space: nowrap; }
+        .session-title .meta { display: block; margin-top: 2px; color: var(--muted-light); font-size: 11px; }
+        .session-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 3px; }
         .session-action-btn {
-            display: inline-flex;
-            width: 25px;
-            height: 25px;
-            align-items: center;
-            justify-content: center;
-            border-radius: 7px;
-            color: #7a879b;
-            background: transparent;
-            font-size: 12px;
-            font-weight: 760;
-            line-height: 1;
+            display: inline-flex; width: 25px; height: 25px; align-items: center; justify-content: center;
+            border-radius: 7px; color: #7a879b; background: transparent; font-size: 12px; font-weight: 760; line-height: 1;
         }
-
-        .session-action-btn svg {
-            width: 14px;
-            height: 14px;
-            stroke: currentColor;
-            stroke-width: 2.2;
-        }
-
-        .session-action-btn:hover {
-            color: var(--brand-dark);
-            background: #ffffff;
-        }
-
-        .session-action-btn.active {
-            color: #ffffff;
-            background: var(--brand);
-        }
-
-        .session-action-btn.danger:hover {
-            color: #b42318;
-            background: #fff0ee;
-        }
-
-        .session-empty {
-            padding: 10px 6px;
-            color: var(--muted-light);
-            font-size: 13px;
-        }
-
+        .session-action-btn svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.2; }
+        .session-action-btn:hover { color: var(--brand-dark); background: #ffffff; }
+        .session-action-btn.active { color: #ffffff; background: var(--brand); }
+        .session-action-btn.danger:hover { color: #b42318; background: #fff0ee; }
+        .session-empty { padding: 10px 6px; color: var(--muted-light); font-size: 13px; }
         .sidebar-footer {
-            display: grid;
-            gap: 6px;
-            padding-top: 10px;
-            border-top: 1px solid var(--line);
+            display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line);
         }
-
         .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            min-height: 34px;
-            padding: 0 9px;
-            border-radius: var(--radius);
-            color: var(--muted);
-            text-decoration: none;
-            font-size: 13px;
+            display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 0 9px;
+            border-radius: var(--radius); color: var(--muted); text-decoration: none; font-size: 13px;
         }
+        .sidebar-link:hover { color: #24334b; background: var(--sidebar-hover); }
 
-        .sidebar-link:hover {
-            color: #24334b;
-            background: var(--sidebar-hover);
-        }
-
+        /* ── Main ── */
         .main {
-            display: grid;
-            min-width: 0;
-            height: 100vh;
+            display: grid; min-width: 0; height: 100vh;
             grid-template-rows: 54px minmax(0, 1fr);
-            background:
-                radial-gradient(circle at 50% 28%, rgba(63, 125, 246, 0.08), transparent 360px),
-                var(--bg);
+            background: radial-gradient(circle at 50% 28%, rgba(63, 125, 246, 0.08), transparent 360px), var(--bg);
         }
-
         .topbar {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
-            align-items: center;
-            gap: 10px;
-            padding: 0 22px;
+            display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+            align-items: center; gap: 10px; padding: 0 22px;
             border-bottom: 1px solid rgba(228, 233, 242, 0.72);
-            background: rgba(247, 249, 253, 0.82);
-            backdrop-filter: blur(18px);
+            background: rgba(247, 249, 253, 0.82); backdrop-filter: blur(18px);
         }
-
         .mobile-menu {
-            display: none;
-            place-items: center;
-            justify-self: start;
-            width: 34px;
-            height: 34px;
-            border-radius: var(--radius);
-            color: var(--text);
-            background: var(--brand-soft);
-            font-size: 19px;
+            display: none; place-items: center; justify-self: start;
+            width: 34px; height: 34px; border-radius: var(--radius);
+            color: var(--text); background: var(--brand-soft); font-size: 19px;
         }
-
         #main-header {
-            overflow: hidden;
-            justify-self: center;
-            max-width: min(360px, 42vw);
-            font-size: 15px;
-            font-weight: 720;
-            text-align: center;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            overflow: hidden; justify-self: center;
+            max-width: min(360px, 42vw); font-size: 15px; font-weight: 720;
+            text-align: center; text-overflow: ellipsis; white-space: nowrap;
         }
-
-        .topbar-actions {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            justify-self: end;
-        }
-
+        .topbar-actions { display: flex; align-items: center; gap: 8px; justify-self: end; }
         .status-chip {
-            display: inline-flex;
-            min-height: 30px;
-            align-items: center;
-            justify-content: center;
-            padding: 0 11px;
-            border-radius: 999px;
-            color: #426289;
-            background: #eef3fb;
-            font-size: 12px;
-            font-weight: 680;
-            line-height: 1;
+            display: inline-flex; min-height: 30px; align-items: center; justify-content: center;
+            padding: 0 11px; border-radius: 999px; color: #426289;
+            background: #eef3fb; font-size: 12px; font-weight: 680; line-height: 1;
         }
 
-        .chat-shell {
-            position: relative;
-            display: grid;
-            min-height: 0;
-            grid-template-rows: minmax(0, 1fr) auto;
-        }
-
-        #chat {
-            min-height: 0;
-            overflow-y: auto;
-            padding: 34px 24px 24px;
-        }
-
-        .chat-inner {
-            width: min(820px, 100%);
-            margin: 0 auto;
-        }
-
+        /* ── Chat ── */
+        .chat-shell { position: relative; display: grid; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; }
+        #chat { min-height: 0; overflow-y: auto; padding: 34px 24px 24px; }
+        .chat-inner { width: min(820px, 100%); margin: 0 auto; }
         .welcome {
-            display: flex;
-            min-height: calc(100vh - 250px);
-            align-items: center;
-            justify-content: center;
-            text-align: center;
+            display: flex; min-height: calc(100vh - 250px); align-items: center; justify-content: center; text-align: center;
         }
-
-        .welcome-card {
-            width: min(640px, 100%);
-        }
-
+        .welcome-card { width: min(640px, 100%); }
         .welcome-logo {
-            position: relative;
-            width: 56px;
-            height: 56px;
-            margin: 0 auto 18px;
+            position: relative; width: 56px; height: 56px; margin: 0 auto 18px;
             border-radius: 50%;
             background: linear-gradient(140deg, #7db0ff, var(--brand) 58%, #2c62cf);
             box-shadow: 0 18px 44px rgba(63, 125, 246, 0.22);
         }
-
-        .welcome-logo::before,
-        .welcome-logo::after {
-            position: absolute;
-            content: "";
-            border-radius: 50%;
-            background: #ffffff;
+        .welcome-logo::before, .welcome-logo::after {
+            position: absolute; content: ""; border-radius: 50%; background: #ffffff;
         }
-
-        .welcome-logo::before {
-            width: 25px;
-            height: 25px;
-            left: 11px;
-            top: 12px;
-        }
-
-        .welcome-logo::after {
-            width: 12px;
-            height: 12px;
-            right: 11px;
-            bottom: 12px;
-            opacity: 0.82;
-        }
-
-        .welcome-title {
-            font-size: 26px;
-            font-weight: 760;
-            color: #202b3f;
-        }
-
-        .welcome-subtitle {
-            margin-top: 10px;
-            color: var(--muted);
-            font-size: 15px;
-        }
-
-        .prompt-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-            margin-top: 28px;
-        }
-
+        .welcome-logo::before { width: 25px; height: 25px; left: 11px; top: 12px; }
+        .welcome-logo::after { width: 12px; height: 12px; right: 11px; bottom: 12px; opacity: 0.82; }
+        .welcome-title { font-size: 26px; font-weight: 760; color: #202b3f; }
+        .welcome-subtitle { margin-top: 10px; color: var(--muted); font-size: 15px; }
+        .prompt-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 28px; }
         .prompt-card {
-            display: flex;
-            min-height: 54px;
-            align-items: center;
-            justify-content: center;
-            padding: 11px 13px;
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            color: #33445d;
-            background: rgba(255, 255, 255, 0.76);
-            text-align: center;
-            font-size: 13px;
+            display: flex; min-height: 54px; align-items: center; justify-content: center;
+            padding: 11px 13px; border: 1px solid var(--line); border-radius: var(--radius);
+            color: #33445d; background: rgba(255, 255, 255, 0.76);
+            text-align: center; font-size: 13px; cursor: pointer;
         }
-
         .prompt-card:hover {
-            border-color: var(--line-strong);
-            background: #ffffff;
+            border-color: var(--line-strong); background: #ffffff;
             box-shadow: 0 10px 24px rgba(31, 69, 126, 0.08);
         }
 
-        .msg-row {
-            display: flex;
-            margin-bottom: 22px;
+        /* ── Messages ── */
+        .msg-row { display: flex; margin-bottom: 22px; }
+        .msg-row.user { justify-content: flex-end; }
+        .msg-row.assistant { justify-content: flex-start; }
+        .msg-row .avatar {
+            display: grid; width: 30px; height: 30px; flex: 0 0 30px;
+            place-items: center; margin-right: 10px; border-radius: 50%;
+            color: #ffffff; background: var(--brand); font-size: 12px; font-weight: 800;
         }
-
-        .msg-row.user {
-            justify-content: flex-end;
+        .msg-row.user .avatar { order: 1; margin-right: 0; margin-left: 10px; background: #517ced; }
+        .bubble-wrap {
+            max-width: min(680px, 88%); display: flex; flex-direction: column;
         }
-
-        .msg-row.assistant {
-            justify-content: flex-start;
+        .msg-meta {
+            display: flex; align-items: center; gap: 6px;
+            margin-bottom: 3px; padding: 0 4px; font-size: 11px; color: var(--muted-light);
         }
-
-        .avatar {
-            display: grid;
-            width: 30px;
-            height: 30px;
-            flex: 0 0 30px;
-            place-items: center;
-            margin-right: 10px;
-            border-radius: 50%;
-            color: #ffffff;
-            background: var(--brand);
-            font-size: 12px;
-            font-weight: 800;
+        .msg-row.user .msg-meta { justify-content: flex-end; }
+        .msg-row.assistant .msg-meta { justify-content: flex-start; }
+        .msg-copy-btn {
+            opacity: 0; cursor: pointer; padding: 2px 5px; border-radius: 4px;
+            color: var(--muted); background: transparent; font-size: 11px; border: none; transition: opacity 0.15s;
         }
-
+        .bubble-wrap:hover .msg-copy-btn { opacity: 1; }
+        .msg-copy-btn:hover { color: var(--brand-dark); background: var(--brand-soft); }
         .msg {
-            max-width: min(680px, 88%);
-            border-radius: var(--radius);
-            font-size: 15px;
-            line-height: 1.72;
-            word-break: break-word;
+            border-radius: var(--radius); font-size: 15px; line-height: 1.72; word-break: break-word;
         }
-
         .msg.user {
-            padding: 10px 14px;
-            color: #213657;
-            background: var(--bubble-user);
+            padding: 10px 14px; color: #213657; background: var(--bubble-user);
         }
+        .msg.assistant { padding: 2px 0; color: #263247; background: transparent; }
 
-        .msg.assistant {
-            padding: 2px 0;
-            color: #263247;
-            background: transparent;
-        }
+        /* ── Typing ── */
+        .typing-dot { animation: typingPulse 1.4s infinite; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingPulse { 0%, 60%, 100% { opacity: 0.3; } 30% { opacity: 1; } }
 
+        /* ── Event ── */
         .event {
-            width: fit-content;
-            max-width: 100%;
-            margin: 10px auto 18px;
-            padding: 6px 10px;
-            border: 1px solid var(--line);
-            border-radius: 999px;
-            color: var(--muted);
-            background: rgba(255, 255, 255, 0.76);
-            font-size: 12px;
+            width: fit-content; max-width: 100%; margin: 10px auto 18px;
+            padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px;
+            color: var(--muted); background: rgba(255, 255, 255, 0.76); font-size: 12px;
         }
 
+        /* ── Quick Replies ── */
         .quick-replies {
-            display: flex;
-            max-width: min(680px, calc(100% - 40px));
-            flex-wrap: wrap;
-            gap: 8px;
-            margin: -12px 0 22px 40px;
+            display: flex; max-width: min(680px, calc(100% - 40px));
+            flex-wrap: wrap; gap: 8px; margin: -12px 0 22px 40px;
         }
-
-        .quick-replies.from-event {
-            justify-content: center;
-            max-width: 100%;
-            margin: -8px auto 18px;
-        }
-
-        .quick-replies.grouped {
-            display: grid;
-            gap: 12px;
-        }
-
-        .quick-reply-group {
-            display: grid;
-            gap: 8px;
-        }
-
-        .quick-reply-title {
-            color: var(--muted);
-            font-size: 13px;
-            font-weight: 680;
-            line-height: 1.45;
-        }
-
-        .quick-reply-options {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
+        .quick-replies.from-event { justify-content: center; max-width: 100%; margin: -8px auto 18px; }
+        .quick-replies.grouped { display: grid; gap: 12px; }
+        .quick-reply-group { display: grid; gap: 8px; }
+        .quick-reply-title { color: var(--muted); font-size: 13px; font-weight: 680; line-height: 1.45; }
+        .quick-reply-options { display: flex; flex-wrap: wrap; gap: 8px; }
         .quick-reply-btn {
-            display: inline-flex;
-            min-height: 34px;
-            max-width: 100%;
-            align-items: center;
-            justify-content: center;
-            padding: 7px 11px;
-            border: 1px solid rgba(63, 125, 246, 0.28);
-            border-radius: 999px;
-            color: var(--brand-dark);
-            background: #ffffff;
-            font-size: 13px;
-            font-weight: 650;
-            line-height: 1.35;
-            text-align: left;
+            display: inline-flex; min-height: 34px; max-width: 100%; align-items: center; justify-content: center;
+            padding: 7px 11px; border: 1px solid rgba(63, 125, 246, 0.28); border-radius: 999px;
+            color: var(--brand-dark); background: #ffffff; font-size: 13px; font-weight: 650;
+            line-height: 1.35; text-align: left; cursor: pointer;
         }
-
-        .quick-reply-btn:hover {
-            border-color: rgba(63, 125, 246, 0.5);
-            background: var(--brand-soft);
+        .quick-reply-btn:hover { border-color: rgba(63, 125, 246, 0.5); background: var(--brand-soft); }
+        .quick-replies.multi-select .quick-reply-btn, .quick-reply-group.multi-select .quick-reply-btn { padding-left: 12px; }
+        .quick-replies.multi-select .quick-reply-btn::before, .quick-reply-group.multi-select .quick-reply-btn::before {
+            content: ""; display: inline-grid; width: 16px; height: 16px; margin-right: 8px;
+            box-sizing: border-box; border: 1px solid rgba(63, 125, 246, 0.45); border-radius: 4px;
+            place-items: center; flex: 0 0 auto; color: #ffffff; font-size: 12px; font-weight: 800;
+            line-height: 1; background: #ffffff;
         }
-
-        .quick-replies.multi-select .quick-reply-btn,
-        .quick-reply-group.multi-select .quick-reply-btn {
-            padding-left: 12px;
+        .quick-reply-btn.selected, .quick-reply-btn[aria-pressed="true"] {
+            border-color: rgba(63, 125, 246, 0.72); color: #174fae; background: var(--brand-soft);
         }
-
-        .quick-replies.multi-select .quick-reply-btn::before,
-        .quick-reply-group.multi-select .quick-reply-btn::before {
-            content: "";
-            display: inline-grid;
-            width: 16px;
-            height: 16px;
-            margin-right: 8px;
-            box-sizing: border-box;
-            border: 1px solid rgba(63, 125, 246, 0.45);
-            border-radius: 4px;
-            place-items: center;
-            flex: 0 0 auto;
-            color: #ffffff;
-            font-size: 12px;
-            font-weight: 800;
-            line-height: 1;
-            background: #ffffff;
+        .quick-replies.multi-select .quick-reply-btn.selected::before, .quick-replies.multi-select .quick-reply-btn[aria-pressed="true"]::before,
+        .quick-reply-group.multi-select .quick-reply-btn.selected::before, .quick-reply-group.multi-select .quick-reply-btn[aria-pressed="true"]::before {
+            content: "✓"; border-color: var(--brand); background: var(--brand); box-shadow: 0 0 0 2px rgba(63, 125, 246, 0.16);
         }
+        .quick-reply-btn:focus-visible { outline: 2px solid rgba(63, 125, 246, 0.38); outline-offset: 2px; }
+        .quick-reply-btn:disabled { cursor: default; opacity: 0.55; }
+        .quick-reply-actions { display: flex; width: 100%; gap: 8px; margin-top: 2px; }
+        .quick-reply-submit, .quick-reply-clear { min-height: 32px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 680; }
+        .quick-reply-submit { color: #ffffff; background: var(--brand); }
+        .quick-reply-submit:hover { background: var(--brand-dark); }
+        .quick-reply-submit:disabled { cursor: default; background: #b9c7dc; }
+        .quick-reply-clear { color: var(--muted); background: #eef3fb; }
 
-        .quick-reply-btn.selected,
-        .quick-reply-btn[aria-pressed="true"] {
-            border-color: rgba(63, 125, 246, 0.72);
-            color: #174fae;
-            background: var(--brand-soft);
-        }
-
-        .quick-replies.multi-select .quick-reply-btn.selected::before,
-        .quick-replies.multi-select .quick-reply-btn[aria-pressed="true"]::before,
-        .quick-reply-group.multi-select .quick-reply-btn.selected::before,
-        .quick-reply-group.multi-select .quick-reply-btn[aria-pressed="true"]::before {
-            content: "✓";
-            border-color: var(--brand);
-            background: var(--brand);
-            box-shadow: 0 0 0 2px rgba(63, 125, 246, 0.16);
-        }
-
-        .quick-reply-btn:focus-visible {
-            outline: 2px solid rgba(63, 125, 246, 0.38);
-            outline-offset: 2px;
-        }
-
-        .quick-reply-btn:disabled {
-            cursor: default;
-            opacity: 0.55;
-        }
-
-        .quick-reply-actions {
-            display: flex;
-            width: 100%;
-            gap: 8px;
-            margin-top: 2px;
-        }
-
-        .quick-reply-submit,
-        .quick-reply-clear {
-            min-height: 32px;
-            padding: 0 12px;
-            border-radius: 999px;
-            font-size: 13px;
-            font-weight: 680;
-        }
-
-        .quick-reply-submit {
-            color: #ffffff;
-            background: var(--brand);
-        }
-
-        .quick-reply-submit:hover {
-            background: var(--brand-dark);
-        }
-
-        .quick-reply-submit:disabled {
-            cursor: default;
-            background: #b9c7dc;
-        }
-
-        .quick-reply-clear {
-            color: var(--muted);
-            background: #eef3fb;
-        }
-
-        .composer-wrap {
-            padding: 14px 24px 22px;
-            background: linear-gradient(180deg, rgba(247, 249, 253, 0), var(--bg) 28%);
-        }
-
-        .composer {
-            width: min(820px, 100%);
-            margin: 0 auto;
-            border: 1px solid var(--line-strong);
-            border-radius: 14px;
-            background: var(--panel);
-            box-shadow: var(--shadow);
-        }
-
+        /* ── Composer ── */
+        .composer-wrap { padding: 14px 24px 22px; background: linear-gradient(180deg, rgba(247, 249, 253, 0), var(--bg) 28%); }
+        .composer { width: min(820px, 100%); margin: 0 auto; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--panel); box-shadow: var(--shadow); }
         #msg-input {
-            display: block;
-            width: 100%;
-            min-height: 54px;
-            max-height: 180px;
-            resize: none;
-            padding: 16px 17px 8px;
-            border: 0;
-            outline: none;
-            color: var(--text);
-            background: transparent;
-            font-size: 15px;
-            line-height: 1.55;
+            display: block; width: 100%; min-height: 54px; max-height: 180px; resize: none;
+            padding: 16px 17px 8px; border: 0; outline: none; color: var(--text);
+            background: transparent; font-size: 15px; line-height: 1.55;
         }
-
         .composer-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            min-height: 48px;
-            padding: 7px 9px 9px;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; min-height: 48px; padding: 7px 9px 9px;
         }
-
-        .tool-group {
-            display: flex;
-            min-width: 0;
-            flex-wrap: wrap;
-            gap: 7px;
-        }
-
+        .tool-group { display: flex; min-width: 0; flex-wrap: wrap; gap: 7px; }
         .tool-btn {
-            display: inline-flex;
-            min-height: 32px;
-            align-items: center;
-            justify-content: center;
-            padding: 0 11px;
-            border: 1px solid var(--line);
-            border-radius: 999px;
-            color: #50627d;
-            background: #f8fbff;
-            font-size: 13px;
-            font-weight: 650;
-            white-space: nowrap;
+            display: inline-flex; min-height: 32px; align-items: center; justify-content: center;
+            padding: 0 11px; border: 1px solid var(--line); border-radius: 999px;
+            color: #50627d; background: #f8fbff; font-size: 13px; font-weight: 650; white-space: nowrap;
         }
-
-        .tool-btn:hover,
-        .tool-btn.active {
-            border-color: rgba(63, 125, 246, 0.34);
-            color: var(--brand-dark);
-            background: var(--brand-soft);
-        }
-
-        .tool-btn:disabled {
-            cursor: default;
-            opacity: 0.58;
-        }
-
+        .tool-btn:hover, .tool-btn.active { border-color: rgba(63, 125, 246, 0.34); color: var(--brand-dark); background: var(--brand-soft); }
+        .tool-btn:disabled { cursor: default; opacity: 0.58; }
         #send-btn {
-            display: grid;
-            width: 34px;
-            height: 34px;
-            flex: 0 0 34px;
-            place-items: center;
-            border-radius: 50%;
-            color: #ffffff;
-            background: var(--brand);
-            font-size: 18px;
-            font-weight: 800;
+            display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center;
+            border-radius: 50%; color: #ffffff; background: var(--brand); font-size: 18px; font-weight: 800;
         }
+        #send-btn:hover { background: var(--brand-dark); }
 
-        #send-btn:hover {
-            background: var(--brand-dark);
+        /* ── Markdown ── */
+        .msg.assistant h1, .msg.assistant h2, .msg.assistant h3 { margin: 15px 0 7px; color: #1d2b42; }
+        .msg.assistant h1 { font-size: 1.32em; }
+        .msg.assistant h2 { font-size: 1.16em; }
+        .msg.assistant h3 { font-size: 1.05em; }
+        .msg.assistant p { margin: 6px 0; }
+        .msg.assistant ul, .msg.assistant ol { margin: 7px 0; padding-left: 22px; }
+        .msg.assistant li { margin: 3px 0; }
+        .msg.assistant table { width: 100%; margin: 12px 0; border-collapse: collapse; font-size: 13px; }
+        .msg.assistant th, .msg.assistant td { padding: 7px 9px; border: 1px solid var(--line); text-align: left; }
+        .msg.assistant th { background: #f3f6fb; font-weight: 720; }
+        .msg.assistant code { padding: 2px 5px; border-radius: 5px; color: var(--brand-dark); background: var(--brand-soft); font-size: 0.92em; }
+        .msg.assistant pre { overflow-x: auto; margin: 10px 0; padding: 13px; border-radius: var(--radius); background: #17233a; color: #edf4ff; }
+        .msg.assistant pre code { padding: 0; color: inherit; background: none; }
+        .msg.assistant blockquote { margin: 9px 0; padding-left: 12px; border-left: 3px solid var(--brand); color: #50627d; }
+
+        /* ── Profile Panel ── */
+        .profile-section { margin-bottom: 20px; }
+        .profile-section-title { font-size: 13px; font-weight: 720; color: #354258; margin-bottom: 12px; }
+        .sufficiency-ring-wrap { display: flex; justify-content: center; padding: 16px 0; }
+        .sufficiency-ring-bg { fill: none; stroke: #eef3fb; stroke-width: 8; }
+        .sufficiency-ring-fg { fill: none; stroke: var(--brand); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+        .sufficiency-label { font-size: 22px; font-weight: 800; fill: #202634; }
+        .sufficiency-sublabel { font-size: 11px; fill: var(--muted-light); }
+        .field-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 10px; border-radius: var(--radius); cursor: pointer;
+            border: 1px solid transparent; margin-bottom: 2px;
         }
-
-        .msg.assistant h1,
-        .msg.assistant h2,
-        .msg.assistant h3 {
-            margin: 15px 0 7px;
-            color: #1d2b42;
+        .field-item:hover { background: var(--sidebar-hover); }
+        .field-item.filled { border-color: transparent; }
+        .field-item.empty { border-color: transparent; }
+        .field-dot {
+            width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%;
         }
-
-        .msg.assistant h1 {
-            font-size: 1.32em;
+        .field-dot.filled { background: #36b37e; }
+        .field-dot.empty { background: #d4deec; }
+        .field-name { flex: 1; font-size: 13px; font-weight: 590; color: #354258; }
+        .field-weight { font-size: 11px; color: var(--muted-light); }
+        .field-detail { font-size: 12px; color: #50627d; line-height: 1.55; margin: 4px 0 0 24px; }
+        .field-arrow { font-size: 11px; color: var(--muted-light); transition: transform 0.2s; }
+        .field-arrow.open { transform: rotate(180deg); }
+        .missing-guide {
+            padding: 10px; border-radius: var(--radius); background: #fff8e6;
+            font-size: 12px; color: #8d6e2b; line-height: 1.55;
         }
+        .missing-guide-icon { font-size: 16px; margin-right: 6px; }
 
-        .msg.assistant h2 {
-            font-size: 1.16em;
+        /* ── Code Highlight override ── */
+        .msg.assistant pre code.hljs { background: transparent; padding: 0; }
+
+        /* ── Responsive ── */
+        @media (max-width: 1200px) {
+            .profile-panel { display: none; }
         }
-
-        .msg.assistant h3 {
-            font-size: 1.05em;
-        }
-
-        .msg.assistant p {
-            margin: 6px 0;
-        }
-
-        .msg.assistant ul,
-        .msg.assistant ol {
-            margin: 7px 0;
-            padding-left: 22px;
-        }
-
-        .msg.assistant li {
-            margin: 3px 0;
-        }
-
-        .msg.assistant table {
-            width: 100%;
-            margin: 12px 0;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-
-        .msg.assistant th,
-        .msg.assistant td {
-            padding: 7px 9px;
-            border: 1px solid var(--line);
-            text-align: left;
-        }
-
-        .msg.assistant th {
-            background: #f3f6fb;
-            font-weight: 720;
-        }
-
-        .msg.assistant code {
-            padding: 2px 5px;
-            border-radius: 5px;
-            color: var(--brand-dark);
-            background: var(--brand-soft);
-            font-size: 0.92em;
-        }
-
-        .msg.assistant pre {
-            overflow-x: auto;
-            margin: 10px 0;
-            padding: 13px;
-            border-radius: var(--radius);
-            background: #17233a;
-            color: #edf4ff;
-        }
-
-        .msg.assistant pre code {
-            padding: 0;
-            color: inherit;
-            background: none;
-        }
-
-        .msg.assistant blockquote {
-            margin: 9px 0;
-            padding-left: 12px;
-            border-left: 3px solid var(--brand);
-            color: #50627d;
-        }
-
         @media (max-width: 820px) {
-            .app {
-                grid-template-columns: 1fr;
-            }
-
-            .sidebar {
-                display: none;
-            }
-
-            .mobile-menu {
-                display: grid;
-                place-items: center;
-            }
-
-            .topbar {
-                padding: 0 14px;
-            }
-
-            #chat {
-                padding: 24px 14px 16px;
-            }
-
-            .composer-wrap {
-                padding: 12px 12px 16px;
-            }
-
-            .prompt-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .welcome {
-                min-height: calc(100vh - 280px);
-            }
-
-            .msg {
-                max-width: 94%;
-            }
+            .sidebar { display: none; }
+            .mobile-menu { display: grid; }
+            .app { flex-direction: column; }
+            .main { height: calc(100vh - 54px); }
+            .topbar { padding: 0 14px; }
+            #chat { padding: 24px 14px 16px; }
+            .composer-wrap { padding: 12px 12px 16px; }
+            .prompt-grid { grid-template-columns: 1fr; }
+            .welcome { min-height: calc(100vh - 280px); }
+            .msg, .bubble-wrap { max-width: 94%; }
         }
     </style>
 </head>
 <body>
-    <div class="app">
-        <aside class="sidebar" aria-label="历史会话">
-            <div class="brand-row">
-                <div class="brand-mark" aria-hidden="true"></div>
-                <div class="brand-name">ReQCollect</div>
-            </div>
-            <button class="sidebar-action" type="button" onclick="newChat()">
-                <span aria-hidden="true">＋</span>
-                <span>新对话</span>
-            </button>
-            <input class="sidebar-search" id="session-search" type="search" placeholder="搜索历史会话" oninput="renderSessions()">
-            <div class="history-label">最近</div>
-            <div id="session-list">
-                <div class="session-empty">暂无历史会话</div>
-            </div>
-            <div class="sidebar-footer">
-                <a class="sidebar-link" href="/docs">API 文档</a>
-                <a class="sidebar-link" href="/api/health">服务状态</a>
-            </div>
-        </aside>
-
-        <main class="main">
-            <header class="topbar">
-                <button class="mobile-menu" type="button" onclick="newChat()" aria-label="新对话">＋</button>
-                <div id="main-header">ReQCollect</div>
-                 <div class="topbar-actions">
-                    <span class="status-chip" id="score-label">完整度 0%</span>
-                    <span class="status-chip" id="session-label">未开始</span>
+    <div id="app">
+        <div class="app">
+            <!-- ── Sidebar ── -->
+            <aside class="sidebar" v-show="!mobileMenuOpen || windowWidth > 820" aria-label="历史会话">
+                <div class="brand-row">
+                    <div class="brand-mark" aria-hidden="true"></div>
+                    <div class="brand-name">ReQCollect</div>
                 </div>
-            </header>
+                <button class="sidebar-action" type="button" @click="newChat">
+                    <span aria-hidden="true">＋</span>
+                    <span>新对话</span>
+                </button>
+                <input class="sidebar-search" type="search" placeholder="搜索历史会话" v-model="searchQuery">
+                <div class="history-label">最近</div>
+                <div id="session-list">
+                    <div v-if="filteredSessions.length === 0" class="session-empty">暂无历史会话</div>
+                    <div v-for="s in filteredSessions" :key="s.session_id"
+                         class="session-item" :class="{ active: s.session_id === sessionId, pinned: s.is_pinned }"
+                         @click="switchSession(s.session_id)">
+                        <div class="session-title">
+                            <span class="name">{{ s.project_name || '未命名项目' }}</span>
+                            <span class="meta">{{ formatDate(s.updated_at) }} · {{ Math.round((s.sufficiency_score || 0) * 100) }}%</span>
+                        </div>
+                        <div class="session-actions">
+                            <button class="session-action-btn" :class="{ active: s.is_pinned }" type="button"
+                                    :title="s.is_pinned ? '取消置顶' : '置顶会话'"
+                                    @click.stop="togglePin(s.session_id, !s.is_pinned)" v-html="iconSvg('arrow-up')">
+                            </button>
+                            <button class="session-action-btn danger" type="button" title="删除会话"
+                                    @click.stop="deleteSession(s.session_id)" v-html="iconSvg('x')">
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-footer">
+                    <a class="sidebar-link" href="/docs">API 文档</a>
+                    <a class="sidebar-link" href="/api/health">服务状态</a>
+                </div>
+            </aside>
 
-            <section class="chat-shell" aria-label="对话区">
-                <div id="chat">
-                    <div class="chat-inner" id="chat-inner">
-                        <div class="welcome">
-                            <div class="welcome-card">
-                                <div class="welcome-logo" aria-hidden="true"></div>
-                                <div class="welcome-title">我是 ReQCollect，很高兴见到你！</div>
-                                 <div class="welcome-subtitle">开始描述您的业务需求，我会帮您梳理并生成需求文档。</div>
-                                <div class="prompt-grid">
-                                    <button class="prompt-card" type="button" onclick="usePrompt('我想做一个企业报销审批系统')">企业报销审批系统</button>
-                                    <button class="prompt-card" type="button" onclick="usePrompt('我想做一个餐厅外卖智能客服系统')">餐厅外卖智能客服</button>
-                                    <button class="prompt-card" type="button" onclick="usePrompt('生成 PRD')">基于当前信息生成 PRD</button>
-                                    <button class="prompt-card" type="button" onclick="toggleMode()">切换生成模式</button>
+            <!-- ── Main Chat Area ── -->
+            <div class="main-area">
+                <div class="main">
+                    <header class="topbar">
+                        <button class="mobile-menu" type="button" @click="mobileMenuOpen=!mobileMenuOpen" aria-label="菜单">
+                            {{ mobileMenuOpen ? '✕' : '☰' }}
+                        </button>
+                        <button class="mobile-menu" style="justify-self:start" type="button" @click="newChat" aria-label="新对话">＋</button>
+                        <div id="main-header">{{ currentTitle }}</div>
+                        <div class="topbar-actions">
+                            <span class="status-chip">完整度 {{ sufficiencyPercent }}%</span>
+                            <span class="status-chip">{{ sessionId ? '进行中' : '未开始' }}</span>
+                            <button class="status-chip" style="cursor:pointer;border:none" @click="showProfileDrawer = true"
+                                    v-if="windowWidth <= 1200 && sessionId" title="查看需求画像">📊 画像</button>
+                        </div>
+                    </header>
+
+                    <section class="chat-shell" aria-label="对话区">
+                        <div id="chat" ref="chatRef">
+                            <div class="chat-inner">
+                                <!-- Welcome Screen -->
+                                <div v-if="messages.length === 0 && !streaming" class="welcome">
+                                    <div class="welcome-card">
+                                        <div class="welcome-logo" aria-hidden="true"></div>
+                                        <div class="welcome-title">我是 ReQCollect，很高兴见到你！</div>
+                                        <div class="welcome-subtitle">开始描述您的业务需求，我会帮您梳理并生成需求文档。</div>
+                                        <div class="prompt-grid">
+                                            <button class="prompt-card" type="button" @click="usePrompt('我想做一个企业报销审批系统')">企业报销审批系统</button>
+                                            <button class="prompt-card" type="button" @click="usePrompt('我想做一个餐厅外卖智能客服系统')">餐厅外卖智能客服</button>
+                                            <button class="prompt-card" type="button" @click="usePrompt('生成 PRD')">基于当前信息生成 PRD</button>
+                                            <button class="prompt-card" type="button" @click="toggleMode">切换生成模式</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Messages -->
+                                <template v-for="(msg, idx) in displayMessages" :key="msg._id || idx">
+                                    <!-- Event -->
+                                    <div v-if="msg.role === 'event'" class="event">{{ msg.content }}</div>
+
+                                    <!-- User / Assistant -->
+                                    <div v-else-if="msg.role === 'user' || msg.role === 'assistant'"
+                                         class="msg-row" :class="msg.role">
+                                        <div v-if="msg.role === 'assistant'" class="avatar">PM</div>
+                                        <div class="bubble-wrap">
+                                            <div class="msg-meta">
+                                                <span>{{ msg.role === 'user' ? '你' : 'PM Agent' }}</span>
+                                                <span v-if="msg.created_at">· {{ formatTime(msg.created_at) }}</span>
+                                                <button v-if="msg.content" class="msg-copy-btn" @click="copyText(msg.content)" title="复制">📋</button>
+                                            </div>
+                                            <div class="msg" :class="msg.role"
+                                                 :ref="el => { if (el && idx === displayMessages.length - 1 && msg.role === 'assistant' && streaming) { lastMsgRef = el; } }"
+                                                 v-html="renderContent(msg)">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick Replies -->
+                                    <div v-if="msg._quickReplies && msg._quickReplies.length"
+                                         class="quick-replies"
+                                         :class="{ 'from-event': msg.role === 'event', 'multi-select': msg._qrMode === 'multi' }">
+                                        <button v-for="qr in msg._quickReplies" :key="qr.value"
+                                                class="quick-reply-btn"
+                                                :class="{ selected: msg._qrSelected && msg._qrSelected.has(qr.value) }"
+                                                :disabled="msg._qrDisabled"
+                                                @click="handleQuickReply(msg, qr, $event)">
+                                            {{ qr.label }}
+                                        </button>
+                                        <div v-if="msg._qrMode === 'multi'" class="quick-reply-actions">
+                                            <button class="quick-reply-submit" :disabled="!msg._qrSelected || msg._qrSelected.size === 0"
+                                                    @click="submitMultiQuickReply(msg)">确认选择</button>
+                                            <button class="quick-reply-clear" @click="clearMultiQuickReply(msg)">清空</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Typing indicator -->
+                                    <div v-if="streaming && idx === displayMessages.length - 1 && msg.role === 'assistant' && !msg.content" class="msg-row assistant">
+                                        <div class="avatar">PM</div>
+                                        <div class="msg assistant" style="padding:10px 0;display:flex;gap:4px;align-items:center;min-height:24px">
+                                            <span class="typing-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted)"></span>
+                                            <span class="typing-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted)"></span>
+                                            <span class="typing-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted)"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Composer -->
+                        <div class="composer-wrap">
+                            <div class="composer">
+                                <textarea id="msg-input" rows="1" placeholder="描述您的业务需求..."
+                                          v-model="inputText" @keydown="onInputKeydown"
+                                          ref="inputRef" :disabled="streaming"></textarea>
+                                <div class="composer-bar">
+                                    <div class="tool-group">
+                                        <button class="tool-btn active" type="button">深度挖掘</button>
+                                        <button class="tool-btn" type="button" @click="openKnowledgeUpload" :disabled="uploading">
+                                            {{ uploading ? '上传中' : '上传知识' }}
+                                        </button>
+                                        <input ref="knowledgeFileRef" type="file" accept=".md,.txt,text/markdown,text/plain" hidden @change="uploadKnowledgeFile">
+                                        <button class="tool-btn" :class="{ active: useKnowledge }" type="button"
+                                                @click="useKnowledge = !useKnowledge; $refs.inputRef && $refs.inputRef.focus()">
+                                            知识检索
+                                        </button>
+                                        <button class="tool-btn" type="button" @click="toggleMode">
+                                            {{ mode === 'one_shot' ? '一键生成' : '逐章确认' }}
+                                        </button>
+                                    </div>
+                                    <button id="send-btn" type="button" @click="sendMessage" :disabled="streaming" aria-label="发送">↑</button>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
                 </div>
+            </div>
 
-                <div class="composer-wrap">
-                    <div class="composer">
-                        <textarea id="msg-input" rows="1" placeholder="描述您的业务需求..."></textarea>
-                        <div class="composer-bar">
-                            <div class="tool-group">
-                                <button class="tool-btn active" type="button">深度挖掘</button>
-                                <button class="tool-btn" id="upload-knowledge-btn" type="button" onclick="openKnowledgeUpload()">上传知识</button>
-                                <input id="knowledge-file-input" type="file" accept=".md,.txt,text/markdown,text/plain" hidden>
-                                <button class="tool-btn" id="knowledge-toggle" type="button" onclick="toggleKnowledge()" aria-pressed="false">知识检索</button>
-                                <button class="tool-btn" id="mode-toggle" type="button" onclick="toggleMode()">一键生成</button>
-                            </div>
-                            <button id="send-btn" type="button" onclick="sendMessage()" aria-label="发送">↑</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
+            <!-- ── Profile Panel (桌面) ── -->
+            <div class="profile-panel" v-if="windowWidth > 1200 && sessionId && profile">
+                <profile-panel :profile="profile" :sufficiency-percent="sufficiencyPercent" :fields="fieldsConfig"></profile-panel>
+            </div>
+        </div>
+
+        <!-- ── Profile Panel (抽屉, <1200px) ── -->
+        <el-drawer v-model="showProfileDrawer" title="需求画像" size="320px"
+                   :append-to-body="true" :with-header="true"
+                   @close="showProfileDrawer = false">
+            <profile-panel v-if="profile" :profile="profile" :sufficiency-percent="sufficiencyPercent" :fields="fieldsConfig"></profile-panel>
+            <div v-else style="color:var(--muted-light);padding:20px;text-align:center;font-size:13px">选择会话查看需求画像</div>
+        </el-drawer>
     </div>
 
+    <!-- ── Profile Panel Component ── -->
+    <script id="profile-panel-template" type="text/x-template">
+        <div>
+            <!-- 完整度进度环 -->
+            <div class="profile-section">
+                <div class="profile-section-title">需求完整度</div>
+                <div class="sufficiency-ring-wrap">
+                    <svg width="120" height="120" viewBox="0 0 120 120">
+                        <circle class="sufficiency-ring-bg" cx="60" cy="60" r="48"/>
+                        <circle class="sufficiency-ring-fg" cx="60" cy="60" r="48"
+                                :style="{ strokeDasharray: circumference, strokeDashoffset: offset }"
+                                transform="rotate(-90, 60, 60)"/>
+                        <text x="60" y="56" text-anchor="middle" class="sufficiency-label">{{ sufficiencyPercent }}%</text>
+                        <text x="60" y="74" text-anchor="middle" class="sufficiency-sublabel">完整度</text>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- 字段列表 -->
+            <div class="profile-section">
+                <div class="profile-section-title">画像字段</div>
+                <div v-for="field in sortedFields" :key="field.key" class="field-item"
+                     :class="{ filled: field.isFilled, empty: !field.isFilled }"
+                     @click="field.isFilled && (field.expanded = !field.expanded)">
+                    <span class="field-dot" :class="{ filled: field.isFilled, empty: !field.isFilled }"></span>
+                    <span class="field-name">{{ field.label }}</span>
+                    <span v-if="field.isFilled" class="field-arrow" :class="{ open: field.expanded }">▼</span>
+                    <span class="field-weight">×{{ field.weight }}</span>
+                    <div v-if="field.expanded && field.isFilled" class="field-detail" style="width:100%">
+                        {{ formatFieldValue(field.rawValue) }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 缺失字段引导 -->
+            <div class="profile-section">
+                <div class="profile-section-title">待补充</div>
+                <div class="missing-guide" v-if="missingFields.length > 0">
+                    <span class="missing-guide-icon">💡</span>
+                    建议优先补充以下字段：
+                    <ul style="margin:6px 0 0 16px;padding:0">
+                        <li v-for="f in missingFields" :key="f.key" style="margin:3px 0">{{ f.label }}</li>
+                    </ul>
+                </div>
+                <div class="missing-guide" v-else style="background:#e8f5e9;color:#2e7d32">
+                    <span class="missing-guide-icon">✅</span> 所有字段已填写完毕！
+                </div>
+            </div>
+        </div>
+    </script>
+
+    <!-- ── Vue App ── -->
     <script>
-        let sessionId = null;
-        let mode = 'one_shot';
-        let useKnowledge = false;
-        let sessionsCache = [];
+    const { createApp, ref, computed, watch, nextTick, onMounted, onUnmounted, reactive, toRefs } = Vue;
 
-        const inputEl = document.getElementById('msg-input');
-        const knowledgeFileInput = document.getElementById('knowledge-file-input');
-        inputEl.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
+    // ── Profile Panel Component ──
+    const ProfilePanel = {
+        name: 'ProfilePanel',
+        template: document.getElementById('profile-panel-template').innerHTML,
+        props: {
+            profile: { type: Object, required: true },
+            sufficiencyPercent: { type: Number, default: 0 },
+            fields: { type: Array, required: true },
+        },
+        computed: {
+            circumference() { return 2 * Math.PI * 48; },
+            offset() {
+                const pct = Math.min(this.sufficiencyPercent, 100) / 100;
+                return this.circumference * (1 - pct);
+            },
+            sortedFields() {
+                return [...this.fields]
+                    .map(f => ({
+                        ...f,
+                        rawValue: this.profile[f.key],
+                        isFilled: this._isFilled(this.profile[f.key]),
+                        expanded: false,
+                    }))
+                    .sort((a, b) => {
+                        if (a.isFilled !== b.isFilled) return a.isFilled ? 1 : -1;
+                        return b.weight - a.weight;
+                    });
+            },
+            missingFields() {
+                return this.sortedFields.filter(f => !f.isFilled);
             }
+        },
+        methods: {
+            _isFilled(v) {
+                if (v === null || v === undefined) return false;
+                if (typeof v === 'string') return v.trim().length > 0;
+                if (Array.isArray(v)) return v.length > 0;
+                if (typeof v === 'number') return v > 0;
+                if (typeof v === 'object') return Object.keys(v).length > 0;
+                return true;
+            },
+            formatFieldValue(v) {
+                if (!v) return '—';
+                if (typeof v === 'string') {
+                    if (v.length > 200) return v.slice(0, 200) + '...';
+                    return v;
+                }
+                if (Array.isArray(v)) {
+                    if (v.length === 0) return '—';
+                    return v.map(item => {
+                        if (typeof item === 'object') return item.name || item.role || item.module || JSON.stringify(item);
+                        return String(item);
+                    }).join('、');
+                }
+                if (typeof v === 'object') {
+                    const keys = Object.keys(v);
+                    if (keys.length === 0) return '—';
+                    return keys.map(k => `${k}: ${v[k]}`).join('；');
+                }
+                return String(v);
+            }
+        }
+    };
+
+    // ── Field configuration ──
+    const FIELDS_CONFIG = [
+        { key: 'business_background', label: '业务背景', weight: 15 },
+        { key: 'functional_requirements', label: '功能需求', weight: 15 },
+        { key: 'business_flow', label: '业务流程', weight: 12 },
+        { key: 'current_process', label: '当前流程', weight: 10 },
+        { key: 'project_name', label: '项目名称', weight: 10 },
+        { key: 'non_functional', label: '非功能需求', weight: 10 },
+        { key: 'user_roles', label: '用户角色', weight: 8 },
+        { key: 'existing_systems', label: '现有系统', weight: 5 },
+        { key: 'data_scale', label: '数据规模', weight: 5 },
+        { key: 'constraints', label: '约束条件', weight: 5 },
+        { key: 'success_criteria', label: '成功标准', weight: 5 },
+    ];
+
+    // ── Utility functions ──
+    function escapeHtml(text) {
+        return String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function renderMarkdown(text) {
+        if (typeof marked !== 'undefined') {
+            return marked.parse(text);
+        }
+        return escapeHtml(text);
+    }
+
+    function normalizeQuickReplyOption(raw) {
+        const text = String(raw || '').replace(/\*\*/g, '').replace(/`/g, '').replace(/\s+/g, ' ')
+            .replace(/^\s*(?:[-*+•]\s*)?/, '')
+            .replace(/^\s*(?:(?:选项|方案)\s*)?[\(（]?(?:[A-Ha-h]|[1-9][0-9]?|[一二三四五六七八九十]|[①②③④⑤⑥⑦⑧⑨⑩])[\)）.、:：]\s*/, '')
+            .replace(/^[“"'']|[”"'']$/g, '').trim();
+        if (!text || text.length > 90) return '';
+        if (/^(问题|请问|当前|已覆盖|待挖掘|需求完整度|Sufficiency|Missing)/i.test(text)) return '';
+        return text;
+    }
+
+    function looksLikePendingQuestion(text) {
+        const tail = String(text || '').slice(-1200);
+        return /[?？]|请选择|选一|选择|确认|倾向|更适合|是否|要不要|还是|或者/.test(tail);
+    }
+
+    function uniqueOptions(options) {
+        const seen = new Set(), result = [];
+        for (const o of options) {
+            const v = normalizeQuickReplyOption(o);
+            if (!v || seen.has(v)) continue;
+            seen.add(v); result.push(v);
+            if (result.length >= 6) break;
+        }
+        return result;
+    }
+
+    function extractInlineOptions(text) {
+        const tail = String(text || '').replace(/\s+/g, ' ').slice(-500);
+        const pair = tail.match(/([^，。！？?；;：:]{2,24})(?:还是|或者|或)([^，。！？?；;：:]{2,24})/);
+        if (!pair) return [];
+        return [pair[1], pair[2]].map(part => {
+            return part.replace(/^.*(?:是|选择|采用|按)/, '').replace(/^(比如|例如|可以|为)/, '')
+                .replace(/(呢|吗|更合适|更适合)$/g, '').trim();
         });
-        inputEl.addEventListener('input', autoGrowInput);
-        knowledgeFileInput.addEventListener('change', uploadKnowledgeFile);
+    }
 
-        function escapeHtml(text) {
-            return String(text || '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+    function isQuestionHeader(text) {
+        const v = String(text || '').trim();
+        return /[?？]/.test(v) || /(?:请选择|选择|确认|倾向|更适合|哪些|哪几|哪个|哪种|什么|是否|要不要|规模|人群|量级|比如|例如)/.test(v);
+    }
+
+    function normalizeQuickReplyQuestion(raw) {
+        return String(raw || '').replace(/\*\*/g, '').replace(/`/g, '').replace(/\s+/g, ' ')
+            .replace(/^\s*(?:[-*+•]\s*)?/, '').replace(/^\s*[\(（]?(?:[1-9][0-9]?|[一二三四五六七八九十]|[①②③④⑤⑥⑦⑧⑨⑩])[\)）.、:：]\s*/, '')
+            .replace(/[：:]\s*$/, '').trim();
+    }
+
+    function normalizeQuickReplyGroups(groups) {
+        const normalized = [];
+        for (const group of groups || []) {
+            const options = uniqueOptions(group.options || []);
+            if (!options.length) continue;
+            const question = normalizeQuickReplyQuestion(group.question || '');
+            const mode = group.mode || inferQuickReplyMode(question, options);
+            normalized.push({ question, options, mode });
         }
+        return normalized;
+    }
 
-        function autoGrowInput() {
-            inputEl.style.height = 'auto';
-            inputEl.style.height = Math.min(inputEl.scrollHeight, 180) + 'px';
-        }
-
-        function renderMarkdown(text) {
-            if (typeof marked !== 'undefined') {
-                return marked.parse(text);
+    function extractQuickReplyGroups(text) {
+        if (!looksLikePendingQuestion(text)) return [];
+        const plain = String(text || '').replace(/```[\s\S]*?```/g, '');
+        const groups = []; const fallbackOptions = [];
+        let current = null;
+        function finishCurrent() { if (current && current.options.length) { groups.push(current); } current = null; }
+        for (const rawLine of plain.split('\n')) {
+            const line = rawLine.trim();
+            if (!line) continue;
+            const optionMatch = line.match(/^(?:[-*+•]\s*)?(?:(?:选项|方案)\s*)?[\(（]?([A-Ha-h]|[1-9][0-9]?|[一二三四五六七八九十]|[①②③④⑤⑥⑦⑧⑨⑩])[\)）.、:：]\s*(.+)$/);
+            if (optionMatch) {
+                const marker = optionMatch[1]; const body = optionMatch[2].trim();
+                const num = !/^[A-Ha-h]$/.test(marker);
+                if (num && isQuestionHeader(body) && body.length > 8) { finishCurrent(); current = { question: body, options: [], mode: inferQuickReplyMode(body, []) }; continue; }
+                if (current) current.options.push(body); else fallbackOptions.push(body);
+                continue;
             }
-            return escapeHtml(text);
+            const bullet = line.match(/^[-*+•]\s+(.+)$/);
+            if (bullet) { (current || { options: fallbackOptions }).options.push(bullet[1]); continue; }
+            if (isQuestionHeader(line)) { finishCurrent(); current = { question: line, options: [], mode: inferQuickReplyMode(line, []) }; }
         }
+        finishCurrent();
+        if (groups.length) return normalizeQuickReplyGroups(groups);
+        let options = uniqueOptions(fallbackOptions);
+        if (!options.length) options = uniqueOptions(extractInlineOptions(plain));
+        if (!options.length && /是否|要不要|可以吗|确认|生成\s*PRD|生成PRD/.test(plain)) options = ['是', '否', '请你推荐方案'];
+        if (!options.length) options = ['请你推荐默认方案', '暂不确定，先跳过'];
+        return normalizeQuickReplyGroups([{ question: '', options, mode: inferQuickReplyMode(plain, options) }]);
+    }
 
-        function welcomeHtml(title = '我是 ReQCollect，很高兴见到你！', subtitle = '开始描述您的业务需求，我会帮您梳理并生成需求文档。') {
-            return `<div class="welcome"><div class="welcome-card">
-                <div class="welcome-logo" aria-hidden="true"></div>
-                <div class="welcome-title">${escapeHtml(title)}</div>
-                <div class="welcome-subtitle">${escapeHtml(subtitle)}</div>
-                <div class="prompt-grid">
-                    <button class="prompt-card" type="button" onclick="usePrompt('我想做一个企业报销审批系统')">企业报销审批系统</button>
-                    <button class="prompt-card" type="button" onclick="usePrompt('我想做一个餐厅外卖智能客服系统')">餐厅外卖智能客服</button>
-                    <button class="prompt-card" type="button" onclick="usePrompt('生成 PRD')">基于当前信息生成 PRD</button>
-                    <button class="prompt-card" type="button" onclick="toggleMode()">切换生成模式</button>
-                </div></div></div>`;
-        }
+    function inferQuickReplyMode(text, options) {
+        const tail = String(text || '').slice(-1200);
+        if (/多选|可多选|选择多个|选多个|多项|勾选|哪些|哪几|都有哪些|需要哪些|包含哪些|覆盖哪些/.test(tail)) return 'multi';
+        if (/单选|二选一|任选一|选一个|选择一个|是否|要不要|还是|或者/.test(tail)) return 'single';
+        if ((options || []).length > 3 && /角色|模块|功能|端|渠道|范围|能力|场景|需求/.test(tail)) return 'multi';
+        return 'single';
+    }
 
-        function chatInner() {
-            return document.getElementById('chat-inner');
-        }
+    // ── App ──
+    const App = {
+        components: { ProfilePanel },
+        setup() {
+            const windowWidth = ref(window.innerWidth);
+            const searchQuery = ref('');
+            const sessionId = ref(null);
+            const mode = ref('one_shot');
+            const useKnowledge = ref(false);
+            const sessionsCache = ref([]);
+            const messages = ref([]);
+            const profile = ref(null);
+            const streaming = ref(false);
+            const inputText = ref('');
+            const uploading = ref(false);
+            const mobileMenuOpen = ref(false);
+            const showProfileDrawer = ref(false);
+            const chatRef = ref(null);
+            const inputRef = ref(null);
+            const knowledgeFileRef = ref(null);
+            let msgIdCounter = 0;
 
-        function clearChat() {
-            chatInner().innerHTML = '';
-        }
-
-        function ensureChatStarted() {
-            const welcome = chatInner().querySelector('.welcome');
-            if (welcome) {
-                chatInner().innerHTML = '';
+            // ── Resize handler ──
+            let resizeTimer = null;
+            function onResize() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => { windowWidth.value = window.innerWidth; }, 100);
             }
-            if (!sessionId) {
-                sessionId = 'session-' + Date.now();
-                updateSessionLabel();
-            }
-        }
+            onMounted(() => window.addEventListener('resize', onResize));
+            onUnmounted(() => { window.removeEventListener('resize', onResize); clearTimeout(resizeTimer); });
 
-        function scrollChat() {
-            const chat = document.getElementById('chat');
-            chat.scrollTop = chat.scrollHeight;
-        }
-
-        function addMessage(role, text) {
-            ensureChatStarted();
-            const row = document.createElement('div');
-            row.className = 'msg-row ' + role;
-            if (role === 'assistant') {
-                const avatar = document.createElement('div');
-                avatar.className = 'avatar';
-                avatar.textContent = 'PM';
-                row.appendChild(avatar);
-            }
-            const div = document.createElement('div');
-            div.className = 'msg ' + role;
-            if (role === 'assistant') {
-                div.innerHTML = renderMarkdown(text);
-            } else {
-                div.textContent = text;
-            }
-            row.appendChild(div);
-            chatInner().appendChild(row);
-            scrollChat();
-            return div;
-        }
-
-        function addEvent(text) {
-            ensureChatStarted();
-            const div = document.createElement('div');
-            div.className = 'event';
-            div.textContent = text;
-            chatInner().appendChild(div);
-            scrollChat();
-            return div;
-        }
-
-        function normalizeQuickReplyOption(raw) {
-            const text = String(raw || '')
-                .replace(/\*\*/g, '')
-                .replace(/`/g, '')
-                .replace(/\s+/g, ' ')
-                .replace(/^\s*(?:[-*+•]\s*)?/, '')
-                .replace(/^\s*(?:(?:选项|方案)\s*)?[\(（]?(?:[A-Ha-h]|[1-9][0-9]?|[一二三四五六七八九十]|[①②③④⑤⑥⑦⑧⑨⑩])[\)）.、:：]\s*/, '')
-                .replace(/^[“"'']|[”"'']$/g, '')
-                .trim();
-            if (!text || text.length > 90) return '';
-            if (/^(问题|请问|当前|已覆盖|待挖掘|需求完整度|Sufficiency|Missing)/i.test(text)) return '';
-            return text;
-        }
-
-        function looksLikePendingQuestion(text) {
-            const tail = String(text || '').slice(-1200);
-            return /[?？]|请选择|选一|选择|确认|倾向|更适合|是否|要不要|还是|或者/.test(tail);
-        }
-
-        function uniqueOptions(options) {
-            const seen = new Set();
-            const result = [];
-            for (const option of options) {
-                const value = normalizeQuickReplyOption(option);
-                if (!value || seen.has(value)) continue;
-                seen.add(value);
-                result.push(value);
-                if (result.length >= 6) break;
-            }
-            return result;
-        }
-
-        function extractInlineOptions(text) {
-            const tail = String(text || '').replace(/\s+/g, ' ').slice(-500);
-            const pair = tail.match(/([^，。！？?；;：:]{2,24})(?:还是|或者|或)([^，。！？?；;：:]{2,24})/);
-            if (!pair) return [];
-            return [pair[1], pair[2]].map(part => {
-                return part
-                    .replace(/^.*(?:是|选择|采用|按)/, '')
-                    .replace(/^(比如|例如|可以|为)/, '')
-                    .replace(/(呢|吗|更合适|更适合)$/g, '')
-                    .trim();
+            // ── Computed ──
+            const filteredSessions = computed(() => {
+                const q = searchQuery.value.trim().toLowerCase();
+                if (!q) return sessionsCache.value;
+                return sessionsCache.value.filter(s => {
+                    return (s.project_name || '').toLowerCase().includes(q) || (s.session_id || '').toLowerCase().includes(q);
+                });
             });
-        }
 
-        function isQuestionHeader(text) {
-            const value = String(text || '').trim();
-            return /[?？]/.test(value) ||
-                /(?:请选择|选择|确认|倾向|更适合|哪些|哪几|哪个|哪种|什么|是否|要不要|规模|人群|量级|比如|例如)/.test(value);
-        }
-
-        function normalizeQuickReplyQuestion(raw) {
-            return String(raw || '')
-                .replace(/\*\*/g, '')
-                .replace(/`/g, '')
-                .replace(/\s+/g, ' ')
-                .replace(/^\s*(?:[-*+•]\s*)?/, '')
-                .replace(/^\s*[\(（]?(?:[1-9][0-9]?|[一二三四五六七八九十]|[①②③④⑤⑥⑦⑧⑨⑩])[\)）.、:：]\s*/, '')
-                .replace(/[：:]\s*$/, '')
-                .trim();
-        }
-
-        function normalizeQuickReplyGroups(groups) {
-            const normalized = [];
-            for (const group of groups || []) {
-                const options = uniqueOptions(group.options || []);
-                if (!options.length) continue;
-                const question = normalizeQuickReplyQuestion(group.question || '');
-                const mode = group.mode || inferQuickReplyMode(question, options);
-                normalized.push({question, options, mode});
-            }
-            return normalized;
-        }
-
-        function extractQuickReplyGroups(text) {
-            if (!looksLikePendingQuestion(text)) return [];
-
-            const plain = String(text || '').replace(/```[\s\S]*?```/g, '');
-            const groups = [];
-            const fallbackOptions = [];
-            let current = null;
-
-            function finishCurrent() {
-                if (current && current.options.length) {
-                    groups.push(current);
-                }
-                current = null;
-            }
-
-            for (const rawLine of plain.split('\n')) {
-                const line = rawLine.trim();
-                if (!line) continue;
-
-                const optionMatch = line.match(/^(?:[-*+•]\s*)?(?:(?:选项|方案)\s*)?[\(（]?([A-Ha-h]|[1-9][0-9]?|[一二三四五六七八九十]|[①②③④⑤⑥⑦⑧⑨⑩])[\)）.、:：]\s*(.+)$/);
-                if (optionMatch) {
-                    const marker = optionMatch[1];
-                    const body = optionMatch[2].trim();
-                    const numericMarker = !/^[A-Ha-h]$/.test(marker);
-                    if (numericMarker && isQuestionHeader(body) && body.length > 8) {
-                        finishCurrent();
-                        current = {question: body, options: [], mode: inferQuickReplyMode(body, [])};
-                        continue;
-                    }
-                    if (current) {
-                        current.options.push(body);
-                    } else {
-                        fallbackOptions.push(body);
-                    }
-                    continue;
-                }
-
-                const bullet = line.match(/^[-*+•]\s+(.+)$/);
-                if (bullet) {
-                    if (current) {
-                        current.options.push(bullet[1]);
-                    } else {
-                        fallbackOptions.push(bullet[1]);
-                    }
-                    continue;
-                }
-
-                if (isQuestionHeader(line)) {
-                    finishCurrent();
-                    current = {question: line, options: [], mode: inferQuickReplyMode(line, [])};
-                }
-            }
-            finishCurrent();
-
-            if (groups.length) return normalizeQuickReplyGroups(groups);
-
-            let options = uniqueOptions(fallbackOptions);
-            if (!options.length) {
-                options = uniqueOptions(extractInlineOptions(plain));
-            }
-            if (!options.length && /是否|要不要|可以吗|确认|生成\s*PRD|生成PRD/.test(plain)) {
-                options = ['是', '否', '请你推荐方案'];
-            }
-            if (!options.length) {
-                options = ['请你推荐默认方案', '暂不确定，先跳过'];
-            }
-            return normalizeQuickReplyGroups([{
-                question: '',
-                options,
-                mode: inferQuickReplyMode(plain, options),
-            }]);
-        }
-
-        function extractQuickReplyOptions(text) {
-            return extractQuickReplyGroups(text).flatMap(group => group.options);
-        }
-
-        function inferQuickReplyMode(text, options) {
-            const tail = String(text || '').slice(-1200);
-            if (/【\s*多选\s*】|\[\s*多选\s*\]|（\s*多选\s*）|\(\s*多选\s*\)|多选|可多选|选择多个|选多个|多项|勾选|哪些|哪几|都有哪些|需要哪些|包含哪些|覆盖哪些/.test(tail)) {
-                return 'multi';
-            }
-            if (/【\s*单选\s*】|\[\s*单选\s*\]|（\s*单选\s*）|\(\s*单选\s*\)|单选|二选一|任选一|选一个|选择一个|是否|要不要|还是|或者/.test(tail)) {
-                return 'single';
-            }
-            if ((options || []).length > 3 && /角色|模块|功能|端|渠道|范围|能力|场景|需求/.test(tail)) {
-                return 'multi';
-            }
-            return 'single';
-        }
-
-        function disableQuickReplies(scope) {
-            const root = scope || document;
-            root.querySelectorAll('.quick-reply-btn:not(:disabled), .quick-reply-submit:not(:disabled), .quick-reply-clear:not(:disabled)').forEach(button => {
-                button.disabled = true;
+            const sufficiencyPercent = computed(() => {
+                if (!profile.value) return 0;
+                return Math.round((profile.value.sufficiency_score || 0) * 100);
             });
-        }
 
-        function addQuickReplies(anchorEl, options, source = 'assistant', mode = 'single') {
-            const normalized = [];
-            for (const option of options || []) {
-                const label = normalizeQuickReplyOption(option.label || option);
-                const value = normalizeQuickReplyOption(option.value || option);
-                if (!label || !value) continue;
-                if (normalized.some(item => item.value === value)) continue;
-                normalized.push({label, value});
-                if (normalized.length >= 6) break;
-            }
-            if (!normalized.length || !anchorEl) return null;
+            const currentTitle = computed(() => {
+                if (profile.value && profile.value.project_name) return profile.value.project_name;
+                if (sessionId.value) return '对话进行中';
+                return 'ReQCollect';
+            });
 
-            const wrap = document.createElement('div');
-            const isMulti = mode === 'multi';
-            wrap.className = 'quick-replies' + (source === 'event' ? ' from-event' : '') + (isMulti ? ' multi-select' : '');
-            const selected = new Set();
-            let submitButton = null;
+            const fieldsConfig = computed(() => FIELDS_CONFIG);
 
-            function updateMultiState() {
-                if (submitButton) {
-                    submitButton.disabled = selected.size === 0;
-                    submitButton.textContent = selected.size ? '确认选择（' + selected.size + '）' : '确认选择';
+            // ── Display Messages with quick reply metadata ──
+            const displayMessages = computed(() => {
+                // Quick reply extraction runs on the last assistant message
+                const msgs = messages.value.map(m => ({ ...m }));
+                // Find last assistant message that doesn't have QR yet
+                for (let i = msgs.length - 1; i >= 0; i--) {
+                    const m = msgs[i];
+                    if (m.role === 'assistant' && m.content && !m._qrProcessed) {
+                        m._qrProcessed = true;
+                        const groups = extractQuickReplyGroups(m.content);
+                        if (groups.length > 0) {
+                            m._quickReplies = groups[0].options.map(o => ({ label: o, value: o }));
+                            m._qrMode = groups[0].mode;
+                            m._qrSelected = new Set();
+                            m._qrDisabled = false;
+                            // Also create following event messages for grouped questions
+                            if (groups.length > 1) {
+                                // Insert additional groups as their own messages
+                                for (let g = 1; g < groups.length; g++) {
+                                    msgs.splice(i + 1 + g - 1, 0, {
+                                        _id: 'qr-' + Date.now() + '-' + g,
+                                        _isVirtual: true,
+                                        role: 'assistant',
+                                        _quickReplies: groups[g].options.map(o => ({ label: o, value: o })),
+                                        _qrMode: groups[g].mode,
+                                        _qrSelected: new Set(),
+                                        _qrDisabled: false,
+                                        content: groups[g].question,
+                                    });
+                                }
+                            }
+                        }
+                        break;
+                    }
                 }
+                return msgs;
+            });
+
+            // ── Methods ──
+
+            function formatDate(dateStr) {
+                if (!dateStr) return '刚刚';
+                try { return new Date(dateStr).toLocaleDateString(); } catch (e) { return '刚刚'; }
             }
 
-            for (const option of normalized) {
-                const button = document.createElement('button');
-                button.className = 'quick-reply-btn';
-                button.type = 'button';
-                button.textContent = option.label;
-                button.onclick = function() {
-                    if (!isMulti) {
-                        disableQuickReplies();
-                        sendMessage(option.value);
+            function formatTime(dateStr) {
+                if (!dateStr) return '';
+                try {
+                    const d = new Date(dateStr);
+                    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                } catch (e) { return ''; }
+            }
+
+            function iconSvg(name) {
+                if (name === 'arrow-up') return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M12 19V5"></path><path d="M6 11l6-6 6 6"></path></svg>';
+                if (name === 'x') return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>';
+                return '';
+            }
+
+            function renderContent(msg) {
+                if (!msg.content) return '';
+                if (msg.role === 'assistant') {
+                    const html = renderMarkdown(msg.content);
+                    // Apply highlight.js after render
+                    nextTick(() => {
+                        if (typeof hljs !== 'undefined') {
+                            document.querySelectorAll('.msg.assistant pre code').forEach(block => {
+                                hljs.highlightElement(block);
+                            });
+                        }
+                    });
+                    return html;
+                }
+                return escapeHtml(msg.content);
+            }
+
+            function copyText(text) {
+                navigator.clipboard.writeText(text).catch(() => {});
+            }
+
+            function toggleMode() {
+                mode.value = mode.value === 'one_shot' ? 'incremental' : 'one_shot';
+            }
+
+            function usePrompt(text) {
+                inputText.value = text;
+                nextTick(() => { if (inputRef.value) { inputRef.value.focus(); inputRef.value.style.height = 'auto'; inputRef.value.style.height = Math.min(inputRef.value.scrollHeight, 180) + 'px'; } });
+            }
+
+            function newChat() {
+                sessionId.value = 'session-' + Date.now();
+                profile.value = null;
+                messages.value = [];
+                inputText.value = '';
+                streaming.value = false;
+                loadSessions();
+                nextTick(() => { if (inputRef.value) inputRef.value.focus(); });
+            }
+
+            function onInputKeydown(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+                // Auto-grow
+                nextTick(() => {
+                    if (inputRef.value) {
+                        inputRef.value.style.height = 'auto';
+                        inputRef.value.style.height = Math.min(inputRef.value.scrollHeight, 180) + 'px';
+                    }
+                });
+            }
+
+            function scrollChat() {
+                nextTick(() => {
+                    if (chatRef.value) {
+                        chatRef.value.scrollTop = chatRef.value.scrollHeight;
+                    }
+                });
+            }
+
+            // ── Session operations ──
+
+            async function loadSessions() {
+                try {
+                    const resp = await fetch('/api/pm/sessions');
+                    const data = await resp.json();
+                    sessionsCache.value = data.sessions || [];
+                } catch (e) { console.error('Failed to load sessions:', e); }
+            }
+
+            async function loadSessionProfile(sid) {
+                try {
+                    const resp = await fetch('/api/pm/profile/' + encodeURIComponent(sid));
+                    const data = await resp.json();
+                    if (data.profile) {
+                        profile.value = data.profile;
+                    }
+                } catch (e) { console.error('Failed to load profile:', e); }
+            }
+
+            async function loadHistory(sid) {
+                messages.value = [];
+                try {
+                    const resp = await fetch('/api/pm/history/' + encodeURIComponent(sid));
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    const data = await resp.json();
+                    const msgs = data.messages || [];
+                    for (const m of msgs) {
+                        messages.value.push({
+                            role: m.role === 'user' ? 'user' : (m.role === 'event' ? 'event' : 'assistant'),
+                            content: m.content || '',
+                            created_at: m.created_at || '',
+                            _id: m.id || 'msg-' + msgIdCounter++,
+                        });
+                    }
+                } catch (e) {
+                    console.error('Failed to load history:', e);
+                    messages.value.push({ role: 'event', content: '历史消息加载失败', _id: 'err-' + Date.now() });
+                }
+                scrollChat();
+            }
+
+            async function switchSession(sid) {
+                sessionId.value = sid;
+                streaming.value = false;
+                showProfileDrawer.value = false;
+                await Promise.all([loadSessionProfile(sid), loadHistory(sid)]);
+                nextTick(() => { if (inputRef.value) inputRef.value.focus(); });
+            }
+
+            async function togglePin(sid, pinned) {
+                try {
+                    const resp = await fetch('/api/pm/sessions/' + encodeURIComponent(sid) + '/pin', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ is_pinned: pinned }),
+                    });
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    await loadSessions();
+                } catch (e) { console.error('Failed to pin session:', e); }
+            }
+
+            async function deleteSession(sid) {
+                if (!confirm('确定删除这个历史会话吗？删除后无法恢复。')) return;
+                try {
+                    const resp = await fetch('/api/pm/sessions/' + encodeURIComponent(sid), { method: 'DELETE' });
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    sessionsCache.value = sessionsCache.value.filter(s => s.session_id !== sid);
+                    if (sid === sessionId.value) {
+                        sessionId.value = null;
+                        profile.value = null;
+                        messages.value = [];
+                    }
+                } catch (e) { console.error('Failed to delete session:', e); }
+            }
+
+            // ── Send message / SSE ──
+
+            function addMessage(role, content, extra) {
+                const msg = { role, content, _id: 'msg-' + msgIdCounter++, ...(extra || {}) };
+                messages.value = [...messages.value, msg];
+                scrollChat();
+                return msg;
+            }
+
+            async function sendMessage(replyText) {
+                const msg = String(replyText || inputText.value).trim();
+                if (!msg || streaming.value) return;
+                inputText.value = '';
+
+                if (!sessionId.value) {
+                    sessionId.value = 'session-' + Date.now();
+                }
+
+                addMessage('user', msg);
+
+                streaming.value = true;
+                let currentContent = '';
+                let currentMsg = null;
+                let allowQuickReplies = false;
+                let explicitQRShown = false;
+
+                try {
+                    const resp = await fetch('/api/pm/agent', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: msg,
+                            session_id: sessionId.value,
+                            mode: mode.value,
+                            use_knowledge: useKnowledge.value,
+                        }),
+                    });
+
+                    if (!resp.ok || !resp.body) {
+                        addMessage('event', '请求失败: HTTP ' + resp.status);
+                        streaming.value = false;
                         return;
                     }
-                    if (selected.has(option.value)) {
-                        selected.delete(option.value);
-                        button.classList.remove('selected');
-                        button.setAttribute('aria-pressed', 'false');
+
+                    const reader = resp.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+
+                    // Create placeholder assistant message for typing animation
+                    currentMsg = addMessage('assistant', '', { created_at: new Date().toISOString() });
+
+                    function appendContent(content) {
+                        currentContent += content;
+                        if (currentMsg) {
+                            currentMsg.content = currentContent;
+                            // Force reactivity
+                            messages.value = [...messages.value];
+                        }
+                        scrollChat();
+                    }
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        buffer = buffer.replace(/\r\n/g, '\n');
+                        const frames = buffer.split('\n\n');
+                        buffer = frames.pop() || '';
+
+                        for (const frame of frames) {
+                            const dataLine = frame.split('\n').find(line => line.startsWith('data: '));
+                            if (!dataLine) continue;
+                            try {
+                                const event = JSON.parse(dataLine.slice(6));
+                                switch (event.type) {
+                                    case 'content':
+                                        allowQuickReplies = true;
+                                        appendContent(event.data);
+                                        break;
+                                    case 'sufficiency':
+                                        addMessage('event', '需求完整度: ' + Math.round(event.data.score * 100) + '%');
+                                        if (profile.value) {
+                                            profile.value = { ...profile.value, sufficiency_score: event.data.score };
+                                        }
+                                        break;
+                                    case 'ready_to_generate':
+                                        addMessage('event', event.data.message || '');
+                                        addQuickRepliesToLastEvent(
+                                            event.data.message || '',
+                                            [{ label: '生成 PRD', value: '生成PRD' }, { label: '继续补充需求', value: '继续补充需求' }]
+                                        );
+                                        explicitQRShown = true;
+                                        break;
+                                    case 'status':
+                                        addMessage('event', event.data.message || '');
+                                        break;
+                                    case 'knowledge':
+                                        if (event.data.status === 'searching') addMessage('event', '正在检索知识库...');
+                                        else if (event.data.status === 'done') {
+                                            const count = Number(event.data.count || 0);
+                                            addMessage('event', count > 0 ? '知识检索完成：命中 ' + count + ' 条' : '知识检索完成：未找到相关文档');
+                                        }
+                                        break;
+                                    case 'prd_plan':
+                                        if (event.data.sections) addMessage('event', 'PRD 大纲: ' + event.data.sections.map(s => s.title).join(' / '));
+                                        break;
+                                    case 'section_start':
+                                        addMessage('event', '正在撰写: ' + (event.data.title || '') + ' (' + event.data.index + '/' + event.data.total + ')');
+                                        currentContent = '';
+                                        currentMsg = addMessage('assistant', '', { created_at: new Date().toISOString() });
+                                        allowQuickReplies = false;
+                                        break;
+                                    case 'section_content':
+                                        appendContent(event.data);
+                                        break;
+                                    case 'section_complete':
+                                        currentContent = '';
+                                        currentMsg = null;
+                                        break;
+                                    case 'awaiting_approval':
+                                        addMessage('event', event.data.message || '');
+                                        addQuickRepliesToLastEvent(
+                                            event.data.message || '',
+                                            [{ label: '继续生成下一章', value: '继续' }, { label: '先停止在这里', value: '先停止在这里' }]
+                                        );
+                                        explicitQRShown = true;
+                                        break;
+                                    case 'prd_complete':
+                                        addMessage('event', 'PRD 生成完成');
+                                        break;
+                                    case 'error':
+                                        addMessage('event', 'Error: ' + (event.data || ''));
+                                        break;
+                                }
+                            } catch (e) { console.error('Bad SSE frame:', e, frame); }
+                        }
+                    }
+
+                    // Auto-detect quick replies from last assistant message
+                    if (allowQuickReplies && currentContent.trim() && !explicitQRShown) {
+                        // Quick replies are attached via displayMessages computed
+                    }
+                } catch (e) {
+                    addMessage('event', 'Error: ' + e.message);
+                } finally {
+                    streaming.value = false;
+                    loadSessions();
+                    if (sessionId.value) loadSessionProfile(sessionId.value);
+                    nextTick(() => { if (inputRef.value) inputRef.value.focus(); });
+                }
+            }
+
+            // ── Quick Reply helpers ──
+
+            function addQuickRepliesToLastEvent(eventText, options) {
+                const msgs = messages.value;
+                for (let i = msgs.length - 1; i >= 0; i--) {
+                    if (msgs[i].role === 'event' && msgs[i].content === eventText) {
+                        msgs[i] = {
+                            ...msgs[i],
+                            _quickReplies: options,
+                            _qrMode: 'single',
+                            _qrSelected: null,
+                            _qrDisabled: false,
+                        };
+                        messages.value = [...messages.value];
+                        break;
+                    }
+                }
+            }
+
+            function handleQuickReply(msg, qr, event) {
+                if (msg._qrMode === 'multi') {
+                    if (!msg._qrSelected) msg._qrSelected = new Set();
+                    if (msg._qrSelected.has(qr.value)) {
+                        msg._qrSelected.delete(qr.value);
+                        if (event.target) event.target.classList.remove('selected');
                     } else {
-                        selected.add(option.value);
-                        button.classList.add('selected');
-                        button.setAttribute('aria-pressed', 'true');
+                        msg._qrSelected.add(qr.value);
+                        if (event.target) event.target.classList.add('selected');
                     }
-                    updateMultiState();
-                };
-                if (isMulti) {
-                    button.setAttribute('aria-pressed', 'false');
+                    messages.value = [...messages.value];
+                    return;
                 }
-                wrap.appendChild(button);
+                // Disable all QRs
+                msg._qrDisabled = true;
+                messages.value = [...messages.value];
+                sendMessage(qr.value);
             }
 
-            if (isMulti) {
-                const actions = document.createElement('div');
-                actions.className = 'quick-reply-actions';
-
-                submitButton = document.createElement('button');
-                submitButton.className = 'quick-reply-submit';
-                submitButton.type = 'button';
-                submitButton.textContent = '确认选择';
-                submitButton.disabled = true;
-                submitButton.onclick = function() {
-                    if (!selected.size) return;
-                    disableQuickReplies();
-                    sendMessage(Array.from(selected).join('、'));
-                };
-
-                const clearButton = document.createElement('button');
-                clearButton.className = 'quick-reply-clear';
-                clearButton.type = 'button';
-                clearButton.textContent = '清空';
-                clearButton.onclick = function() {
-                    selected.clear();
-                    wrap.querySelectorAll('.quick-reply-btn.selected').forEach(button => {
-                        button.classList.remove('selected');
-                        button.setAttribute('aria-pressed', 'false');
-                    });
-                    updateMultiState();
-                };
-
-                actions.appendChild(submitButton);
-                actions.appendChild(clearButton);
-                wrap.appendChild(actions);
-            }
-
-            const row = anchorEl.closest('.msg-row');
-            if (row) {
-                row.insertAdjacentElement('afterend', wrap);
-            } else {
-                anchorEl.insertAdjacentElement('afterend', wrap);
-            }
-            updateMultiState();
-            scrollChat();
-            return wrap;
-        }
-
-        function addQuickReplyGroups(anchorEl, groups, source = 'assistant') {
-            const normalized = normalizeQuickReplyGroups(groups);
-            if (normalized.length === 0) return null;
-            if (normalized.length === 1) {
-                const group = normalized[0];
-                return addQuickReplies(anchorEl, group.options, source, group.mode);
-            }
-
-            const wrap = document.createElement('div');
-            wrap.className = 'quick-replies grouped' + (source === 'event' ? ' from-event' : '');
-            const selections = normalized.map(() => new Set());
-            let submitButton = null;
-
-            function updateGroupedState() {
-                if (!submitButton) return;
-                const complete = selections.every(selected => selected.size > 0);
-                submitButton.disabled = !complete;
-                const answered = selections.filter(selected => selected.size > 0).length;
-                submitButton.textContent = complete ? '确认全部选择' : '确认全部选择（' + answered + '/' + normalized.length + '）';
-            }
-
-            normalized.forEach((group, groupIndex) => {
-                const groupEl = document.createElement('div');
-                groupEl.className = 'quick-reply-group' + (group.mode === 'multi' ? ' multi-select' : '');
-
-                const title = document.createElement('div');
-                title.className = 'quick-reply-title';
-                title.textContent = (groupIndex + 1) + '. ' + (group.question || (group.mode === 'multi' ? '请选择一个或多个' : '请选择一个'));
-                groupEl.appendChild(title);
-
-                const optionsEl = document.createElement('div');
-                optionsEl.className = 'quick-reply-options';
-                for (const option of group.options) {
-                    const button = document.createElement('button');
-                    button.className = 'quick-reply-btn';
-                    button.type = 'button';
-                    button.textContent = option;
-                    button.setAttribute('aria-pressed', 'false');
-                    button.onclick = function() {
-                        const selected = selections[groupIndex];
-                        if (group.mode === 'multi') {
-                            if (selected.has(option)) {
-                                selected.delete(option);
-                                button.classList.remove('selected');
-                                button.setAttribute('aria-pressed', 'false');
-                            } else {
-                                selected.add(option);
-                                button.classList.add('selected');
-                                button.setAttribute('aria-pressed', 'true');
-                            }
-                        } else {
-                            selected.clear();
-                            selected.add(option);
-                            optionsEl.querySelectorAll('.quick-reply-btn.selected').forEach(item => {
-                                item.classList.remove('selected');
-                                item.setAttribute('aria-pressed', 'false');
-                            });
-                            button.classList.add('selected');
-                            button.setAttribute('aria-pressed', 'true');
-                        }
-                        updateGroupedState();
-                    };
-                    optionsEl.appendChild(button);
-                }
-                groupEl.appendChild(optionsEl);
-                wrap.appendChild(groupEl);
-            });
-
-            const actions = document.createElement('div');
-            actions.className = 'quick-reply-actions';
-
-            submitButton = document.createElement('button');
-            submitButton.className = 'quick-reply-submit';
-            submitButton.type = 'button';
-            submitButton.disabled = true;
-            submitButton.textContent = '确认全部选择（0/' + normalized.length + '）';
-            submitButton.onclick = function() {
-                if (selections.some(selected => selected.size === 0)) return;
-                disableQuickReplies();
-                const answer = normalized.map((group, index) => {
-                    const question = group.question || ('问题' + (index + 1));
-                    return (index + 1) + '. ' + question + '：' + Array.from(selections[index]).join('、');
-                }).join('\n');
+            function submitMultiQuickReply(msg) {
+                if (!msg._qrSelected || msg._qrSelected.size === 0) return;
+                msg._qrDisabled = true;
+                const answer = Array.from(msg._qrSelected).join('、');
+                messages.value = [...messages.value];
                 sendMessage(answer);
-            };
-
-            const clearButton = document.createElement('button');
-            clearButton.className = 'quick-reply-clear';
-            clearButton.type = 'button';
-            clearButton.textContent = '清空';
-            clearButton.onclick = function() {
-                selections.forEach(selected => selected.clear());
-                wrap.querySelectorAll('.quick-reply-btn.selected').forEach(button => {
-                    button.classList.remove('selected');
-                    button.setAttribute('aria-pressed', 'false');
-                });
-                updateGroupedState();
-            };
-
-            actions.appendChild(submitButton);
-            actions.appendChild(clearButton);
-            wrap.appendChild(actions);
-
-            const row = anchorEl.closest('.msg-row');
-            if (row) {
-                row.insertAdjacentElement('afterend', wrap);
-            } else {
-                anchorEl.insertAdjacentElement('afterend', wrap);
             }
-            updateGroupedState();
-            scrollChat();
-            return wrap;
-        }
 
-        function updateSessionLabel() {
-            document.getElementById('session-label').textContent = sessionId ? '进行中' : '未开始';
-        }
+            function clearMultiQuickReply(msg) {
+                if (msg._qrSelected) msg._qrSelected.clear();
+                messages.value = [...messages.value];
+            }
 
-        function updateModeLabels() {
-            const label = mode === 'one_shot' ? '一键生成' : '逐章确认';
-            document.getElementById('mode-toggle').textContent = label;
-        }
+            // ── Knowledge Upload ──
 
-        function updateKnowledgeLabel() {
-            const button = document.getElementById('knowledge-toggle');
-            button.classList.toggle('active', useKnowledge);
-            button.setAttribute('aria-pressed', String(useKnowledge));
-        }
-
-        function toggleMode() {
-            mode = mode === 'one_shot' ? 'incremental' : 'one_shot';
-            updateModeLabels();
-        }
-
-        function toggleKnowledge() {
-            useKnowledge = !useKnowledge;
-            updateKnowledgeLabel();
-            inputEl.focus();
-        }
-
-        function openKnowledgeUpload() {
-            knowledgeFileInput.value = '';
-            knowledgeFileInput.click();
-        }
-
-        async function uploadKnowledgeFile() {
-            const file = knowledgeFileInput.files && knowledgeFileInput.files[0];
-            if (!file) return;
-
-            const uploadButton = document.getElementById('upload-knowledge-btn');
-            uploadButton.disabled = true;
-            uploadButton.textContent = '上传中';
-            addEvent('正在上传知识库文件：' + file.name);
-
-            try {
-                const form = new FormData();
-                form.append('file', file);
-                form.append('session_id', sessionId || 'default');
-
-                const resp = await fetch('/api/pm/upload', {
-                    method: 'POST',
-                    body: form,
-                });
-                const data = await resp.json();
-                if (!resp.ok || !data.success) {
-                    throw new Error(data.error || ('HTTP ' + resp.status));
+            function openKnowledgeUpload() {
+                if (knowledgeFileRef.value) {
+                    knowledgeFileRef.value.value = '';
+                    knowledgeFileRef.value.click();
                 }
-                addEvent('知识库上传完成：' + data.filename + ' 已索引。后续开启知识检索即可引用。');
-            } catch (e) {
-                addEvent('知识库上传失败：' + e.message);
-            } finally {
-                uploadButton.disabled = false;
-                uploadButton.textContent = '上传知识';
-                knowledgeFileInput.value = '';
-                inputEl.focus();
             }
-        }
 
-        function usePrompt(text) {
-            inputEl.value = text;
-            autoGrowInput();
-            inputEl.focus();
-        }
-
-        function newChat() {
-            sessionId = 'session-' + Date.now();
-            document.getElementById('main-header').textContent = 'ReQCollect';
-            document.getElementById('score-label').textContent = '完整度 0%';
-            updateSessionLabel();
-            chatInner().innerHTML = welcomeHtml();
-            inputEl.value = '';
-            autoGrowInput();
-            renderSessions();
-            inputEl.focus();
-        }
-
-        async function loadSessions() {
-            try {
-                const resp = await fetch('/api/pm/sessions');
-                const data = await resp.json();
-                sessionsCache = data.sessions || [];
-                renderSessions();
-            } catch (e) {
-                console.error('Failed to load sessions:', e);
+            async function uploadKnowledgeFile() {
+                const file = knowledgeFileRef.value && knowledgeFileRef.value.files && knowledgeFileRef.value.files[0];
+                if (!file) return;
+                uploading.value = true;
+                addMessage('event', '正在上传知识库文件：' + file.name);
+                try {
+                    const form = new FormData();
+                    form.append('file', file);
+                    form.append('session_id', sessionId.value || 'default');
+                    const resp = await fetch('/api/pm/upload', { method: 'POST', body: form });
+                    const data = await resp.json();
+                    if (!resp.ok || !data.success) throw new Error(data.error || ('HTTP ' + resp.status));
+                    addMessage('event', '知识库上传完成：' + (data.filename || '') + ' 已索引');
+                } catch (e) {
+                    addMessage('event', '知识库上传失败：' + e.message);
+                } finally {
+                    uploading.value = false;
+                    if (knowledgeFileRef.value) knowledgeFileRef.value.value = '';
+                    nextTick(() => { if (inputRef.value) inputRef.value.focus(); });
+                }
             }
-        }
 
-        function renderSessions() {
-            const list = document.getElementById('session-list');
-            const query = document.getElementById('session-search').value.trim().toLowerCase();
-            const sessions = sessionsCache.filter(s => {
-                const name = String(s.project_name || '未命名项目').toLowerCase();
-                const sid = String(s.session_id || '').toLowerCase();
-                return !query || name.includes(query) || sid.includes(query);
+            // ── Init ──
+            onMounted(() => {
+                loadSessions();
             });
-            list.innerHTML = '';
-            if (!sessions.length) {
-                list.innerHTML = '<div class="session-empty">暂无历史会话</div>';
-                return;
-            }
-            for (const s of sessions) {
-                const item = document.createElement('div');
-                item.className = 'session-item' +
-                    (s.session_id === sessionId ? ' active' : '') +
-                    (s.is_pinned ? ' pinned' : '');
-                const projectName = s.project_name || '未命名项目';
-                const updatedAt = s.updated_at ? new Date(s.updated_at).toLocaleDateString() : '刚刚';
 
-                const title = document.createElement('div');
-                title.className = 'session-title';
-
-                const name = document.createElement('span');
-                name.className = 'name';
-                name.textContent = projectName;
-
-                const meta = document.createElement('span');
-                meta.className = 'meta';
-                meta.textContent = updatedAt + ' · ' + Math.round((s.sufficiency_score || 0) * 100) + '%';
-
-                const actions = document.createElement('div');
-                actions.className = 'session-actions';
-
-                const pinButton = document.createElement('button');
-                pinButton.className = 'session-action-btn' + (s.is_pinned ? ' active' : '');
-                pinButton.type = 'button';
-                pinButton.innerHTML = iconSvg('arrow-up');
-                pinButton.title = s.is_pinned ? '取消置顶' : '置顶会话';
-                pinButton.setAttribute('aria-label', s.is_pinned ? '取消置顶会话' : '置顶会话');
-                pinButton.onclick = function(event) {
-                    toggleSessionPin(s.session_id, !s.is_pinned, event);
-                };
-
-                const deleteButton = document.createElement('button');
-                deleteButton.className = 'session-action-btn danger';
-                deleteButton.type = 'button';
-                deleteButton.innerHTML = iconSvg('x');
-                deleteButton.title = '删除会话';
-                deleteButton.setAttribute('aria-label', '删除会话');
-                deleteButton.onclick = function(event) {
-                    deleteSession(s.session_id, event);
-                };
-
-                title.appendChild(name);
-                title.appendChild(meta);
-                actions.appendChild(pinButton);
-                actions.appendChild(deleteButton);
-                item.appendChild(title);
-                item.appendChild(actions);
-                item.onclick = function() { switchSession(s.session_id); };
-                list.appendChild(item);
-            }
+            return {
+                windowWidth, searchQuery, sessionId, mode, useKnowledge,
+                sessionsCache, messages, profile, streaming, inputText,
+                uploading, mobileMenuOpen, showProfileDrawer,
+                chatRef, inputRef, knowledgeFileRef,
+                filteredSessions, sufficiencyPercent, currentTitle, fieldsConfig,
+                displayMessages,
+                formatDate, formatTime, iconSvg, renderContent, copyText,
+                toggleMode, usePrompt, newChat, onInputKeydown,
+                loadSessions, loadSessionProfile, loadHistory, switchSession,
+                togglePin, deleteSession, sendMessage,
+                handleQuickReply, submitMultiQuickReply, clearMultiQuickReply,
+                openKnowledgeUpload, uploadKnowledgeFile,
+                scrollChat,
+            };
         }
+    };
 
-        function iconSvg(name) {
-            if (name === 'arrow-up') {
-                return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">' +
-                    '<path d="M12 19V5"></path><path d="M6 11l6-6 6 6"></path></svg>';
-            }
-            if (name === 'x') {
-                return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">' +
-                    '<path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>';
-            }
-            return '';
-        }
-
-        async function toggleSessionPin(sid, isPinned, event) {
-            event.stopPropagation();
-            try {
-                const resp = await fetch('/api/pm/sessions/' + encodeURIComponent(sid) + '/pin', {
-                    method: 'PATCH',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({is_pinned: isPinned}),
-                });
-                if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                await loadSessions();
-            } catch (e) {
-                console.error('Failed to update pinned session:', e);
-            }
-        }
-
-        async function deleteSession(sid, event) {
-            event.stopPropagation();
-            if (!confirm('确定删除这个历史会话吗？删除后无法恢复。')) return;
-            try {
-                const resp = await fetch('/api/pm/sessions/' + encodeURIComponent(sid), {
-                    method: 'DELETE',
-                });
-                if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                sessionsCache = sessionsCache.filter(s => s.session_id !== sid);
-                if (sid === sessionId) {
-                    sessionId = null;
-                    document.getElementById('main-header').textContent = 'ReQCollect';
-                    document.getElementById('score-label').textContent = '完整度 0%';
-                    updateSessionLabel();
-                    chatInner().innerHTML = welcomeHtml();
-                    inputEl.value = '';
-                    autoGrowInput();
-                }
-                renderSessions();
-            } catch (e) {
-                console.error('Failed to delete session:', e);
-            }
-        }
-
-        async function loadSessionProfile(sid) {
-            try {
-                const resp = await fetch('/api/pm/profile/' + encodeURIComponent(sid));
-                const data = await resp.json();
-                if (data.profile) {
-                    document.getElementById('main-header').textContent = data.profile.project_name || 'ReQCollect';
-                    document.getElementById('score-label').textContent =
-                        '完整度 ' + Math.round((data.profile.sufficiency_score || 0) * 100) + '%';
-                }
-            } catch (e) {
-                console.error('Failed to load profile:', e);
-            }
-        }
-
-        async function loadHistory(sid) {
-            clearChat();
-            chatInner().innerHTML = welcomeHtml('正在加载历史会话', ' ');
-            try {
-                const resp = await fetch('/api/pm/history/' + encodeURIComponent(sid));
-                if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                const data = await resp.json();
-                const messages = data.messages || [];
-                clearChat();
-                if (!messages.length) {
-                    chatInner().innerHTML = welcomeHtml('这个会话还没有消息', '继续输入需求即可开始。');
-                    return;
-                }
-                for (const message of messages) {
-                    addMessage(message.role === 'user' ? 'user' : 'assistant', message.content || '');
-                }
-            } catch (e) {
-                console.error('Failed to load history:', e);
-                chatInner().innerHTML = welcomeHtml('历史消息加载失败', '可以继续输入新消息。');
-            }
-        }
-
-        async function switchSession(sid) {
-            sessionId = sid;
-            updateSessionLabel();
-            renderSessions();
-            await Promise.all([loadSessionProfile(sid), loadHistory(sid)]);
-            inputEl.focus();
-        }
-
-        async function sendMessage(replyText) {
-            const msg = String(replyText || inputEl.value).trim();
-            if (!msg) return;
-            disableQuickReplies();
-            inputEl.value = '';
-            autoGrowInput();
-            addMessage('user', msg);
-
-            try {
-                const resp = await fetch('/api/pm/agent', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        message: msg,
-                        session_id: sessionId,
-                        mode: mode,
-                        use_knowledge: useKnowledge,
-                    }),
-                });
-
-                if (!resp.ok || !resp.body) {
-                    addEvent('请求失败: HTTP ' + resp.status);
-                    return;
-                }
-
-                const reader = resp.body.getReader();
-                const decoder = new TextDecoder();
-                let currentDiv = null;
-                let currentContent = '';
-                let buffer = '';
-                let allowQuickReplies = false;
-                let explicitQuickRepliesShown = false;
-
-                function appendAssistantContent(content) {
-                    currentContent += content;
-                    if (!currentDiv) {
-                        currentDiv = addMessage('assistant', '');
-                    }
-                    currentDiv.innerHTML = renderMarkdown(currentContent);
-                }
-
-                function handleEvent(event) {
-                    switch (event.type) {
-                        case 'content':
-                            allowQuickReplies = true;
-                            appendAssistantContent(event.data);
-                            break;
-                        case 'sufficiency':
-                            document.getElementById('score-label').textContent =
-                                '完整度 ' + Math.round(event.data.score * 100) + '%';
-                            addEvent('需求完整度: ' + Math.round(event.data.score * 100) + '%');
-                            break;
-                        case 'ready_to_generate':
-                            addQuickReplies(addEvent(event.data.message), [
-                                {label: '生成 PRD', value: '生成PRD'},
-                                {label: '继续补充需求', value: '继续补充需求'},
-                            ], 'event');
-                            explicitQuickRepliesShown = true;
-                            break;
-                        case 'status':
-                            addEvent(event.data.message);
-                            break;
-                        case 'knowledge':
-                            if (event.data.status === 'searching') {
-                                addEvent('正在检索知识库...');
-                            } else if (event.data.status === 'done') {
-                                const count = Number(event.data.count || 0);
-                                addEvent(count > 0 ? '知识检索完成：命中 ' + count + ' 条' : '知识检索完成：未找到相关文档');
-                            }
-                            break;
-                        case 'prd_plan':
-                            addEvent('PRD 大纲: ' + event.data.sections.map(s => s.title).join(' / '));
-                            break;
-                        case 'section_start':
-                            addEvent('正在撰写: ' + event.data.title + ' (' + event.data.index + '/' + event.data.total + ')');
-                            currentDiv = null;
-                            currentContent = '';
-                            allowQuickReplies = false;
-                            break;
-                        case 'section_content':
-                            appendAssistantContent(event.data);
-                            break;
-                        case 'section_complete':
-                            currentDiv = null;
-                            currentContent = '';
-                            break;
-                        case 'awaiting_approval':
-                            addQuickReplies(addEvent(event.data.message), [
-                                {label: '继续生成下一章', value: '继续'},
-                                {label: '先停止在这里', value: '先停止在这里'},
-                            ], 'event');
-                            explicitQuickRepliesShown = true;
-                            break;
-                        case 'prd_complete':
-                            addEvent('PRD 生成完成');
-                            break;
-                        case 'error':
-                            addEvent('Error: ' + event.data);
-                            break;
-                    }
-                    scrollChat();
-                }
-
-                while (true) {
-                    const {done, value} = await reader.read();
-                    if (done) break;
-                    buffer += decoder.decode(value, {stream: true});
-                    buffer = buffer.replace(/\r\n/g, '\n');
-                    const frames = buffer.split('\n\n');
-                    buffer = frames.pop() || '';
-
-                    for (const frame of frames) {
-                        const dataLine = frame.split('\n').find(line => line.startsWith('data: '));
-                        if (!dataLine) continue;
-                        try {
-                            handleEvent(JSON.parse(dataLine.slice(6)));
-                        } catch (e) {
-                            console.error('Bad SSE frame:', e, frame);
-                        }
-                    }
-                }
-
-                if (allowQuickReplies && currentDiv && currentContent.trim() && !explicitQuickRepliesShown) {
-                    addQuickReplyGroups(currentDiv, extractQuickReplyGroups(currentContent));
-                }
-            } catch (e) {
-                addEvent('Error: ' + e.message);
-            }
-            loadSessions();
-        }
-
-        updateModeLabels();
-        updateKnowledgeLabel();
-        updateSessionLabel();
-        loadSessions();
+    // ── Mount ──
+    const app = createApp(App);
+    app.use(ElementPlus);
+    // Fix Element Plus drawer i18n
+    app.config.globalProperties.$ELEMENT = { locale: { el: { drawer: { title: '抽屉' } } } };
+    app.component('ProfilePanel', ProfilePanel);
+    app.mount('#app');
     </script>
 </body>
 </html>
