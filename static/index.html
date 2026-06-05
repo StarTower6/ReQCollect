@@ -847,32 +847,48 @@
                 // Quick reply extraction runs on the last assistant message
                 const msgs = messages.value.map(m => ({ ...m }));
                 // Find last assistant message that doesn't have QR yet
+                // State (_qrSelected, _qrDisabled) lives on ORIGINAL messages.value items
+                // to survive computed re-evaluation
                 for (let i = msgs.length - 1; i >= 0; i--) {
+                    const originalMsg = messages.value[i];
+                    if (!originalMsg) continue;
                     const m = msgs[i];
-                    if (m.role === 'assistant' && m.content && !m._qrProcessed) {
-                        m._qrProcessed = true;
-                        const groups = extractQuickReplyGroups(m.content);
-                        if (groups.length > 0) {
-                            m._quickReplies = groups[0].options.map(o => ({ label: o, value: o }));
-                            m._qrMode = groups[0].mode;
-                            m._qrSelected = new Set();
-                            m._qrDisabled = false;
-                            // Also create following event messages for grouped questions
-                            if (groups.length > 1) {
-                                // Insert additional groups as their own messages
-                                for (let g = 1; g < groups.length; g++) {
-                                    msgs.splice(i + 1 + g - 1, 0, {
-                                        _id: 'qr-' + Date.now() + '-' + g,
-                                        _isVirtual: true,
-                                        role: 'assistant',
-                                        _quickReplies: groups[g].options.map(o => ({ label: o, value: o })),
-                                        _qrMode: groups[g].mode,
-                                        _qrSelected: new Set(),
-                                        _qrDisabled: false,
-                                        content: groups[g].question,
-                                    });
+                    if (m.role === 'assistant' && m.content) {
+                        if (!originalMsg._qrProcessed) {
+                            originalMsg._qrProcessed = true;
+                            const groups = extractQuickReplyGroups(m.content);
+                            if (groups.length > 0) {
+                                originalMsg._quickReplies = groups[0].options.map(o => ({ label: o, value: o }));
+                                originalMsg._qrMode = groups[0].mode;
+                                originalMsg._qrSelected = new Set();
+                                originalMsg._qrDisabled = false;
+                                // Copy state to shallow copy for template rendering
+                                m._quickReplies = originalMsg._quickReplies;
+                                m._qrMode = originalMsg._qrMode;
+                                m._qrSelected = originalMsg._qrSelected;
+                                m._qrDisabled = originalMsg._qrDisabled;
+                                // Also create following event messages for grouped questions
+                                if (groups.length > 1) {
+                                    for (let g = 1; g < groups.length; g++) {
+                                        msgs.splice(i + 1 + g - 1, 0, {
+                                            _id: 'qr-' + Date.now() + '-' + g,
+                                            _isVirtual: true,
+                                            role: 'assistant',
+                                            _quickReplies: groups[g].options.map(o => ({ label: o, value: o })),
+                                            _qrMode: groups[g].mode,
+                                            _qrSelected: new Set(),
+                                            _qrDisabled: false,
+                                            content: groups[g].question,
+                                        });
+                                    }
                                 }
                             }
+                        } else {
+                            // Copy existing state from original to shallow copy for rendering
+                            m._quickReplies = originalMsg._quickReplies;
+                            m._qrMode = originalMsg._qrMode;
+                            m._qrSelected = originalMsg._qrSelected;
+                            m._qrDisabled = originalMsg._qrDisabled;
                         }
                         break;
                     }
@@ -1212,33 +1228,65 @@
 
             function handleQuickReply(msg, qr, event) {
                 if (msg._qrMode === 'multi') {
-                    if (!msg._qrSelected) msg._qrSelected = new Set();
-                    if (msg._qrSelected.has(qr.value)) {
-                        msg._qrSelected.delete(qr.value);
-                        if (event.target) event.target.classList.remove('selected');
+                    const msgs = messages.value;
+                    // Find original message to operate on
+                    let origMsg = null;
+                    for (let j = msgs.length - 1; j >= 0; j--) {
+                        if (msgs[j]._quickReplies && msgs[j]._quickReplies === msg._quickReplies) {
+                            origMsg = msgs[j];
+                            break;
+                        }
+                    }
+                    const target = origMsg || msg;
+                    if (!target._qrSelected) target._qrSelected = new Set();
+                    if (target._qrSelected.has(qr.value)) {
+                        target._qrSelected.delete(qr.value);
                     } else {
-                        msg._qrSelected.add(qr.value);
-                        if (event.target) event.target.classList.add('selected');
+                        target._qrSelected.add(qr.value);
                     }
                     messages.value = [...messages.value];
                     return;
                 }
-                // Disable all QRs
-                msg._qrDisabled = true;
+                // Single mode: find original, disable, send
+                const msgs = messages.value;
+                for (let j = msgs.length - 1; j >= 0; j--) {
+                    if (msgs[j]._quickReplies && msgs[j]._quickReplies === msg._quickReplies) {
+                        msgs[j]._qrDisabled = true;
+                        break;
+                    }
+                }
                 messages.value = [...messages.value];
                 sendMessage(qr.value);
             }
 
             function submitMultiQuickReply(msg) {
-                if (!msg._qrSelected || msg._qrSelected.size === 0) return;
-                msg._qrDisabled = true;
-                const answer = Array.from(msg._qrSelected).join('、');
+                const msgs = messages.value;
+                let origMsg = null;
+                for (let j = msgs.length - 1; j >= 0; j--) {
+                    if (msgs[j]._quickReplies && msgs[j]._quickReplies === msg._quickReplies) {
+                        origMsg = msgs[j];
+                        break;
+                    }
+                }
+                const target = origMsg || msg;
+                if (!target._qrSelected || target._qrSelected.size === 0) return;
+                target._qrDisabled = true;
+                const answer = Array.from(target._qrSelected).join('、');
                 messages.value = [...messages.value];
                 sendMessage(answer);
             }
 
             function clearMultiQuickReply(msg) {
-                if (msg._qrSelected) msg._qrSelected.clear();
+                const msgs = messages.value;
+                let origMsg = null;
+                for (let j = msgs.length - 1; j >= 0; j--) {
+                    if (msgs[j]._quickReplies && msgs[j]._quickReplies === msg._quickReplies) {
+                        origMsg = msgs[j];
+                        break;
+                    }
+                }
+                const target = origMsg || msg;
+                if (target._qrSelected) target._qrSelected.clear();
                 messages.value = [...messages.value];
             }
 
