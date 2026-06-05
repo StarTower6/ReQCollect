@@ -2,7 +2,8 @@
 
 > 项目：企业级业务需求采集与分析平台
 > 版本：v0.1.0 → v1.0.0（企业级）
-> 基于：ReQCollect（Fork 自 PMAgent, Apache 2.0）
+> 数据库：MySQL 8.0
+> 基于：ReQCollect（Apache 2.0）
 
 ---
 
@@ -25,7 +26,7 @@
 
 基础设施层
   ├── 用户与权限 → LDAP/OIDC + RBAC + 审计
-  ├── 存储与数据 → PostgreSQL + 备份 + 搜索
+  ├── 存储与数据 → MySQL 8.0 + 备份 + 搜索
   └── 部署与运维 → Docker + Nginx + 监控
 
 集成层
@@ -52,7 +53,7 @@
 ## 优先级建议
 
 ### P0（核心可用，先做）
-1. 存储与数据 → PostgreSQL 替换 JSON 文件
+1. 存储与数据 → MySQL 8.0 替换 JSON 文件
 2. 用户与权限 → 登录 + 用户隔离
 3. 部署与运维 → Docker 化
 
