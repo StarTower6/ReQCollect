@@ -191,6 +191,16 @@ class MySQLDataStore(DataStore):
                     "created_at": user.created_at.isoformat() if user.created_at else "",
                     "updated_at": user.updated_at.isoformat() if user.updated_at else ""}
 
+
+    async def delete_user(self, user_id: str) -> bool:
+        async with await self._get_session() as s:
+            result = await s.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
+            if user is None:
+                return False
+            await s.delete(user)
+            await s.commit()
+            return True
     # ── Sessions ──
 
     async def create_session(

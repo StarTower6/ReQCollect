@@ -165,6 +165,10 @@ class DataStore(ABC):
     async def update_user(self, user_id: str, **kwargs) -> dict | None:
         """Update user fields. Returns updated user or None."""
 
+    @abstractmethod
+    async def delete_user(self, user_id: str) -> bool:
+        """Delete a user. Returns True if deleted."""
+
     # ── Audit ──
 
     @abstractmethod

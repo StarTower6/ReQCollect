@@ -475,6 +475,15 @@ class FileDataStore(DataStore):
                 return {k: v for k, v in u.items() if k != "password_hash"}
         return None
 
+    async def delete_user(self, user_id: str) -> bool:
+        users = self._load_json(self._users_file) or []
+        for i, u in enumerate(users):
+            if u.get("id") == user_id:
+                users.pop(i)
+                _FileLock.write_json(self._users_file, users)
+                return True
+        return False
+
     # ── Audit ──
 
     async def log_audit(
