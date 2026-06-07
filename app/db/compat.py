@@ -90,7 +90,8 @@ class FileDataStore(DataStore):
         self._ensure_dirs()
 
     def _ensure_dirs(self):
-        for d in [self._sessions_dir, self._profiles_dir, self._messages_dir, self._prds_dir, self._audit_file.parent]:
+        for d in [self._sessions_dir, self._profiles_dir, self._messages_dir,
+                  self._prds_dir, self._audit_file.parent, self._users_file.parent]:
             d.mkdir(parents=True, exist_ok=True)
 
     def _session_path(self, session_id: str) -> Path:

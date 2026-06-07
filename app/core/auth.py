@@ -35,12 +35,19 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 # ── JWT ──
 
+# Module-level cache for auto-generated secret
+_auto_secret: str | None = None
+
+
 def _get_jwt_secret() -> str:
-    """Return configured secret or a random one (ephemeral, dev-only)."""
+    """Return configured secret or a cached auto-generated one."""
+    global _auto_secret
     if config.auth_jwt_secret:
         return config.auth_jwt_secret
-    logger.warning("auth_jwt_secret not set — using random secret (invalid after restart)")
-    return secrets.token_urlsafe(32)
+    if _auto_secret is None:
+        _auto_secret = secrets.token_urlsafe(32)
+        logger.warning("auth_jwt_secret not set — using auto-generated secret (invalid after restart)")
+    return _auto_secret
 
 
 def create_access_token(
