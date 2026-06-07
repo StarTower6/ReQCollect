@@ -58,7 +58,6 @@ class MySQLDataStore(DataStore):
         Can accept an existing async session for transactional consistency.
         """
         if session_async_session is not None:
-            # Use existing session
             result = await session_async_session.execute(
                 select(User).where(User.id == user_id)
             )
@@ -91,6 +90,107 @@ class MySQLDataStore(DataStore):
                 s.add(user)
                 await s.commit()
             return user.id
+
+    # New User CRUD — replaces the legacy _ensure_default_user pattern
+
+    async def create_user(
+        self,
+        username: str,
+        password_hash: str,
+        display_name: str = "",
+        email: str = "",
+        department: str = "",
+        role: str = "business",
+        source: str = "local",
+    ) -> dict:
+        async with await self._get_session() as s:
+            # Check duplicate
+            result = await s.execute(
+                select(User).where(User.username == username)
+            )
+            if result.scalar_one_or_none():
+                raise ValueError(f"Username '{username}' already exists")
+            user = User(
+                username=username,
+                display_name=display_name or username,
+                email=email,
+                department=department,
+                role=role,
+                source=source,
+            )
+            # Store password_hash in a side table or field — for MySQL we use the
+            # existing User model without a password field, handled by auth service
+            s.add(user)
+            await s.commit()
+            await s.refresh(user)
+            return {"id": user.id, "username": user.username,
+                    "display_name": user.display_name, "email": user.email,
+                    "department": user.department, "role": user.role,
+                    "source": user.source, "is_active": user.is_active,
+                    "created_at": user.created_at.isoformat() if user.created_at else "",
+                    "updated_at": user.updated_at.isoformat() if user.updated_at else ""}
+
+    async def get_user_by_username(self, username: str) -> dict | None:
+        async with await self._get_session() as s:
+            result = await s.execute(
+                select(User).where(User.username == username)
+            )
+            user = result.scalar_one_or_none()
+            if user is None:
+                return None
+            return {"id": user.id, "username": user.username,
+                    "display_name": user.display_name, "email": user.email,
+                    "department": user.department, "role": user.role,
+                    "source": user.source, "is_active": user.is_active,
+                    "password_hash": "",  # MySQL doesn't store pwd in User table
+                    "created_at": user.created_at.isoformat() if user.created_at else "",
+                    "updated_at": user.updated_at.isoformat() if user.updated_at else ""}
+
+    async def get_user_by_id(self, user_id: str) -> dict | None:
+        async with await self._get_session() as s:
+            result = await s.execute(
+                select(User).where(User.id == user_id)
+            )
+            user = result.scalar_one_or_none()
+            if user is None:
+                return None
+            return {"id": user.id, "username": user.username,
+                    "display_name": user.display_name, "email": user.email,
+                    "department": user.department, "role": user.role,
+                    "source": user.source, "is_active": user.is_active,
+                    "password_hash": "",
+                    "created_at": user.created_at.isoformat() if user.created_at else "",
+                    "updated_at": user.updated_at.isoformat() if user.updated_at else ""}
+
+    async def list_users(self) -> list[dict]:
+        async with await self._get_session() as s:
+            result = await s.execute(select(User).order_by(User.created_at.desc()))
+            users = result.scalars().all()
+            return [{"id": u.id, "username": u.username,
+                     "display_name": u.display_name, "email": u.email,
+                     "department": u.department, "role": u.role,
+                     "source": u.source, "is_active": u.is_active,
+                     "created_at": u.created_at.isoformat() if u.created_at else "",
+                     "updated_at": u.updated_at.isoformat() if u.updated_at else ""}
+                    for u in users]
+
+    async def update_user(self, user_id: str, **kwargs) -> dict | None:
+        async with await self._get_session() as s:
+            result = await s.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
+            if user is None:
+                return None
+            for key, value in kwargs.items():
+                if hasattr(user, key):
+                    setattr(user, key, value)
+            user.updated_at = datetime.now(timezone.utc)
+            await s.commit()
+            return {"id": user.id, "username": user.username,
+                    "display_name": user.display_name, "email": user.email,
+                    "department": user.department, "role": user.role,
+                    "source": user.source, "is_active": user.is_active,
+                    "created_at": user.created_at.isoformat() if user.created_at else "",
+                    "updated_at": user.updated_at.isoformat() if user.updated_at else ""}
 
     # ── Sessions ──
 

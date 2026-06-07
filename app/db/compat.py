@@ -21,7 +21,7 @@ Directory layout under data_dir (default ./pm_data):
 from __future__ import annotations
 
 import json
-import os
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -86,6 +86,7 @@ class FileDataStore(DataStore):
         self._messages_dir = self._base / "messages"
         self._prds_dir = self._base / "prds"
         self._audit_file = self._base / "audit" / "audit_log.json"
+        self._users_file = self._base / "users" / "users.json"
         self._ensure_dirs()
 
     def _ensure_dirs(self):
@@ -405,6 +406,73 @@ class FileDataStore(DataStore):
         elif granularity == "month":
             return dt.strftime("%Y-%m")
         return dt.strftime("%Y-%m-%d")
+
+    # ── Users ──
+
+    async def create_user(
+        self,
+        username: str,
+        password_hash: str,
+        display_name: str = "",
+        email: str = "",
+        department: str = "",
+        role: str = "business",
+        source: str = "local",
+    ) -> dict:
+        users = self._load_json(self._users_file) or []
+        # Check duplicate
+        for u in users:
+            if u.get("username") == username:
+                raise ValueError(f"Username '{username}' already exists")
+        now = _now()
+        user = {
+            "id": uuid.uuid4().hex[:16],
+            "username": username,
+            "display_name": display_name or username,
+            "email": email,
+            "department": department,
+            "role": role,
+            "source": source,
+            "password_hash": password_hash,
+            "is_active": True,
+            "created_at": now,
+            "updated_at": now,
+        }
+        users.append(user)
+        _FileLock.write_json(self._users_file, users)
+        return {k: v for k, v in user.items() if k != "password_hash"}
+
+    async def get_user_by_username(self, username: str) -> dict | None:
+        users = self._load_json(self._users_file) or []
+        for u in users:
+            if u.get("username") == username:
+                return dict(u)
+        return None
+
+    async def get_user_by_id(self, user_id: str) -> dict | None:
+        users = self._load_json(self._users_file) or []
+        for u in users:
+            if u.get("id") == user_id:
+                return dict(u)
+        return None
+
+    async def list_users(self) -> list[dict]:
+        users = self._load_json(self._users_file) or []
+        return [
+            {k: v for k, v in u.items() if k != "password_hash"}
+            for u in users
+        ]
+
+    async def update_user(self, user_id: str, **kwargs) -> dict | None:
+        users = self._load_json(self._users_file) or []
+        for i, u in enumerate(users):
+            if u.get("id") == user_id:
+                for key, value in kwargs.items():
+                    u[key] = value
+                u["updated_at"] = _now()
+                _FileLock.write_json(self._users_file, users)
+                return {k: v for k, v in u.items() if k != "password_hash"}
+        return None
 
     # ── Audit ──
 

@@ -134,6 +134,37 @@ class DataStore(ABC):
     ) -> list[dict]:
         """Return time-series data of session/PRD creation counts."""
 
+    # ── Users ──
+
+    @abstractmethod
+    async def create_user(
+        self,
+        username: str,
+        password_hash: str,
+        display_name: str = "",
+        email: str = "",
+        department: str = "",
+        role: str = "business",
+        source: str = "local",
+    ) -> dict:
+        """Create a new user. Returns the user dict."""
+
+    @abstractmethod
+    async def get_user_by_username(self, username: str) -> dict | None:
+        """Get user by username. Returns None if not found."""
+
+    @abstractmethod
+    async def get_user_by_id(self, user_id: str) -> dict | None:
+        """Get user by ID. Returns None if not found."""
+
+    @abstractmethod
+    async def list_users(self) -> list[dict]:
+        """List all users."""
+
+    @abstractmethod
+    async def update_user(self, user_id: str, **kwargs) -> dict | None:
+        """Update user fields. Returns updated user or None."""
+
     # ── Audit ──
 
     @abstractmethod
