@@ -159,12 +159,12 @@ function uniqueOptions(options: string[]): string[] {
   return result
 }
 
-function extractQuickReplyGroups(text: string): { question: string; options: string[]; mode: string }[] {
+function extractQuickReplyGroups(text: string): { question: string; options: string[]; mode: 'single' | 'multi' }[] {
   if (!looksLikePendingQuestion(text)) return []
   const plain = (text || '').replace(/```[\s\S]*?```/g, '')
-  const groups: { question: string; options: string[]; mode: string }[] = []
+  const groups: { question: string; options: string[]; mode: 'single' | 'multi' }[] = []
   const fallbackOptions: string[] = []
-  let current: { question: string; options: string[]; mode: string } | null = null
+  let current: { question: string; options: string[]; mode: 'single' | 'multi' } | null = null
   function finishCurrent() { if (current && current.options.length) { groups.push(current) } current = null }
   for (const rawLine of plain.split('\n')) {
     const line = rawLine.trim()
@@ -197,7 +197,7 @@ function extractInlineOptions(text: string): string[] {
   return [pair[1], pair[2]].map(p => p.replace(/^.*(?:是|选择|采用|按)/, '').replace(/^(比如|例如|可以|为)/, '').replace(/(呢|吗|更合适|更适合)$/g, '').trim())
 }
 
-function inferMode(text: string, options: string[]): string {
+function inferMode(text: string, options: string[]): 'single' | 'multi' {
   const tail = (text || '').slice(-1200)
   if (/多选|可多选|选择多个|选多个|勾选|哪些|哪几/.test(tail)) return 'multi'
   if (/单选|二选一|选一个|选择一个|是否|要不要/.test(tail)) return 'single'
@@ -205,7 +205,7 @@ function inferMode(text: string, options: string[]): string {
   return 'single'
 }
 
-function normalizeGroups(groups: { question: string; options: string[]; mode: string }[]) {
+function normalizeGroups(groups: { question: string; options: string[]; mode: 'single' | 'multi' }[]) {
   return groups.map(g => ({ ...g, options: uniqueOptions(g.options) })).filter(g => g.options.length > 0)
 }
 </script>

@@ -140,23 +140,30 @@ app.add_middleware(
 app.include_router(pm_router, prefix="/api", tags=["PM Agent"])
 
 static_dir = "static"
+_vue_dist = "reqcollect-web/dist"
+
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# Mount Vue SPA assets for production
+if os.path.exists(_vue_dist):
+    assets_dir = os.path.join(_vue_dist, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="vue-assets")
 
 
 @app.get("/")
 async def root():
-    index_path = os.path.join(static_dir, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
+    # Prefer Vue SPA, fall back to legacy static index.html
+    for dir in [_vue_dist, static_dir]:
+        idx = os.path.join(dir, "index.html")
+        if os.path.exists(idx):
+            return FileResponse(idx)
     return {
         "message": f"Welcome to {config.app_name} API",
         "version": config.app_version,
         "docs": "/docs",
     }
-
-
-@app.get("/api/health")
 async def health():
     backend_status = "ok"
     backend_type = "unknown"

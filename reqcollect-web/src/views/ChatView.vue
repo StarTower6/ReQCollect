@@ -26,7 +26,7 @@ const sessionStore = useSessionStore()
 const chatStore = useChatStore()
 const profileStore = useProfileStore()
 
-const mode = ref('one_shot')
+const mode = ref<'one_shot' | 'incremental'>('one_shot')
 
 watch(() => route.params.sessionId, (sid: any) => {
   if (sid && typeof sid === 'string') {

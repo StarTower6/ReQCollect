@@ -33,8 +33,14 @@ uploads/
 .DS_Store
 Thumbs.db
 
+# ── Frontend ──
+# reqcollect-web/node_modules is already excluded above
+# Keep reqcollect-web/ for Node build stage
+!reqcollect-web/
+reqcollect-web/node_modules/
+reqcollect-web/dist/
+
 # ── Docs & process ──
-node_modules/
 docs/
 .execution/
 .claude/
