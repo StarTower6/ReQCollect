@@ -164,6 +164,9 @@ async def root():
         "version": config.app_version,
         "docs": "/docs",
     }
+
+
+@app.get("/api/health")
 async def health():
     backend_status = "ok"
     backend_type = "unknown"
