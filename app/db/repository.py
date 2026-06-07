@@ -117,9 +117,8 @@ class MySQLDataStore(DataStore):
                 department=department,
                 role=role,
                 source=source,
+                password_hash=password_hash,
             )
-            # Store password_hash in a side table or field — for MySQL we use the
-            # existing User model without a password field, handled by auth service
             s.add(user)
             await s.commit()
             await s.refresh(user)
@@ -140,9 +139,9 @@ class MySQLDataStore(DataStore):
                 return None
             return {"id": user.id, "username": user.username,
                     "display_name": user.display_name, "email": user.email,
-                    "department": user.department, "role": user.role,
+                    "department": user.department,                    "role": user.role,
                     "source": user.source, "is_active": user.is_active,
-                    "password_hash": "",  # MySQL doesn't store pwd in User table
+                    "password_hash": user.password_hash or "",
                     "created_at": user.created_at.isoformat() if user.created_at else "",
                     "updated_at": user.updated_at.isoformat() if user.updated_at else ""}
 
@@ -158,7 +157,7 @@ class MySQLDataStore(DataStore):
                     "display_name": user.display_name, "email": user.email,
                     "department": user.department, "role": user.role,
                     "source": user.source, "is_active": user.is_active,
-                    "password_hash": "",
+                    "password_hash": user.password_hash or "",
                     "created_at": user.created_at.isoformat() if user.created_at else "",
                     "updated_at": user.updated_at.isoformat() if user.updated_at else ""}
 

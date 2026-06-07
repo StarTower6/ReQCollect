@@ -53,6 +53,7 @@ class User(Base):
         default="business",
         nullable=False,
     )
+    password_hash: Mapped[str | None] = mapped_column(String(256), default="")
     source: Mapped[str] = mapped_column(
         Enum("ldap", "wecom", "local", name="user_source"),
         default="local",
