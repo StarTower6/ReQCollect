@@ -46,6 +46,8 @@ function handleClick(qr: QrOption) {
     selectedSet.value = s
     return
   }
+  // Single mode: visual feedback + emit
+  selectedSet.value = new Set([qr.value])
   emit('select', qr.value)
 }
 

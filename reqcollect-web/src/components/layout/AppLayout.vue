@@ -10,11 +10,11 @@
         />
         <slot />
       </div>
-      <!-- Profile Panel for desktop -->
-      <div class="profile-panel profile-panel-desktop" v-if="sessionStore.currentId && profileStore.profile.project_name !== undefined && windowWidth > 1200"
-           style="width:300px;overflow-y:auto;border-left:1px solid var(--line);background:var(--panel);padding:16px">
-        <ProfilePanel :profile="profileStore.profile" :percent="sufficiencyPercent" />
-      </div>
+    </div>
+    <!-- Profile Panel for desktop (sibling of main-area inside flex-row) -->
+    <div class="profile-panel profile-panel-desktop" v-if="sessionStore.currentId && profileStore.profile.project_name !== undefined && windowWidth > 1200"
+         style="width:300px;min-width:0;overflow-y:auto;border-left:1px solid var(--line);background:var(--panel);padding:16px">
+      <ProfilePanel :profile="profileStore.profile" :percent="sufficiencyPercent" />
     </div>
     <!-- Drawer for mobile -->
     <el-drawer v-model="drawerVisible" title="需求画像" size="320px" append-to-body>

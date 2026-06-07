@@ -3,12 +3,12 @@
     <div class="chat-scroll" ref="scrollRef">
       <div class="chat-inner">
         <!-- Welcome -->
-        <div v-if="messages.length === 0 && !streaming" class="welcome" style="display:flex;min-height:calc(100vh-250px);align-items:center;justify-content:center;text-align:center">
-          <div class="welcome-card" style="width:min(640px,100%)">
-            <div class="welcome-logo" style="position:relative;width:56px;height:56px;margin:0 auto 18px;border-radius:50%;background:linear-gradient(140deg,#7db0ff,var(--brand) 58%,#2c62cf);box-shadow:0 18px 44px rgba(63,125,246,0.22)"></div>
-            <div class="welcome-title" style="font-size:26px;font-weight:760;color:#202b3f">我是 ReQCollect，很高兴见到你！</div>
-            <div class="welcome-subtitle" style="margin-top:10px;color:var(--muted);font-size:15px">开始描述您的业务需求，我会帮您梳理并生成需求文档。</div>
-            <div class="prompt-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:28px">
+        <div v-if="messages.length === 0 && !streaming" class="welcome">
+          <div class="welcome-card">
+            <div class="welcome-logo"></div>
+            <div class="welcome-title">我是 ReQCollect，很高兴见到你！</div>
+            <div class="welcome-subtitle">开始描述您的业务需求，我会帮您梳理并生成需求文档。</div>
+            <div class="prompt-grid">
               <button class="prompt-card" type="button" @click="$emit('sendQuick', '我想做一个企业报销审批系统')">企业报销审批系统</button>
               <button class="prompt-card" type="button" @click="$emit('sendQuick', '我想做一个餐厅外卖智能客服系统')">餐厅外卖智能客服</button>
               <button class="prompt-card" type="button" @click="$emit('sendQuick', '生成 PRD')">基于当前信息生成 PRD</button>
@@ -61,12 +61,10 @@ const props = defineProps<{
   mode: string
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   send: [text: string]
   sendQuick: [text: string]
   toggleMode: []
-  qrSelect: [msg: Message, value: string]
-  qrSubmit: [msg: Message, value: string]
 }>()
 
 const scrollRef = ref<HTMLElement | null>(null)
@@ -114,14 +112,16 @@ const displayMessages = computed(() => {
 })
 
 function handleQrSelect(msg: Message, value: string) {
-  const orig = props.messages[props.messages.indexOf(msg)]
+  // Find original message by _id (displayMessages creates shallow copies, so indexOf fails)
+  const orig = msg._id ? props.messages.find(m => m._id === msg._id) : undefined
   if (orig) { orig._qrDisabled = true }
-  // Will be emitted
+  emit('sendQuick', value)
 }
 
 function handleQrSubmit(msg: Message, value: string) {
-  const orig = props.messages[props.messages.indexOf(msg)]
+  const orig = msg._id ? props.messages.find(m => m._id === msg._id) : undefined
   if (orig) { orig._qrDisabled = true }
+  emit('sendQuick', value)
 }
 
 function focus() { chatInputRef.value?.focus() }
