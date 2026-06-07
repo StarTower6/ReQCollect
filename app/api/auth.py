@@ -63,6 +63,13 @@ class UserStatusUpdate(BaseModel):
     is_active: bool
 
 
+class UserUpdateRequest(BaseModel):
+    display_name: str = ""
+    email: str = ""
+    department: str = ""
+    role: str = ""
+
+
 # ── Routes ──
 
 
@@ -167,3 +174,49 @@ async def auth_update_user_status(
         raise HTTPException(status_code=404, detail="User not found")
     logger.info(f"User '{user_id}' active status set to {body.is_active}")
     return {"success": True, "user": updated}
+
+
+@router.patch("/auth/users/{user_id}")
+async def auth_update_user(
+    user_id: str,
+    body: UserUpdateRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Update user profile fields. Admin only."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    kwargs = {k: v for k, v in body.model_dump().items() if v}
+    if not kwargs:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    ds = _ds()
+    updated = await ds.update_user(user_id, **kwargs)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    logger.info(f"User '{user_id}' profile updated")
+    return {"success": True, "user": updated}
+
+
+@router.delete("/auth/users/{user_id}")
+async def auth_delete_user(
+    user_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete a user. Admin only."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    if user_id == current_user["id"]:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    ds = _ds()
+    # Get username for the log
+    user = await ds.get_user_by_id(user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    await ds.delete_user(user_id)
+    logger.info(f"User '{user.get('username', user_id)}' deleted by admin")
+    return {"success": True}
