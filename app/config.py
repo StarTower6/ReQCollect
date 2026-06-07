@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     sufficiency_threshold: float = 0.75
     data_dir: str = "./pm_data"
 
+    # Auth / JWT
+    auth_jwt_secret: str = ""
+    auth_jwt_algorithm: str = "HS256"
+    auth_access_token_expire_minutes: int = 1440  # 24h
+
     # MySQL (asyncmy)
     mysql_host: str = ""
     mysql_port: int = 3306
