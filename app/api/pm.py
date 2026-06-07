@@ -23,11 +23,12 @@ import csv
 import io
 import json
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 from sse_starlette.sse import EventSourceResponse
 
+from app.core.auth import get_current_user
 from app.models.pm import AgentRequest, ChatRequest, ContinueRequest, GenerateRequest
 # Deferred lazy accessor to avoid circular import:
 # app.main → app.api.pm → (would) → app.main
@@ -41,21 +42,48 @@ def _svc():
 router = APIRouter()
 
 
+async def _check_session_ownership(
+    current_user: dict, session_id: str
+) -> dict:
+    """Check if current user owns the session (admin can access any)."""
+    session = await _svc().get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if current_user.get("role") != "admin" and session.get("user_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="无权访问此会话")
+    return session
+
+
 # ── Session management ──
 
 
 @router.get("/pm/sessions")
 async def pm_list_sessions(
+    current_user: dict = Depends(get_current_user),
+    all: bool = Query(default=False),
     user_id: str | None = Query(default=None),
     status: str | None = Query(default=None),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
 ):
-    """List sessions with optional filters, ordered by updated_at desc."""
+    """List sessions with optional filters, ordered by updated_at desc.
+
+    Regular users see only their own sessions.  Admin can use ?all=true
+    to see all sessions, or pass a specific user_id.
+    """
+    if all and current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可查看所有会话")
+    if all:
+        uid = None  # no filter
+    elif user_id:
+        uid = user_id
+    else:
+        uid = current_user["id"]
+
     sessions = await _svc().list_sessions()
-    # Filtering (DataStore supports server-side, but we do client-side for file fallback compat)
-    if user_id:
-        sessions = [s for s in sessions if s.get("user_id") == user_id]
+    # Client-side filtering for file-fallback compat
+    if uid:
+        sessions = [s for s in sessions if s.get("user_id") == uid]
     if status:
         sessions = [s for s in sessions if s.get("status") == status]
     return {"success": True, "sessions": sessions[offset : offset + limit], "total": len(sessions)}
@@ -64,10 +92,12 @@ async def pm_list_sessions(
 @router.get("/pm/history/{session_id}")
 async def pm_get_history(
     session_id: str,
+    current_user: dict = Depends(get_current_user),
     limit: int = Query(default=200, le=1000),
     offset: int = Query(default=0, ge=0),
 ):
     """Get chat messages for a session (persistent)."""
+    await _check_session_ownership(current_user, session_id)
     messages = await _svc().get_message_history(session_id)
     return {
         "success": True,
@@ -78,10 +108,14 @@ async def pm_get_history(
 
 
 @router.delete("/pm/sessions/{session_id}")
-async def pm_delete_session(session_id: str):
+async def pm_delete_session(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
     """Delete a session and all related data."""
+    await _check_session_ownership(current_user, session_id)
     deleted = await _svc().delete_session(session_id)
-    await _svc().log_audit("delete", session_id=session_id)
+    await _svc().log_audit("delete", user_id=current_user["id"], session_id=session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"success": True, "session_id": session_id}
@@ -91,7 +125,10 @@ async def pm_delete_session(session_id: str):
 
 
 @router.post("/pm/chat")
-async def pm_chat(request: ChatRequest):
+async def pm_chat(
+    request: ChatRequest,
+    current_user: dict = Depends(get_current_user),
+):
     """Phase 1: Requirement mining dialog (SSE)."""
     logger.info(f"[{request.session_id}] Chat: {request.message[:100]}...")
 
@@ -99,6 +136,7 @@ async def pm_chat(request: ChatRequest):
         async for event in _svc().chat(
             request.message,
             request.session_id,
+            user_id=current_user["id"],
             use_knowledge=request.use_knowledge,
         ):
             yield {"event": "message", "data": json.dumps(event, ensure_ascii=False)}
@@ -110,9 +148,13 @@ async def pm_chat(request: ChatRequest):
 
 
 @router.post("/pm/generate")
-async def pm_generate(request: GenerateRequest):
+async def pm_generate(
+    request: GenerateRequest,
+    current_user: dict = Depends(get_current_user),
+):
     """Phase 2: Trigger PRD generation (SSE)."""
     logger.info(f"[{request.session_id}] Generate PRD, mode={request.mode}")
+    await _check_session_ownership(current_user, request.session_id)
 
     async def gen():
         async for event in _svc().generate_prd(request.session_id, request.mode):
@@ -122,9 +164,13 @@ async def pm_generate(request: GenerateRequest):
 
 
 @router.post("/pm/continue")
-async def pm_continue(request: ContinueRequest):
+async def pm_continue(
+    request: ContinueRequest,
+    current_user: dict = Depends(get_current_user),
+):
     """Phase 2: Continue incremental generation (SSE)."""
     logger.info(f"[{request.session_id}] Continue generation")
+    await _check_session_ownership(current_user, request.session_id)
 
     async def gen():
         async for event in _svc().continue_generation(request.session_id):
@@ -137,7 +183,10 @@ async def pm_continue(request: ContinueRequest):
 
 
 @router.post("/pm/agent")
-async def pm_agent(request: AgentRequest):
+async def pm_agent(
+    request: AgentRequest,
+    current_user: dict = Depends(get_current_user),
+):
     """Convenience wrapper: auto-routes chat/generate/continue (SSE)."""
     logger.info(f"[{request.session_id}] Agent: {request.message[:100]}...")
 
@@ -146,6 +195,7 @@ async def pm_agent(request: AgentRequest):
             request.message,
             request.session_id,
             request.mode,
+            user_id=current_user["id"],
             use_knowledge=request.use_knowledge,
         ):
             yield {"event": "message", "data": json.dumps(event, ensure_ascii=False)}
@@ -157,15 +207,23 @@ async def pm_agent(request: AgentRequest):
 
 
 @router.get("/pm/profile/{session_id}")
-async def pm_get_profile(session_id: str):
+async def pm_get_profile(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
     """Get current requirement profile."""
+    await _check_session_ownership(current_user, session_id)
     profile = await _svc().get_profile(session_id)
     return {"success": True, "session_id": session_id, "profile": profile}
 
 
 @router.get("/pm/prd/{session_id}")
-async def pm_get_prd(session_id: str):
+async def pm_get_prd(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
     """Get generated PRD for a session."""
+    await _check_session_ownership(current_user, session_id)
     prd = await _svc().get_prd(session_id)
     if prd is None:
         raise HTTPException(status_code=404, detail="No PRD generated for this session yet")
@@ -176,7 +234,9 @@ async def pm_get_prd(session_id: str):
 
 
 @router.get("/pm/dashboard/overview")
-async def pm_dashboard_overview():
+async def pm_dashboard_overview(
+    current_user: dict = Depends(get_current_user),
+):
     """Get aggregated dashboard overview: sessions by status, avg sufficiency, totals."""
     overview = await _svc().get_dashboard_overview()
     return {"success": True, "data": overview}
@@ -184,6 +244,7 @@ async def pm_dashboard_overview():
 
 @router.get("/pm/dashboard/trend")
 async def pm_dashboard_trend(
+    current_user: dict = Depends(get_current_user),
     granularity: str = Query(default="day", pattern="^(day|week|month)$"),
     days: int = Query(default=30, ge=1, le=365),
 ):
@@ -197,6 +258,7 @@ async def pm_dashboard_trend(
 
 @router.get("/pm/export/sessions")
 async def pm_export_sessions(
+    current_user: dict = Depends(get_current_user),
     format: str = Query(default="csv", pattern="^(csv|xlsx)$"),
 ):
     """Export session list as CSV or XLSX."""
@@ -243,6 +305,7 @@ async def pm_export_sessions(
 
 @router.get("/pm/export/prds")
 async def pm_export_prds(
+    current_user: dict = Depends(get_current_user),
     format: str = Query(default="xlsx", pattern="^(csv|xlsx)$"),
 ):
     """Export generated PRDs as XLSX or CSV."""
