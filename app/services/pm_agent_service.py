@@ -227,6 +227,9 @@ class PMAgentService:
 
     # ── Data accessors ──
 
+    async def get_session(self, session_id: str) -> dict | None:
+        return await self._ds.get_session(session_id)
+
     async def get_profile(self, thread_id: str = "default") -> dict:
         return await self._ds.get_profile(thread_id)
 

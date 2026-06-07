@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
+from app.api.auth import router as auth_router
 from app.api.pm import router as pm_router
 from app.config import config
 
@@ -108,6 +109,21 @@ async def lifespan(app: FastAPI):
     import app.services.pm_agent_service as _svc_mod
     _svc_mod.pm_agent_service = _pm_agent_service
 
+    # Step 2a: Ensure default admin user exists
+    from app.core.auth import hash_password as _hash_pwd
+    try:
+        existing = await _datastore.get_user_by_username("admin")
+        if existing is None:
+            await _datastore.create_user(
+                username="admin",
+                password_hash=_hash_pwd("admin123"),
+                display_name="管理员",
+                role="admin",
+            )
+            logger.info("Default admin user created (admin / admin123)")
+    except Exception as _exc:
+        logger.warning(f"Could not create default admin user: {_exc}")
+
     # Step 3: Register SIGTERM handler for graceful shutdown
     signal.signal(signal.SIGTERM, _handle_sigterm)
 
@@ -137,6 +153,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router, prefix="/api", tags=["Auth"])
 app.include_router(pm_router, prefix="/api", tags=["PM Agent"])
 
 static_dir = "static"
