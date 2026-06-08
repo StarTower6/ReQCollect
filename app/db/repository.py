@@ -201,6 +201,28 @@ class MySQLDataStore(DataStore):
             await s.delete(user)
             await s.commit()
             return True
+
+    # ── Import Records ──
+
+    async def save_import_record(
+        self,
+        session_id: str,
+        filename: str,
+        file_path: str,
+        fields_filled: list[str] | None = None,
+    ) -> dict:
+        return {
+            "id": 1,  # placeholder for MySQL
+            "session_id": session_id,
+            "filename": filename,
+            "file_path": file_path,
+            "fields_filled": fields_filled or [],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    async def get_import_records(self, session_id: str) -> list[dict]:
+        return []
+
     # ── Sessions ──
 
     async def create_session(

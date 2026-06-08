@@ -169,6 +169,22 @@ class DataStore(ABC):
     async def delete_user(self, user_id: str) -> bool:
         """Delete a user. Returns True if deleted."""
 
+    # ── Import Records ──
+
+    @abstractmethod
+    async def save_import_record(
+        self,
+        session_id: str,
+        filename: str,
+        file_path: str,
+        fields_filled: list[str] | None = None,
+    ) -> dict:
+        """Record a document import event for audit/source tracing."""
+
+    @abstractmethod
+    async def get_import_records(self, session_id: str) -> list[dict]:
+        """Get all import records for a session."""
+
     # ── Audit ──
 
     @abstractmethod

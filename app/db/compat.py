@@ -484,6 +484,42 @@ class FileDataStore(DataStore):
                 return True
         return False
 
+    # ── Import Records ──
+
+    def _imports_path(self, session_id: str) -> Path:
+        p = self._base / "imports" / session_id
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    def _imports_index(self, session_id: str) -> Path:
+        return self._imports_path(session_id) / "_index.json"
+
+    async def save_import_record(
+        self,
+        session_id: str,
+        filename: str,
+        file_path: str,
+        fields_filled: list[str] | None = None,
+    ) -> dict:
+        idx_path = self._imports_index(session_id)
+        records = self._load_json(idx_path) or []
+        now = _now()
+        record = {
+            "id": len(records) + 1,
+            "session_id": session_id,
+            "filename": filename,
+            "file_path": file_path,
+            "fields_filled": fields_filled or [],
+            "created_at": now,
+        }
+        records.append(record)
+        self._imports_index(session_id).parent.mkdir(parents=True, exist_ok=True)
+        _FileLock.write_json(idx_path, records)
+        return record
+
+    async def get_import_records(self, session_id: str) -> list[dict]:
+        return self._load_json(self._imports_index(session_id)) or []
+
     # ── Audit ──
 
     async def log_audit(
