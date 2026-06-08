@@ -23,7 +23,7 @@ import csv
 import io
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, File, UploadFile
 from fastapi.responses import StreamingResponse
 from loguru import logger
 from sse_starlette.sse import EventSourceResponse
@@ -119,6 +119,55 @@ async def pm_delete_session(
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"success": True, "session_id": session_id}
+
+
+# ── Import / Upload ──
+
+
+@router.post("/pm/import")
+async def pm_import(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Upload a .md file → create new session → AI analysis (SSE).
+
+    Accepts multipart/form-data with a single 'file' field.
+    Returns SSE events: import_analysis, content, sufficiency, import_complete.
+    """
+    content = await file.read()
+    filename = file.filename or "untitled.md"
+
+    logger.info(f"[import] {filename} ({len(content)} bytes)")
+
+    async def gen():
+        async for event in _svc().import_document(content, filename, current_user["id"]):
+            yield {"event": "message", "data": json.dumps(event, ensure_ascii=False)}
+
+    return EventSourceResponse(gen())
+
+
+@router.post("/pm/sessions/{session_id}/upload")
+async def pm_upload_session_file(
+    session_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Upload a .md file to an existing session (SSE).
+
+    File content is injected as context for the AI to reference
+    in the ongoing conversation.
+    """
+    content = await file.read()
+    filename = file.filename or "untitled.md"
+
+    logger.info(f"[upload] {session_id} <- {filename} ({len(content)} bytes)")
+    await _check_session_ownership(current_user, session_id)
+
+    async def gen():
+        async for event in _svc().upload_to_session(session_id, content, filename):
+            yield {"event": "message", "data": json.dumps(event, ensure_ascii=False)}
+
+    return EventSourceResponse(gen())
 
 
 # ── Phase 1: Chat ──
