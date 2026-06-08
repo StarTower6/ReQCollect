@@ -22,8 +22,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md ./
-RUN pip install --no-cache-dir -e ".[dev]" && \
-    pip install --no-cache-dir gunicorn cryptography
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -e ".[dev]" && \
+    pip install gunicorn cryptography
 
 # ── Stage 3: Runtime ──
 FROM python:3.11-slim
