@@ -7,7 +7,7 @@
     <a v-for="(sec, i) in sections" :key="i" class="prd-toc-item" :href="`#section-${i}`"
        :style="{ fontWeight: activeIndex === i ? 720 : 400 }"
        @click.prevent="$emit('scrollTo', i)">
-      {{ i + 1 }}. {{ sec.title || sec }}
+      {{ i + 1 }}. {{ sec.title }}
     </a>
     <div style="margin-top:16px">
       <button class="tool-btn" type="button" @click="$emit('download')">📥 下载 Markdown</button>
