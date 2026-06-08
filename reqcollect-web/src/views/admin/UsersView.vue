@@ -2,7 +2,10 @@
   <AppLayout>
     <div class="users-page">
       <div class="page-header">
-        <h2>用户管理</h2>
+        <div class="page-header-left">
+          <el-button text size="small" @click="goBack">← 返回</el-button>
+          <h2>用户管理</h2>
+        </div>
         <el-button type="primary" size="small" @click="showAdd = true">
           + 新增用户
         </el-button>
@@ -135,6 +138,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/api/client'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -157,6 +161,11 @@ interface UserRow {
 const users = ref<UserRow[]>([])
 const loading = ref(false)
 const switching = ref('')
+const router = useRouter()
+
+function goBack() {
+  router.push('/chat')
+}
 
 // Add dialog
 const showAdd = ref(false)
@@ -287,6 +296,12 @@ onMounted(loadUsers)
   align-items: center;
   justify-content: space-between;
   margin-bottom: 24px;
+}
+
+.page-header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .page-header h2 {
