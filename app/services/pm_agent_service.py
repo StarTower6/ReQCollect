@@ -16,6 +16,8 @@ from app.agent.pm.phase1.sufficiency import evaluate_profile_sufficiency
 from app.agent.pm.phase2.assembler import prd_assembler
 from app.agent.pm.phase2.planner import prd_planner
 from app.agent.pm.tools import get_profile, hydrate_profile, set_datastore_for_tools
+from app.agent.pm.prompts_import import IMPORT_ANALYSIS_PROMPT
+from app.core.file_handler import decode_content, save_import_file, validate_upload
 from app.db import DataStore
 from app.config import config
 
@@ -90,6 +92,149 @@ class PMAgentService:
         # Persist profile via DataStore
         profile = get_profile(thread_id)
         await self._ds.save_profile(thread_id, profile)
+
+    # ── Import / Document Analysis ──
+
+    async def import_document(
+        self,
+        file_content: bytes,
+        filename: str,
+        user_id: str,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Import a .md document — create session + AI analysis + yield SSE events.
+
+        Flow:
+          1. Validate and save file
+          2. Create new session in DataStore
+          3. Record import in DataStore
+          4. Inject document content as context message
+          5. Run import analysis with custom system prompt
+          6. Extract profile fields with source tags
+          7. Yield import_complete event with session_id
+        """
+        logger.info(f"Import document: {filename}")
+
+        # 1. Validate
+        validate_upload(filename, file_content)
+        text_content = decode_content(file_content)
+
+        # 2. Create new session
+        import uuid
+        session_id = "import-" + uuid.uuid4().hex[:12]
+        await self._ds.create_session(session_id, user_id=user_id, project_name=f"导入分析：{filename}")
+
+        # 3. Save file
+        file_path = save_import_file(session_id, filename, file_content)
+
+        # 4. Record import
+        await self._ds.save_import_record(session_id, filename, file_path)
+
+        # 5. Save user message (the file content as a "user" message)
+        await self._ds.save_message(
+            session_id, "user",
+            f"[导入文档: {filename}]\n\n{text_content[:500]}...",
+            event_type="import",
+            meta={"filename": filename, "file_path": file_path, "truncated": len(text_content) > 500},
+        )
+
+        yield {"type": "import_analysis", "data": {"session_id": session_id, "filename": filename}}
+
+        # 6. Build context: document full text as a system-level message
+        context_messages = [
+            {
+                "role": "system",
+                "content": f"以下是一份用户上传的需求相关文档，请仔细阅读并从中提取需求画像字段。\n\n文档名称：{filename}\n\n---\n\n{text_content}",
+            },
+        ]
+
+        # 7. Run analysis with import-specific prompt
+        assistant_content = ""
+        async for event in get_mining_agent().chat_with_context(
+            message=f"请分析上传的文档「{filename}」并提取需求信息，标记来源，然后总结已获取和缺失的字段。",
+            thread_id=session_id,
+            system_prompt_override=IMPORT_ANALYSIS_PROMPT,
+            context_messages=context_messages,
+        ):
+            if event.get("type") == "content" and isinstance(event.get("data"), str):
+                assistant_content += event["data"]
+            yield event
+
+        # 8. Save assistant response
+        if assistant_content.strip():
+            await self._ds.save_message(session_id, "assistant", assistant_content)
+
+        # 9. Persist profile
+        profile = get_profile(session_id)
+        await self._ds.save_profile(session_id, profile)
+
+        # 10. Yield import_complete
+        yield {
+            "type": "import_complete",
+            "data": {
+                "session_id": session_id,
+                "filename": filename,
+                "fields_filled": [k for k, v in profile.items() if v and k != "sufficiency_score"],
+            },
+        }
+
+    async def upload_to_session(
+        self,
+        session_id: str,
+        file_content: bytes,
+        filename: str,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Upload a .md file to an existing session as conversation context.
+
+        The document content is injected into the next LLM turn as context.
+        """
+        logger.info(f"Upload to session {session_id}: {filename}")
+
+        # 1. Validate
+        validate_upload(filename, file_content)
+        text_content = decode_content(file_content)
+
+        # 2. Save file
+        file_path = save_import_file(session_id, filename, file_content)
+
+        # 3. Record import
+        await self._ds.save_import_record(session_id, filename, file_path)
+
+        # 4. Save event message
+        await self._ds.save_message(
+            session_id, "user",
+            f"[上传文档: {filename}]",
+            event_type="file_upload",
+            meta={"filename": filename, "file_path": file_path},
+        )
+
+        yield {"type": "import_analysis", "data": {"session_id": session_id, "filename": filename, "mode": "append"}}
+
+        # 5. Inject document content as context for the AI to reference
+        context_messages = [
+            {
+                "role": "system",
+                "content": f"用户上传了一份文档供你参考. 请阅读下面的文档内容, 结合已有对话背景继续需求分析。\n\n文档名称：{filename}\n\n---\n\n{text_content}",
+            },
+        ]
+
+        # 6. Use import prompt for the analysis step
+        assistant_content = ""
+        async for event in get_mining_agent().chat_with_context(
+            message=f"我已上传文档「{filename}」。请参考文档内容，结合已有讨论继续需求分析。",
+            thread_id=session_id,
+            system_prompt_override=IMPORT_ANALYSIS_PROMPT,
+            context_messages=context_messages,
+        ):
+            if event.get("type") == "content" and isinstance(event.get("data"), str):
+                assistant_content += event["data"]
+            yield event
+
+        if assistant_content.strip():
+            await self._ds.save_message(session_id, "assistant", assistant_content)
+
+        # 7. Persist profile
+        profile = get_profile(session_id)
+        await self._ds.save_profile(session_id, profile)
 
     # ── Phase 2: PRD Generation ──
 
