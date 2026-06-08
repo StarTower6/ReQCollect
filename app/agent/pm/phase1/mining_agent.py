@@ -5,7 +5,7 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
 from loguru import logger
@@ -69,6 +69,34 @@ class MiningAgent:
         force_knowledge: bool = False,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Process a user message and yield SSE events."""
+        async for event in self.chat_with_context(
+            message=message,
+            thread_id=thread_id,
+            force_knowledge=force_knowledge,
+        ):
+            yield event
+
+    async def chat_with_context(
+        self,
+        message: str,
+        thread_id: str = "default",
+        system_prompt_override: str | None = None,
+        context_messages: list[dict] | None = None,
+        force_knowledge: bool = False,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Process a user message with optional context injection.
+
+        Args:
+            message: The user's current message.
+            thread_id: Session/thread identifier.
+            system_prompt_override: If provided, replaces the default PM_SYSTEM_PROMPT.
+            context_messages: Additional messages to prepend (e.g. document content
+                              as SystemMessage or HumanMessage). Each dict must have
+                              'role' ('system'|'user'|'assistant') and 'content' keys.
+            force_knowledge: Whether to force knowledge retrieval.
+
+        Yields SSE event dicts.
+        """
         context_token = set_current_thread_id(thread_id)
         try:
             agent = await self._get_agent()
@@ -96,10 +124,24 @@ class MiningAgent:
                     f"[用户原始消息]\n{message}"
                 )
 
-            messages = [
-                SystemMessage(content=PM_SYSTEM_PROMPT),
-                HumanMessage(content=user_message),
+            # Build message list with optional context injection
+            messages: list = [
+                SystemMessage(content=system_prompt_override or PM_SYSTEM_PROMPT),
             ]
+
+            # Inject context messages (e.g. document content) before user message
+            if context_messages:
+                for ctx_msg in context_messages:
+                    role = ctx_msg.get("role", "user")
+                    content = ctx_msg.get("content", "")
+                    if role == "system":
+                        messages.append(SystemMessage(content=content))
+                    elif role == "assistant":
+                        messages.append(AIMessage(content=content))
+                    else:
+                        messages.append(HumanMessage(content=content))
+
+            messages.append(HumanMessage(content=user_message))
 
             async for token, _metadata in agent.astream(
                 input={"messages": messages},
