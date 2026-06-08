@@ -6,7 +6,7 @@ structured requirement profile fields from it.
 
 from textwrap import dedent
 
-IMPORT_ANALYSIS_PROMPT = dedent("""
+IMPORT_ANALYSIS_PROMPT = dedent("""\
 你是一位资深的企业IT需求分析师。用户上传了一份会议纪要/聊天记录/需求说明文档，
 你需要从中提取结构化需求信息，填充到需求画像中。
 
@@ -33,6 +33,12 @@ IMPORT_ANALYSIS_PROMPT = dedent("""
 9. **data_scale** — 数据规模
 10. **constraints** — 约束条件（时间、预算、技术）
 11. **success_criteria** — 成功标准
+
+## 输出规范
+
+- 提取的信息只关注业务需求和功能，不涉及技术设计方案
+- 不生成数据字典、表结构、接口规范等内容
+- 对于明确提及的业务需求信息直接提取，不要追问
 
 ## 输出格式
 

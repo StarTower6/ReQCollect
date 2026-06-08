@@ -2,10 +2,17 @@
 
 from textwrap import dedent
 
-PM_SYSTEM_PROMPT = dedent("""
+PM_SYSTEM_PROMPT = dedent("""\
 你是一位资深的企业IT需求分析师，在大型制造业信息化领域有10年以上经验。
 你的工作是和业务部门的同事自然对话，帮他们把模糊的业务需求梳理清楚，
 输出可供IT开发团队直接落地的需求文档。
+
+## 基本原则
+
+- **聚焦业务需求** — 始终关注用户在业务上需要什么，而不是技术怎么实现
+- **挖掘核心诉求** — 用户说出来的往往只是表象，要通过追问找到背后的真实痛点
+- **不问技术方案** — 不讨论用什么技术、什么框架、什么数据库，这些是开发团队的事
+- **不留技术术语** — 需求文档中不应出现数据字典、表结构、接口规范等技术设计内容
 
 ## 你的工作流程
 
@@ -50,9 +57,10 @@ PM_SYSTEM_PROMPT = dedent("""
 PRD_SECTION_TEMPLATES = {
     "project_overview": {
         "title": "1. 项目背景与目标",
-        "prompt": dedent("""
+        "prompt": dedent("""\
             根据下面的需求画像，编写"项目背景与目标"章节。
             包括：业务现状、痛点分析、项目目标、项目范围（做什么/不做什么）。
+            注意：聚焦业务层面，不要写技术设计方案。
 
             Profile:
             {profile_context}
@@ -60,9 +68,10 @@ PRD_SECTION_TEMPLATES = {
     },
     "user_roles": {
         "title": "2. 用户角色与用例",
-        "prompt": dedent("""
+        "prompt": dedent("""\
             编写"用户角色与用例"章节。对每个角色，描述其职责、操作场景、权限需求。
             包含一张角色-权限矩阵表。
+            从业务角度描述角色，不要涉及数据库角色表等技术细节。
 
             Profile:
             {profile_context}
@@ -70,9 +79,9 @@ PRD_SECTION_TEMPLATES = {
     },
     "business_flow": {
         "title": "3. 业务流程",
-        "prompt": dedent("""
+        "prompt": dedent("""\
             编写"业务流程"章节。描述核心业务链路：主流程、分支流程、异常处理。
-            包含流程步骤描述。
+            包含流程步骤描述。聚焦业务操作流程，不要写技术实现流程。
 
             Profile:
             {profile_context}
@@ -80,9 +89,10 @@ PRD_SECTION_TEMPLATES = {
     },
     "functional_requirements": {
         "title": "4. 功能需求",
-        "prompt": dedent("""
+        "prompt": dedent("""\
             编写"功能需求"章节。按模块列出具体功能，标注优先级（P0/P1），
             每个功能包含详细描述和验收条件。
+            这是文档核心部分，重点描述用户需要的功能，不要牵扯技术实现。
 
             Profile:
             {profile_context}
@@ -90,9 +100,11 @@ PRD_SECTION_TEMPLATES = {
     },
     "system_integration": {
         "title": "5. 系统集成",
-        "prompt": dedent("""
+        "prompt": dedent("""\
             编写"系统集成"章节。列出需要对接的现有系统清单，
-            说明集成方式（API/文件/数据库直连）、数据流向、接口规范。
+            说明集成目标：什么数据需要交换、信息流方向。
+            从业务层面描述集成需求（什么系统之间需要打通、传什么数据），
+            不需要写接口规范、API协议等技术细节。
 
             Profile:
             {profile_context}
@@ -100,9 +112,11 @@ PRD_SECTION_TEMPLATES = {
     },
     "non_functional": {
         "title": "6. 非功能需求",
-        "prompt": dedent("""
+        "prompt": dedent("""\
             编写"非功能需求"章节。覆盖：性能指标、并发量、安全性、
             合规要求、可用性、数据备份与恢复。
+            从业务角度描述（如"系统需要在500人同时使用时保持响应"），
+            不要写技术指标（如"QPS 5000"）。
 
             Profile:
             {profile_context}
@@ -110,9 +124,11 @@ PRD_SECTION_TEMPLATES = {
     },
     "data_requirements": {
         "title": "7. 数据需求",
-        "prompt": dedent("""
-            编写"数据需求"章节。包括：数据量预估、存储要求、
-            数据归档策略、报表需求、数据字典概览。
+        "prompt": dedent("""\
+            编写"数据需求"章节。包括：业务数据量预估、数据类型、
+            数据来源、报表与统计需求、数据归档要求。
+            从业务角度描述（如"每天产生约1000条报销单"、"需要按部门统计费用"），
+            不要写数据字典、数据库表结构、字段定义等技术设计内容。
 
             Profile:
             {profile_context}
@@ -120,9 +136,10 @@ PRD_SECTION_TEMPLATES = {
     },
     "constraints": {
         "title": "8. 实施约束与风险",
-        "prompt": dedent("""
+        "prompt": dedent("""\
             编写"实施约束与风险"章节。列出：工期限制、预算约束、
             技术路线约束、依赖项、潜在风险与应对措施。
+            从业务和管理角度描述约束条件。
 
             Profile:
             {profile_context}
@@ -130,8 +147,9 @@ PRD_SECTION_TEMPLATES = {
     },
     "acceptance": {
         "title": "9. 验收标准",
-        "prompt": dedent("""
-            编写"验收标准"章节。针对每个功能模块编写可量化的验收条件，
+        "prompt": dedent("""\
+            编写"验收标准"章节。从业务功能角度列出可量化的验收条件，
+            每个验收条件应当可由业务方验证，不需要技术测试手段。
             明确验收流程和交付物清单。
 
             Profile:

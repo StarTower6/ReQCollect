@@ -30,16 +30,6 @@
 - [x] **`app/main.py`** — 启动时 `init_db()` 创建表，先尝试 MySQL 失败则回退 JSON
 - [x] **JSON 文件 fallback** — `pm_data/` 目录保留，无 MySQL 环境仍可用
 
-### 连接池配置
-
-```yaml
-pool_size: 20
-max_overflow: 10
-pool_recycle: 3600
-pool_pre_ping: true
-echo: false
-```
-
 ## 待实现 🔲
 
 ### 数据安全（P1）
