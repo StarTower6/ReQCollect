@@ -245,6 +245,43 @@ PM 产出的 PRD 需要反映真实系统的功能边界。仅靠口头沟通容
 | 05-部署与运维 | 导入文件保存在 `pm_data/imports/` 和 `pm_data/documents/`，持久卷挂载 |
 | 06-前端界面 | 新增导入弹窗、文档库面板（左侧或右侧）
 
+## 七、数据模型设计（新增）
+
+```sql
+-- 文档库
+CREATE TABLE documents (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    session_id    INT,                -- 关联的会话（可为 NULL）
+    project_name  VARCHAR(255),       -- 项目名称
+    title         VARCHAR(255),       -- 文档标题
+    filename      VARCHAR(255),       -- 原始文件名
+    file_path     VARCHAR(512),       -- 存储路径
+    file_type     VARCHAR(20),        -- md
+    content_text  LONGTEXT,           -- 提取的纯文本
+    tags          JSON,               -- 标签数组
+    version       VARCHAR(50),        -- 版本号（如 v1.0, v2.0）
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 文档标签
+CREATE TABLE document_tags (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    doc_id      INT NOT NULL,
+    tag         VARCHAR(100) NOT NULL,
+    FOREIGN KEY (doc_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
+-- 文档导入记录（溯源）
+CREATE TABLE import_records (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    session_id    INT NOT NULL,
+    filename      VARCHAR(255),
+    file_path     VARCHAR(512),
+    fields_filled JSON,               -- 本次导入填充了哪些画像字段
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
 ## 八、开放问题（已确认）
 
 1. ~~企业微信记录对接 — 后续是否要对接企业微信导出 API 自动拉取聊天记录？~~ → **一期暂不涉及，保留远期**
