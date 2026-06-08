@@ -8,6 +8,10 @@
       <span aria-hidden="true">＋</span>
       <span>新对话</span>
     </button>
+    <button class="sidebar-action import-btn" type="button" @click="$emit('importDoc')">
+      <span aria-hidden="true">📄</span>
+      <span>导入记录</span>
+    </button>
     <input class="sidebar-search" type="search" placeholder="搜索历史会话" v-model="sessionStore.searchQuery" />
     <div class="history-label">最近</div>
     <div id="session-list">
@@ -50,5 +54,5 @@ function switchTo(sid: string) {
   router.push(`/chat/${sid}`)
 }
 
-defineEmits<{ newChat: [] }>()
+defineEmits<{ newChat: [], importDoc: [] }>()
 </script>

@@ -1,6 +1,7 @@
 <template>
   <div class="app-layout">
-    <SideBar @new-chat="handleNewChat" />
+    <SideBar @new-chat="handleNewChat" @import-doc="showImport = true" />
+    <ImportDialog v-model:visible="showImport" />
     <div class="main-area">
       <div class="main">
         <TopBar
@@ -32,12 +33,14 @@ import { useProfileStore } from '@/stores/profile'
 import SideBar from './SideBar.vue'
 import TopBar from './TopBar.vue'
 import ProfilePanel from '@/components/profile/ProfilePanel.vue'
+import ImportDialog from '@/components/chat/ImportDialog.vue'
 
 const sessionStore = useSessionStore()
 const profileStore = useProfileStore()
 const router = useRouter()
 
 const drawerVisible = ref(false)
+const showImport = ref(false)
 const windowWidth = ref(window.innerWidth)
 
 function onResize() { windowWidth.value = window.innerWidth }
