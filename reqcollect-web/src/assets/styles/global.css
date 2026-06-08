@@ -354,6 +354,7 @@ button { border: 0; cursor: pointer; }
   padding: 7px 9px 9px;
 }
 .tool-group { display: flex; min-width: 0; flex-wrap: wrap; gap: 7px; }
+.action-group { display: flex; align-items: center; gap: 4px; }
 .tool-btn {
   display: inline-flex;
   min-height: 32px;

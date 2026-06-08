@@ -4,9 +4,11 @@
       :messages="chatStore.messages"
       :streaming="chatStore.streaming"
       :mode="mode"
+      :session-id="sessionStore.currentId"
       @send="handleSend"
       @send-quick="handleSend"
       @toggle-mode="toggleMode"
+      @file-upload="handleFileUpload"
     />
   </AppLayout>
 </template>
@@ -42,6 +44,15 @@ onMounted(() => {
 
 function toggleMode() {
   mode.value = mode.value === 'one_shot' ? 'incremental' : 'one_shot'
+}
+
+async function handleFileUpload(file: File, sid: string) {
+  chatStore.addMessage('event', `📄 已上传文档: ${file.name}，AI 正在分析...`)
+  // Reload history after upload to pick up new messages from the SSE stream
+  setTimeout(() => {
+    chatStore.loadHistory(sid)
+    profileStore.load(sid)
+  }, 500)
 }
 
 async function handleSend(text: string) {

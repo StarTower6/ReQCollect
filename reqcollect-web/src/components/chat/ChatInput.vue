@@ -17,7 +17,19 @@
             {{ mode === 'one_shot' ? '一键生成' : '逐章确认' }}
           </button>
         </div>
-        <button class="send-btn" type="button" @click="send" :disabled="disabled" aria-label="发送">↑</button>
+        <div class="action-group">
+          <button class="tool-btn upload-btn" type="button" @click="triggerUpload" title="上传文档">
+            📎
+          </button>
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept=".md"
+            hidden
+            @change="handleFileSelect"
+          />
+          <button class="send-btn" type="button" @click="send" :disabled="disabled" aria-label="发送">↑</button>
+        </div>
       </div>
     </div>
   </div>
@@ -29,15 +41,29 @@ import { ref, nextTick } from 'vue'
 const props = defineProps<{
   disabled: boolean
   mode: string
+  sessionId: string | null
 }>()
 
 const emit = defineEmits<{
   send: [text: string]
   toggleMode: []
+  fileUpload: [file: File]
 }>()
 
 const text = ref('')
 const inputRef = ref<HTMLTextAreaElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+function triggerUpload() {
+  fileInputRef.value?.click()
+}
+
+function handleFileSelect(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  emit('fileUpload', file)
+  if (fileInputRef.value) fileInputRef.value.value = ''
+}
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {

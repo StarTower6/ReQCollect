@@ -38,11 +38,18 @@
         </template>
       </div>
     </div>
+    <!-- Upload indicator -->
+    <div v-if="uploading" class="upload-indicator">
+      <el-progress :percentage="uploadProgress" :stroke-width="4" />
+      <span class="upload-label">{{ uploadStatus }}</span>
+    </div>
     <ChatInput
       :disabled="streaming"
       :mode="mode"
+      :session-id="sessionId"
       @send="(v) => $emit('send', v)"
       @toggle-mode="$emit('toggleMode')"
+      @file-upload="handleFileUpload"
       ref="chatInputRef"
     />
   </section>
@@ -50,6 +57,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { ElMessage } from 'element-plus'
 import type { Message, QrOption } from '@/types'
 import MessageBubble from './MessageBubble.vue'
 import QuickReplyBar from './QuickReplyBar.vue'
@@ -59,16 +67,77 @@ const props = defineProps<{
   messages: Message[]
   streaming: boolean
   mode: string
+  sessionId: string | null
 }>()
 
 const emit = defineEmits<{
   send: [text: string]
   sendQuick: [text: string]
   toggleMode: []
+  fileUpload: [file: File, sessionId: string]
 }>()
 
 const scrollRef = ref<HTMLElement | null>(null)
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null)
+const uploading = ref(false)
+const uploadProgress = ref(0)
+const uploadStatus = ref('')
+
+async function handleFileUpload(file: File) {
+  if (!props.sessionId) {
+    ElMessage.warning('请先创建一个会话再上传文件')
+    return
+  }
+  uploading.value = true
+  uploadProgress.value = 10
+  uploadStatus.value = '上传中...'
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const resp = await fetch(`/api/pm/sessions/${props.sessionId}/upload`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('reqcollect_token') || ''}` },
+      body: formData,
+    })
+    if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`)
+
+    uploadProgress.value = 40
+    uploadStatus.value = 'AI 正在分析...'
+
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      buffer = buffer.replace(/\r\n/g, '\n')
+      const frames = buffer.split('\n\n')
+      buffer = frames.pop() || ''
+      for (const frame of frames) {
+        const dataLine = frame.split('\n').find(l => l.startsWith('data: '))
+        if (!dataLine) continue
+        try {
+          const event = JSON.parse(dataLine.slice(6))
+          if (event.type === 'import_analysis') {
+            uploadProgress.value = 70
+          } else if (event.type === 'content' && typeof event.data === 'string') {
+            uploadProgress.value = 85
+          }
+        } catch { /* skip */ }
+      }
+    }
+    uploadProgress.value = 100
+    uploadStatus.value = '完成'
+    ElMessage.success(`「${file.name}」已上传并分析`)
+    emit('fileUpload', file, props.sessionId)
+  } catch (e: any) {
+    ElMessage.error(e.message || '上传失败')
+  } finally {
+    setTimeout(() => { uploading.value = false; uploadProgress.value = 0 }, 1000)
+  }
+}
 
 function scrollToBottom() {
   nextTick(() => {
