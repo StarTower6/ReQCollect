@@ -102,7 +102,7 @@ async def ws_update(
 ):
     """Update workspace fields."""
     ds = _ds()
-    kwargs = {k: v for k, v in body.model_dump().items() if v}
+    kwargs = body.model_dump(exclude_unset=True)
     if not kwargs:
         raise HTTPException(status_code=400, detail="No fields to update")
     ws = await ds.update_workspace(workspace_id, **kwargs)
