@@ -59,6 +59,13 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    /** Initialize auth state from stored token — call on app mount */
+    async init() {
+      if (this.token && !this.user) {
+        await this.loadUser()
+      }
+    },
+
     logout() {
       this.token = null
       this.user = null
