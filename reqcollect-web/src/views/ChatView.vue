@@ -73,6 +73,7 @@ async function handleSend(text: string) {
     session_id: sid,
     mode: mode.value,
     use_knowledge: false,
+    workspace_id: sessionStore.currentWorkspaceId || '',
   }, (event: any) => {
     switch (event.type) {
       case 'content':

@@ -57,6 +57,7 @@ class PMAgentService:
         message: str,
         thread_id: str = "default",
         user_id: str | None = None,
+        workspace_id: str | None = None,
         use_knowledge: bool = False,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Phase 1: Conversational requirement mining."""
@@ -65,7 +66,8 @@ class PMAgentService:
         # Ensure session exists
         session = await self._ds.get_session(thread_id)
         if session is None:
-            session = await self._ds.create_session(thread_id, user_id=user_id or "default")
+            session = await self._ds.create_session(thread_id, user_id=user_id or "default",
+                                                    workspace_id=workspace_id)
 
         # Load profile from DataStore into in-memory store for this thread
         hinted_fields = apply_profile_hints(thread_id, message)
@@ -352,6 +354,7 @@ class PMAgentService:
         thread_id: str = "default",
         mode: str = "one_shot",
         user_id: str | None = None,
+        workspace_id: str | None = None,
         use_knowledge: bool = False,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Convenience wrapper: auto-routes based on message intent."""
@@ -367,7 +370,7 @@ class PMAgentService:
             async for event in self.continue_generation(thread_id):
                 yield event
         else:
-            async for event in self.chat(message, thread_id, user_id=user_id, use_knowledge=use_knowledge):
+            async for event in self.chat(message, thread_id, user_id=user_id, workspace_id=workspace_id, use_knowledge=use_knowledge):
                 yield event
 
     # ── Data accessors ──

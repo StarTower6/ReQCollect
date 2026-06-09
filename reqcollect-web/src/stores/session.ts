@@ -6,6 +6,7 @@ import { fetchSessions, deleteSessionApi } from '@/api/session'
 export const useSessionStore = defineStore('session', () => {
   const sessions = ref<Session[]>([])
   const currentId = ref<string | null>(null)
+  const currentWorkspaceId = ref<string | null>(null)
   const searchQuery = ref('')
 
   const filteredSessions = computed(() => {
@@ -39,5 +40,9 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  return { sessions, currentId, searchQuery, filteredSessions, load, setCurrent, newSession, remove }
+  function setWorkspace(wsId: string | null) {
+    currentWorkspaceId.value = wsId
+  }
+
+  return { sessions, currentId, currentWorkspaceId, searchQuery, filteredSessions, load, setCurrent, newSession, remove, setWorkspace }
 })

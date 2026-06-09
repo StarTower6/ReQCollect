@@ -7,6 +7,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., description="User message")
     session_id: str = Field(default="default", description="Session ID")
     use_knowledge: bool = Field(default=False, description="Force knowledge retrieval")
+    workspace_id: str = Field(default="", description="Workspace ID")
 
     model_config = {"json_schema_extra": {"example": {
         "message": "我想做一个企业报销审批系统",
@@ -38,6 +39,7 @@ class AgentRequest(BaseModel):
     session_id: str = Field(default="default", description="Session ID")
     mode: str = Field(default="one_shot", description="one_shot | incremental")
     use_knowledge: bool = Field(default=False, description="Force knowledge retrieval")
+    workspace_id: str = Field(default="", description="Workspace ID")
 
     model_config = {"json_schema_extra": {"example": {
         "message": "我想做一个企业报销审批系统",

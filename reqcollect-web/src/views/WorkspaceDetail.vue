@@ -108,6 +108,8 @@ function goChat(sid: string) {
   router.push(`/chat/${sid}`)
 }
 function goNewChat() {
+  const wsId = route.params.id as string
+  sessionStore.setWorkspace(wsId)
   const sid = sessionStore.newSession()
   router.push(`/chat/${sid}`)
 }
