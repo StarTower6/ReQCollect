@@ -34,11 +34,9 @@ uploads/
 Thumbs.db
 
 # ── Frontend ──
-# reqcollect-web/node_modules is already excluded above
-# Keep reqcollect-web/ for Node build stage
-!reqcollect-web/
+# 前端在宿主机构建（npm run build），dist/ 直接 COPY
+!reqcollect-web/dist/
 reqcollect-web/node_modules/
-reqcollect-web/dist/
 
 # ── Docs & process ──
 docs/
