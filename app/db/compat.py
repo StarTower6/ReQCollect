@@ -147,6 +147,7 @@ class FileDataStore(DataStore):
         self,
         user_id: str | None = None,
         status: str | None = None,
+        workspace_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict]:
@@ -158,6 +159,8 @@ class FileDataStore(DataStore):
             if user_id and data.get("user_id") != user_id:
                 continue
             if status and data.get("status") != status:
+                continue
+            if workspace_id and data.get("workspace_id") != workspace_id:
                 continue
             sessions.append(data)
         # Sort by updated_at desc

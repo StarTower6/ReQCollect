@@ -339,6 +339,7 @@ class MySQLDataStore(DataStore):
         self,
         user_id: str | None = None,
         status: str | None = None,
+        workspace_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict]:
@@ -348,6 +349,8 @@ class MySQLDataStore(DataStore):
                 stmt = stmt.where(Session.user_id == user_id)
             if status:
                 stmt = stmt.where(Session.status == status)
+            if workspace_id:
+                stmt = stmt.where(Session.workspace_id == workspace_id)
             stmt = stmt.order_by(Session.updated_at.desc()).limit(limit).offset(offset)
             result = await s.execute(stmt)
             sessions = result.scalars().all()

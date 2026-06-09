@@ -41,6 +41,7 @@ class DataStore(ABC):
         self,
         user_id: str | None = None,
         status: str | None = None,
+        workspace_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict]:

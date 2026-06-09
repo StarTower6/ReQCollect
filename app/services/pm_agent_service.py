@@ -388,7 +388,7 @@ class PMAgentService:
         return await self._ds.get_message_history(thread_id)
 
     async def list_sessions(self) -> list[dict]:
-        return await self._ds.list_sessions()
+        return await self._ds.list_sessions(limit=10000)
 
     async def delete_session(self, session_id: str) -> bool:
         _session_state.pop(session_id, None)

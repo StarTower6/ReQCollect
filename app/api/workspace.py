@@ -138,8 +138,5 @@ async def ws_sessions(
     if ws is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
-    svc = _svc()
-    sessions = await svc.list_sessions()
-    # Filter by workspace_id
-    ws_sessions = [s for s in sessions if s.get("workspace_id") == workspace_id]
-    return {"success": True, "sessions": ws_sessions, "total": len(ws_sessions)}
+    sessions = await ds.list_sessions(workspace_id=workspace_id, limit=10000)
+    return {"success": True, "sessions": sessions, "total": len(sessions)}
