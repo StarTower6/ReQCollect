@@ -59,6 +59,17 @@ async def init_db() -> bool:
         async with _engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
+        # Apply idempotent migrations
+        async with _engine.begin() as conn:
+            try:
+                await conn.execute(
+                    __import__("sqlalchemy").text(
+                        "ALTER TABLE sessions ADD COLUMN workspace_id VARCHAR(64) DEFAULT '' AFTER id"
+                    )
+                )
+                logger.info("Applied migration: sessions.workspace_id")
+            except Exception:
+                logger.debug("Migration: sessions.workspace_id already exists")
         _async_session_factory = async_sessionmaker(
             _engine, class_=AsyncSession, expire_on_commit=False
         )
