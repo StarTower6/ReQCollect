@@ -10,7 +10,19 @@ const router = createRouter({
     },
     {
       path: '/',
-      redirect: '/chat',
+      redirect: '/workspaces',
+    },
+    {
+      path: '/workspaces',
+      name: 'WorkspaceList',
+      component: () => import('@/views/WorkspaceList.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/workspace/:id',
+      name: 'WorkspaceDetail',
+      component: () => import('@/views/WorkspaceDetail.vue'),
+      meta: { requiresAuth: true },
     },
     {
       path: '/chat',
@@ -51,7 +63,7 @@ router.beforeEach((to, _from, next) => {
   const isAuthenticated = !!token
 
   if (to.path === '/login' && isAuthenticated) {
-    next('/chat')
+    next('/workspaces')
     return
   }
 

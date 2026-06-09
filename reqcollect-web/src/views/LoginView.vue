@@ -96,7 +96,7 @@ async function handleLogin() {
   try {
     await authStore.login(form.username, form.password)
     ElMessage.success('登录成功')
-    router.push('/chat')
+    router.push('/workspaces')
   } catch (e: any) {
     errorMsg.value = e.message?.includes('401')
       ? '用户名或密码错误'

@@ -30,6 +30,7 @@
       </div>
     </div>
     <div class="sidebar-footer">
+      <router-link class="sidebar-link" to="/workspaces">📁 工作空间</router-link>
       <router-link class="sidebar-link" to="/dashboard">📊 数据看板</router-link>
       <a class="sidebar-link" href="/docs">API 文档</a>
       <a class="sidebar-link" href="/api/health">服务状态</a>
