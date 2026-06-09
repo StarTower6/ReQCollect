@@ -236,7 +236,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search as SearchIcon } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -301,6 +301,9 @@ const filteredUsers = computed(() => {
 // Pagination
 const page = ref(1)
 const pageSize = ref(10)
+
+// Reset to page 1 when filter changes
+watch([searchQuery, roleFilter], () => { page.value = 1 })
 
 const total = computed(() => filteredUsers.value.length)
 const paginatedUsers = computed(() => {

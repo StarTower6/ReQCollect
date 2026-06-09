@@ -120,6 +120,7 @@ class Session(Base):
     def to_dict(self) -> dict:
         return {
             "session_id": self.id,
+            "workspace_id": self.workspace_id or "",
             "user_id": self.user_id,
             "project_name": self.project_name or "未命名项目",
             "status": self.status,
