@@ -1,11 +1,11 @@
-"""Requirement completeness evaluator — v2 with 3-layer probing questions.
+"""Requirement completeness evaluator — v2 with scene-aware field weights.
 
-Evaluates the requirement profile and generates suggested next questions
-using a 3-layer approach per missing field:
-  1. Direction layer — overall understanding
-  2. Example layer — concrete instance
-  3. Confirmation layer — mirror back understanding
+Evaluates the requirement profile and generates probing questions.
+Field weights shift dynamically based on detected project scene
+(e.g. BI/report projects weight data_scale higher).
 """
+
+import re
 
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
@@ -20,7 +20,9 @@ class CompletenessResult(BaseModel):
     reasoning: str = Field(description="Brief reasoning for the score")
 
 
-FIELD_RULES = [
+# ── Base weights (normalized, sum = 1.0) ──
+
+_BASE_FIELD_RULES = [
     ("project_name", 0.05, "项目名称",
      "这个需求一般怎么称呼？你们内部有没有一个约定的项目名称？",
      "比如是叫\"财务报销系统\"还是\"费用管理平台\"？",
@@ -78,6 +80,113 @@ FIELD_RULES = [
 ]
 
 
+# ── Scene-aware weight multipliers ──
+# Key: scene name (matches SceneType values), Value: {field_name: multiplier}
+# Default multiplier = 1.0 (unchanged)
+
+_SCENE_WEIGHT_MULTIPLIERS: dict[str, dict[str, float]] = {
+    "报表_BI看板": {
+        "data_scale": 2.5,              # BI project — data volume is critical
+        "functional_requirements": 1.5,  # report dimensions + metrics
+        "user_roles": 1.3,               # who views which report
+        "business_flow": 0.5,            # flow is less critical for BI
+        "current_process": 0.5,
+    },
+    "审批流系统": {
+        "business_flow": 2.0,            # approval flow is the core
+        "user_roles": 1.5,               # approval matrix is critical
+        "non_functional": 1.3,           # audit compliance
+        "data_scale": 0.5,               # data volume less critical
+    },
+    "系统改造升级": {
+        "existing_systems": 1.8,          # migration + integration are key
+        "current_process": 1.5,           # what exists matters most
+        "constraints": 1.5,              # risk + transition constraints
+        "project_name": 1.2,
+    },
+    "数据治理项目": {
+        "data_scale": 2.0,
+        "existing_systems": 1.5,
+        "non_functional": 1.5,            # data quality rules
+        "user_roles": 0.5,
+        "business_flow": 0.5,
+    },
+    "接口集成项目": {
+        "existing_systems": 2.0,
+        "non_functional": 1.5,            # reliability + error handling
+        "business_flow": 0.5,
+        "user_roles": 0.5,
+    },
+    "简单工具类": {
+        "functional_requirements": 1.8,
+        "user_roles": 1.3,
+        "business_flow": 0.3,
+        "existing_systems": 0.3,
+        "non_functional": 0.3,
+        "data_scale": 0.3,
+        "constraints": 0.3,
+    },
+    # 新建系统 — no overrides, all 1.0
+}
+
+
+# ── Scene detection (lightweight, mirrors planner.py logic) ──
+
+def _list_count(profile: dict, field: str) -> int:
+    v = profile.get(field, [])
+    return len(v) if isinstance(v, list) else 0
+
+
+def _detect_scene(profile: dict) -> str:
+    """Quick scene detection from profile fields. Matches planner.py logic."""
+    import json as _json
+
+    def _txt(*fields: str) -> str:
+        parts = []
+        for f in fields:
+            v = profile.get(f, "")
+            if isinstance(v, str):
+                parts.append(v)
+            elif isinstance(v, (list, dict)):
+                parts.append(_json.dumps(v, ensure_ascii=False))
+        return " ".join(parts)
+
+    text = _txt("business_background", "current_process", "business_flow")
+    funcs_text = _txt("functional_requirements")
+    role_count = _list_count(profile, "user_roles")
+    func_count = _list_count(profile, "functional_requirements")
+
+    if profile.get("existing_systems") and re.search(r"优化|升级|改造|替换|二期|迭代|重构|切换|迁移", text):
+        return "系统改造升级"
+    if re.search(r"报表|看[板幕]|统计|仪表盘|BI|大屏|驾驶舱|趋势图|数据分析", funcs_text):
+        if not re.search(r"审批|审核|下单|采购|报销|入库|出库|生产", text):
+            return "报表_BI看板"
+    if re.search(r"审批|审核|复核|会签|签批|报销|审批流", text) and role_count >= 3:
+        return "审批流系统"
+    if profile.get("data_scale") and re.search(r"数据质量|数据标准|数据迁移|数据治理|数据清洗|数据规范|主数据", text):
+        return "数据治理项目"
+    if _list_count(profile, "existing_systems") >= 2 and func_count <= 3:
+        if not re.search(r"界面|页面|录入|填写|填报", funcs_text):
+            return "接口集成项目"
+    if role_count <= 2 and func_count <= 3 and not profile.get("existing_systems"):
+        if not profile.get("business_flow"):
+            return "简单工具类"
+    return "新建系统"
+
+
+# ── Build scene-weighted rules ──
+
+def _get_weighted_field_rules(scene: str) -> list[tuple]:
+    """Return FIELD_RULES with weights adjusted for the given scene."""
+    multipliers = _SCENE_WEIGHT_MULTIPLIERS.get(scene, {})
+    rules = []
+    for field, weight, label, q1, q2, q3 in _BASE_FIELD_RULES:
+        mult = multipliers.get(field, 1.0)
+        adjusted = round(weight * mult, 3)
+        rules.append((field, adjusted, label, q1, q2, q3))
+    return rules
+
+
 def _has_value(value) -> bool:
     if value is None:
         return False
@@ -91,17 +200,19 @@ def _has_value(value) -> bool:
 def evaluate_profile_completeness(thread_id: str = "default") -> CompletenessResult:
     """Evaluate the current profile completeness and generate probing questions.
 
-    For each missing field, picks the most appropriate question from the
-    3-layer set based on what the AI should ask next.
+    Weights are dynamically adjusted based on detected project scene.
     """
     thread_id = resolve_thread_id(thread_id)
     profile = get_profile(thread_id)
+
+    scene = _detect_scene(profile)
+    rules = _get_weighted_field_rules(scene)
 
     score = 0.0
     missing_fields: list[str] = []
     suggested_questions: list[str] = []
 
-    for field, weight, label, q1, q2, q3 in FIELD_RULES:
+    for field, weight, label, q1, q2, q3 in rules:
         if _has_value(profile.get(field)):
             score += weight
         else:
@@ -112,8 +223,8 @@ def evaluate_profile_completeness(thread_id: str = "default") -> CompletenessRes
     profile["sufficiency_score"] = score
     profile["pending_questions"] = suggested_questions[:3]
 
-    covered_count = len(FIELD_RULES) - len(missing_fields)
-    reasoning = f"已覆盖 {covered_count}/{len(FIELD_RULES)} 类需求信息。"
+    covered_count = len(rules) - len(missing_fields)
+    reasoning = f"已覆盖 {covered_count}/{len(rules)} 类需求信息（场景：{scene}）。"
 
     return CompletenessResult(
         score=score,
