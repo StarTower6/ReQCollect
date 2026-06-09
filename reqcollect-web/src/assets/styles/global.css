@@ -466,25 +466,59 @@ button { border: 0; cursor: pointer; }
   overflow-y: auto;
   padding: 24px;
 }
-.prd-content { max-width: 820px; margin: 0 auto; line-height: 1.8; font-size: 15px; color: #1d2b42; }
-.prd-content h1 { font-size: 1.5em; margin: 30px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #e8edf4; font-weight: 700; color: #0f1a2e; }
-.prd-content h2 { font-size: 1.25em; margin: 24px 0 8px; font-weight: 600; color: #1d2b42; }
-.prd-content h3 { font-size: 1.1em; margin: 20px 0 6px; font-weight: 600; }
-.prd-content h4, .prd-content h5 { font-size: 1em; margin: 16px 0 4px; font-weight: 600; }
-.prd-content p { margin: 8px 0; line-height: 1.75; }
-.prd-content ul, .prd-content ol { margin: 8px 0; padding-left: 24px; }
-.prd-content li { margin: 4px 0; }
-.prd-content blockquote { margin: 12px 0; padding: 8px 16px; border-left: 4px solid #409eff; background: #f0f5ff; color: #354258; border-radius: 0 6px 6px 0; }
-.prd-content table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
-.prd-content th, .prd-content td { padding: 8px 12px; border: 1px solid #e8edf4; text-align: left; }
-.prd-content th { background: #f5f7fa; font-weight: 600; color: #1d2b42; }
-.prd-content tr:nth-child(even) { background: #fafbfc; }
-.prd-content code { padding: 2px 6px; background: #f0f2f5; border-radius: 4px; font-size: 0.9em; font-family: 'SF Mono', 'Fira Code', monospace; }
-.prd-content pre { margin: 12px 0; padding: 16px; background: #1e293b; border-radius: 8px; overflow-x: auto; }
-.prd-content pre code { padding: 0; background: transparent; color: #e2e8f0; font-size: 13px; line-height: 1.6; }
-.prd-content hr { margin: 24px 0; border: none; border-top: 1px solid #e8edf4; }
+.prd-content { max-width: 860px; margin: 0 auto; line-height: 1.8; font-size: 15px; color: #1d2b42; padding: 0 8px 40px; }
+.prd-content h1 { font-size: 1.65em; margin: 36px 0 14px; padding-bottom: 10px; border-bottom: 2px solid #e8edf4; font-weight: 700; color: #0f1a2e; letter-spacing: -0.01em; }
+.prd-content h2 { font-size: 1.3em; margin: 28px 0 10px; font-weight: 600; color: #1d2b42; }
+.prd-content h3 { font-size: 1.12em; margin: 22px 0 8px; font-weight: 600; }
+.prd-content h4, .prd-content h5 { font-size: 1em; margin: 18px 0 6px; font-weight: 600; }
+.prd-content p { margin: 10px 0; line-height: 1.8; }
+.prd-content ul, .prd-content ol { margin: 10px 0; padding-left: 26px; }
+.prd-content li { margin: 5px 0; }
+.prd-content li > p { margin: 0; }
+
+/* 引用块 */
+.prd-content blockquote { margin: 14px 0; padding: 10px 18px; border-left: 4px solid #409eff; background: #f0f5ff; color: #354258; border-radius: 0 8px 8px 0; font-size: 0.95em; }
+.prd-content blockquote p { margin: 4px 0; }
+
+/* 表格 */
+.prd-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.prd-content th, .prd-content td { padding: 10px 14px; border: 1px solid #e0e6ed; text-align: left; vertical-align: top; }
+.prd-content th { background: #f0f4f8; font-weight: 600; color: #1d2b42; white-space: nowrap; }
+.prd-content tr:nth-child(even) { background: #f8fafc; }
+.prd-content tr:hover { background: #f0f5ff; }
+
+/* 行内代码 */
+.prd-content code:not(pre code) { padding: 2px 7px; background: #f0f2f5; border-radius: 4px; font-size: 0.88em; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace; color: #d6336c; }
+
+/* 代码块 */
+.prd-content pre { margin: 16px 0; padding: 18px; background: #1e293b; border-radius: 10px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.12); position: relative; }
+.prd-content pre code { padding: 0; background: transparent; color: #e2e8f0; font-size: 13.5px; line-height: 1.65; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace; tab-size: 2; }
+/* Highlight.js overrides for dark code blocks */
+.prd-content pre .hljs { background: transparent; color: #e2e8f0; padding: 0; }
+.prd-content pre .hljs-keyword { color: #c084fc; }
+.prd-content pre .hljs-string { color: #86efac; }
+.prd-content pre .hljs-number { color: #fde68a; }
+.prd-content pre .hljs-comment { color: #64748b; font-style: italic; }
+.prd-content pre .hljs-function { color: #60a5fa; }
+.prd-content pre .hljs-title { color: #60a5fa; }
+.prd-content pre .hljs-built_in { color: #f59e0b; }
+.prd-content pre .hljs-type { color: #a78bfa; }
+.prd-content pre .hljs-attr { color: #fbbf24; }
+.prd-content pre .hljs-params { color: #e2e8f0; }
+.prd-content pre .hljs-literal { color: #f472b6; }
+
+/* Mermaid 图表 */
+.prd-content .mermaid { margin: 20px 0; padding: 20px; background: #ffffff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow-x: auto; display: flex; justify-content: center; }
+
+/* 分割线 */
+.prd-content hr { margin: 32px 0; border: none; border-top: 1px solid #e8edf4; }
+
 .prd-content em { font-style: italic; }
 .prd-content strong { font-weight: 600; }
+.prd-content a { color: #409eff; text-decoration: none; }
+.prd-content a:hover { text-decoration: underline; }
+/* 检查框列表（GitHub flavored） */
+.prd-content input[type="checkbox"] { margin-right: 6px; transform: scale(1.1); }
 
 /* ── Dashboard ── */
 .dashboard { padding: 24px; overflow-y: auto; }
