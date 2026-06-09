@@ -304,6 +304,12 @@ class MySQLDataStore(DataStore):
             if ws is None:
                 return False
             await s.delete(ws)
+            # Orphan sessions: clear workspace_id (don't delete them)
+            await s.execute(
+                update(Session)
+                .where(Session.workspace_id == workspace_id)
+                .values(workspace_id="", updated_at=datetime.now(timezone.utc))
+            )
             await s.commit()
             return True
 

@@ -598,6 +598,13 @@ class FileDataStore(DataStore):
         if workspace_id in index:
             index.remove(workspace_id)
             _FileLock.write_json(self._workspaces_index(), index)
+        # Orphan sessions: clear workspace_id (don't delete them)
+        for f in self._sessions_dir.glob("*.json"):
+            data = self._load_json(f)
+            if data and data.get("workspace_id") == workspace_id:
+                data["workspace_id"] = ""
+                data["updated_at"] = _now()
+                _FileLock.write_json(f, data)
         return True
 
     # ── Audit ──
