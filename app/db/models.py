@@ -83,6 +83,7 @@ class Session(Base):
     __tablename__ = "sessions"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=_new_id)
+    workspace_id: Mapped[str | None] = mapped_column(String(64), default="")
     user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"), nullable=False)
     project_name: Mapped[str] = mapped_column(String(200), default="")
     status: Mapped[str] = mapped_column(
@@ -268,6 +269,22 @@ class GeneratedPRD(Base):
             "markdown": self.markdown or "",
             "created_at": self.created_at.isoformat() if self.created_at else "",
         }
+
+
+# ── Workspace ──
+
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=_new_id)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(100), default="")
+    description: Mapped[str | None] = mapped_column(String(500), default="")
+    created_by: Mapped[str] = mapped_column(String(64), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
 
 # ── Audit Log ──

@@ -121,10 +121,12 @@ class FileDataStore(DataStore):
         session_id: str,
         user_id: str = "default",
         project_name: str = "",
+        workspace_id: str | None = None,
     ) -> dict:
         now = _now()
         data = {
             "session_id": session_id,
+            "workspace_id": workspace_id or "",
             "user_id": user_id,
             "project_name": project_name,
             "status": "mining",
@@ -519,6 +521,81 @@ class FileDataStore(DataStore):
 
     async def get_import_records(self, session_id: str) -> list[dict]:
         return self._load_json(self._imports_index(session_id)) or []
+
+    # ── Workspaces ──
+
+    def _workspaces_path(self) -> Path:
+        p = self._base / "workspaces"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    def _workspace_file(self, ws_id: str) -> Path:
+        return self._workspaces_path() / f"{ws_id}.json"
+
+    def _workspaces_index(self) -> Path:
+        return self._workspaces_path() / "_index.json"
+
+    async def create_workspace(
+        self,
+        name: str,
+        created_by: str,
+        code: str = "",
+        description: str = "",
+    ) -> dict:
+        import uuid
+        now = _now()
+        ws = {
+            "id": uuid.uuid4().hex[:16],
+            "name": name,
+            "code": code,
+            "description": description,
+            "created_by": created_by,
+            "is_active": True,
+            "created_at": now,
+            "updated_at": now,
+        }
+        _FileLock.write_json(self._workspace_file(ws["id"]), ws)
+        # Update index
+        index = self._load_json(self._workspaces_index()) or []
+        index.append(ws["id"])
+        _FileLock.write_json(self._workspaces_index(), index)
+        return dict(ws)
+
+    async def get_workspace(self, workspace_id: str) -> dict | None:
+        return self._load_json(self._workspace_file(workspace_id))
+
+    async def list_workspaces(self, user_id: str | None = None) -> list[dict]:
+        workspaces = []
+        for f in sorted(self._workspaces_path().glob("*.json")):
+            if f.name == "_index.json":
+                continue
+            data = self._load_json(f)
+            if data and data.get("is_active", True):
+                workspaces.append(data)
+        workspaces.sort(key=lambda w: w.get("updated_at", ""), reverse=True)
+        return workspaces
+
+    async def update_workspace(self, workspace_id: str, **kwargs) -> dict | None:
+        ws = await self.get_workspace(workspace_id)
+        if ws is None:
+            return None
+        for key, value in kwargs.items():
+            ws[key] = value
+        ws["updated_at"] = _now()
+        _FileLock.write_json(self._workspace_file(workspace_id), ws)
+        return dict(ws)
+
+    async def delete_workspace(self, workspace_id: str) -> bool:
+        ws_file = self._workspace_file(workspace_id)
+        if not ws_file.exists():
+            return False
+        ws_file.unlink(missing_ok=True)
+        # Remove from index
+        index = self._load_json(self._workspaces_index()) or []
+        if workspace_id in index:
+            index.remove(workspace_id)
+            _FileLock.write_json(self._workspaces_index(), index)
+        return True
 
     # ── Audit ──
 

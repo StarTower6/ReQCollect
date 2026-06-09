@@ -19,6 +19,7 @@ from app.db.models import (
     RequirementProfile,
     Session,
     User,
+    Workspace,
 )
 
 
@@ -223,6 +224,89 @@ class MySQLDataStore(DataStore):
     async def get_import_records(self, session_id: str) -> list[dict]:
         return []
 
+    # ── Workspaces ──
+
+    async def create_workspace(
+        self,
+        name: str,
+        created_by: str,
+        code: str = "",
+        description: str = "",
+    ) -> dict:
+        async with await self._get_session() as s:
+            ws = Workspace(
+                name=name, code=code,
+                description=description, created_by=created_by,
+            )
+            s.add(ws)
+            await s.commit()
+            await s.refresh(ws)
+            return {
+                "id": ws.id, "name": ws.name, "code": ws.code or "",
+                "description": ws.description or "", "created_by": ws.created_by,
+                "is_active": ws.is_active,
+                "created_at": ws.created_at.isoformat() if ws.created_at else "",
+                "updated_at": ws.updated_at.isoformat() if ws.updated_at else "",
+            }
+
+    async def get_workspace(self, workspace_id: str) -> dict | None:
+        async with await self._get_session() as s:
+            r = await s.execute(select(Workspace).where(Workspace.id == workspace_id))
+            ws = r.scalar_one_or_none()
+            if ws is None:
+                return None
+            return {
+                "id": ws.id, "name": ws.name, "code": ws.code or "",
+                "description": ws.description or "", "created_by": ws.created_by,
+                "is_active": ws.is_active,
+                "created_at": ws.created_at.isoformat() if ws.created_at else "",
+                "updated_at": ws.updated_at.isoformat() if ws.updated_at else "",
+            }
+
+    async def list_workspaces(self, user_id: str | None = None) -> list[dict]:
+        async with await self._get_session() as s:
+            r = await s.execute(
+                select(Workspace).where(Workspace.is_active == True)
+                .order_by(Workspace.updated_at.desc())
+            )
+            wss = r.scalars().all()
+            return [{
+                "id": ws.id, "name": ws.name, "code": ws.code or "",
+                "description": ws.description or "", "created_by": ws.created_by,
+                "is_active": ws.is_active,
+                "created_at": ws.created_at.isoformat() if ws.created_at else "",
+                "updated_at": ws.updated_at.isoformat() if ws.updated_at else "",
+            } for ws in wss]
+
+    async def update_workspace(self, workspace_id: str, **kwargs) -> dict | None:
+        async with await self._get_session() as s:
+            r = await s.execute(select(Workspace).where(Workspace.id == workspace_id))
+            ws = r.scalar_one_or_none()
+            if ws is None:
+                return None
+            for key, value in kwargs.items():
+                if hasattr(ws, key):
+                    setattr(ws, key, value)
+            ws.updated_at = datetime.now(timezone.utc)
+            await s.commit()
+            return {
+                "id": ws.id, "name": ws.name, "code": ws.code or "",
+                "description": ws.description or "", "created_by": ws.created_by,
+                "is_active": ws.is_active,
+                "created_at": ws.created_at.isoformat() if ws.created_at else "",
+                "updated_at": ws.updated_at.isoformat() if ws.updated_at else "",
+            }
+
+    async def delete_workspace(self, workspace_id: str) -> bool:
+        async with await self._get_session() as s:
+            r = await s.execute(select(Workspace).where(Workspace.id == workspace_id))
+            ws = r.scalar_one_or_none()
+            if ws is None:
+                return False
+            await s.delete(ws)
+            await s.commit()
+            return True
+
     # ── Sessions ──
 
     async def create_session(
@@ -230,11 +314,13 @@ class MySQLDataStore(DataStore):
         session_id: str,
         user_id: str = "default",
         project_name: str = "",
+        workspace_id: str | None = None,
     ) -> dict:
         async with await self._get_session() as s:
             await self._get_or_create_user(user_id, session_async_session=s)
             session = Session(
                 id=session_id,
+                workspace_id=workspace_id or "",
                 user_id=user_id,
                 project_name=project_name,
             )

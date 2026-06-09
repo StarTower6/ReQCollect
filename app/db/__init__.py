@@ -28,6 +28,7 @@ class DataStore(ABC):
         session_id: str,
         user_id: str = "default",
         project_name: str = "",
+        workspace_id: str | None = None,
     ) -> dict:
         """Create a new session and return its dict representation."""
 
@@ -184,6 +185,34 @@ class DataStore(ABC):
     @abstractmethod
     async def get_import_records(self, session_id: str) -> list[dict]:
         """Get all import records for a session."""
+
+    # ── Workspaces ──
+
+    @abstractmethod
+    async def create_workspace(
+        self,
+        name: str,
+        created_by: str,
+        code: str = "",
+        description: str = "",
+    ) -> dict:
+        """Create a workspace and return its dict."""
+
+    @abstractmethod
+    async def get_workspace(self, workspace_id: str) -> dict | None:
+        """Get workspace by ID."""
+
+    @abstractmethod
+    async def list_workspaces(self, user_id: str | None = None) -> list[dict]:
+        """List all workspaces accessible by user."""
+
+    @abstractmethod
+    async def update_workspace(self, workspace_id: str, **kwargs) -> dict | None:
+        """Update workspace fields."""
+
+    @abstractmethod
+    async def delete_workspace(self, workspace_id: str) -> bool:
+        """Delete workspace and all related data."""
 
     # ── Audit ──
 
