@@ -1,6 +1,7 @@
 /* ── Session ── */
 export interface Session {
   session_id: string
+  workspace_id: string
   user_id: string
   project_name: string
   status: 'mining' | 'generating' | 'complete'

@@ -55,7 +55,9 @@ const title = computed(() => {
 
 const sufficiencyPercent = computed(() => Math.round((profileStore.profile.sufficiency_score || 0) * 100))
 
-function handleNewChat() {
+async function handleNewChat() {
+  // Starting a new global chat — clear workspace context
+  sessionStore.clearWorkspace()
   const id = sessionStore.newSession()
   profileStore.clear()
   router.push(`/chat/${id}`)

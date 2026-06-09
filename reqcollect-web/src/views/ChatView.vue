@@ -57,7 +57,7 @@ async function handleFileUpload(file: File, sid: string) {
 
 async function handleSend(text: string) {
   if (!sessionStore.currentId) {
-    const id = sessionStore.newSession()
+    const id = sessionStore.newSession(sessionStore.currentWorkspaceId || undefined)
     await sessionStore.load()
     chatStore.loadHistory(id)
     profileStore.load(id)
