@@ -67,7 +67,7 @@ class PMAgentService:
         if session is None:
             session = await self._ds.create_session(thread_id, user_id=user_id or "default")
 
-        # Apply profile extraction hints from the user message
+        # Load profile from DataStore into in-memory store for this thread
         hinted_fields = apply_profile_hints(thread_id, message)
         if hinted_fields:
             logger.info(f"[{thread_id}] Profile hints extracted: {', '.join(hinted_fields)}")

@@ -22,6 +22,7 @@ from loguru import logger
 
 from app.api.auth import router as auth_router
 from app.api.pm import router as pm_router
+from app.api.workspace import router as workspace_router
 from app.config import config
 
 
@@ -124,6 +125,15 @@ async def lifespan(app: FastAPI):
     except Exception as _exc:
         logger.warning(f"Could not create default admin user: {_exc}")
 
+    # Step 2b: Migrate existing sessions to workspaces (one-time)
+    try:
+        from app.core.workspace import migrate_sessions_to_workspaces
+        migrated = await migrate_sessions_to_workspaces(_datastore)
+        if migrated:
+            logger.info(f"Migrated {migrated} sessions to workspaces")
+    except Exception as _exc:
+        logger.warning(f"Session->workspace migration skipped: {_exc}")
+
     # Step 3: Register SIGTERM handler for graceful shutdown
     signal.signal(signal.SIGTERM, _handle_sigterm)
 
@@ -155,6 +165,7 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api", tags=["Auth"])
 app.include_router(pm_router, prefix="/api", tags=["PM Agent"])
+app.include_router(workspace_router, prefix="/api", tags=["Workspace"])
 
 static_dir = "static"
 _vue_dist = "reqcollect-web/dist"
