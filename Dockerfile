@@ -40,8 +40,7 @@ COPY --from=frontend-builder /build/dist/ ./reqcollect-web/dist/
 
 # 应用代码
 COPY app/ ./app/
-COPY static/ ./static/
-
+# static/ 已迁移到 Vue 前端，不再需要 COPY static/
 # 创建运行时目录
 RUN mkdir -p pm_data logs
 
