@@ -5,16 +5,20 @@
       :streaming="chatStore.streaming"
       :mode="mode"
       :session-id="sessionStore.currentId"
+      :referenced-files="referencedFiles"
+      :workspace-id="sessionStore.currentWorkspaceId || null"
       @send="handleSend"
       @send-quick="handleSend"
       @toggle-mode="toggleMode"
       @file-upload="handleFileUpload"
+      @reference="(fp: string) => addFileReference(fp)"
+      @remove-reference="(fp: string) => removeFileReference(fp)"
     />
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, inject, type Ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useChatStore } from '@/stores/chat'
@@ -29,6 +33,15 @@ const chatStore = useChatStore()
 const profileStore = useProfileStore()
 
 const mode = ref<'one_shot' | 'incremental'>('one_shot')
+const referencedFiles = inject<Ref<string[]>>('referencedFiles', ref([]))
+
+function addFileReference(fp: string) {
+  if (!referencedFiles.value.includes(fp))
+    referencedFiles.value.push(fp)
+}
+function removeFileReference(fp: string) {
+  referencedFiles.value = referencedFiles.value.filter((f: string) => f !== fp)
+}
 
 watch(() => route.params.sessionId, (sid: any) => {
   if (sid && typeof sid === 'string') {
@@ -74,6 +87,7 @@ async function handleSend(text: string) {
     mode: mode.value,
     use_knowledge: false,
     workspace_id: sessionStore.currentWorkspaceId || '',
+    referenced_files: referencedFiles.value,
   }, (event: any) => {
     switch (event.type) {
       case 'content':
@@ -133,5 +147,8 @@ async function handleSend(text: string) {
     sessionStore.load()
     if (sessionStore.currentId) profileStore.load(sessionStore.currentId)
   })
+
+  // Clear referenced files after sending
+  referencedFiles.value = []
 }
 </script>

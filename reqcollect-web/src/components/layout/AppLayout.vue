@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, provide, onMounted, onUnmounted } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { useProfileStore } from '@/stores/profile'
 import SideBar from './SideBar.vue'
@@ -45,6 +45,8 @@ const profileStore = useProfileStore()
 const drawerVisible = ref(false)
 const showImport = ref(false)
 const referencedFiles = ref<string[]>([])
+
+provide('referencedFiles', referencedFiles)
 
 function handleFileReference(fp: string) {
   if (!referencedFiles.value.includes(fp))

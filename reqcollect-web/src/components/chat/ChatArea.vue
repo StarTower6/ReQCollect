@@ -47,9 +47,13 @@
       :disabled="streaming"
       :mode="mode"
       :session-id="sessionId"
+      :referenced-files="referencedFiles"
+      :workspace-id="workspaceId"
       @send="(v) => $emit('send', v)"
       @toggle-mode="$emit('toggleMode')"
       @file-upload="handleFileUpload"
+      @reference="(fp) => $emit('reference', fp)"
+      @remove-reference="(fp) => $emit('removeReference', fp)"
       ref="chatInputRef"
     />
   </section>
@@ -68,6 +72,8 @@ const props = defineProps<{
   streaming: boolean
   mode: string
   sessionId: string | null
+  referencedFiles: string[]
+  workspaceId: string | null
 }>()
 
 const emit = defineEmits<{
@@ -75,6 +81,8 @@ const emit = defineEmits<{
   sendQuick: [text: string]
   toggleMode: []
   fileUpload: [file: File, sessionId: string]
+  reference: [filePath: string]
+  removeReference: [filePath: string]
 }>()
 
 const scrollRef = ref<HTMLElement | null>(null)
