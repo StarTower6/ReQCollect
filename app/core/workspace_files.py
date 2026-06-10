@@ -54,8 +54,62 @@ def parse_xlsx(file_path: str | Path) -> str:
     return "\n".join(lines)
 
 
+# ── PPTX parsing (optional) ──
+
+_HAS_PPTX = False
+try:
+    import pptx as _pptx_module
+    _HAS_PPTX = True
+except ImportError:
+    pass
+
+
+def parse_pptx(file_path: str | Path) -> str:
+    """Extract all text from .pptx slides."""
+    if not _HAS_PPTX:
+        raise RuntimeError("python-pptx not installed. Run: pip install python-pptx")
+    prs = _pptx_module.Presentation(str(file_path))
+    lines = []
+    for i, slide in enumerate(prs.slides, 1):
+        lines.append(f"--- Slide {i} ---")
+        for shape in slide.shapes:
+            if hasattr(shape, "text") and shape.text.strip():
+                lines.append(shape.text)
+            if shape.has_table:
+                for row in shape.table.rows:
+                    cells = [cell.text for cell in row.cells]
+                    lines.append(" | ".join(cells))
+    return "\n".join(lines)
+
+
+_HAS_PIL = False
+try:
+    from PIL import Image as _PIL_Image
+    _HAS_PIL = True
+except ImportError:
+    pass
+
+
+def parse_image(file_path: str | Path) -> str:
+    """Extract metadata from an image file."""
+    if not _HAS_PIL:
+        raise RuntimeError("Pillow not installed. Run: pip install Pillow")
+    img = _PIL_Image.open(str(file_path))
+    return (
+        f"[图片: {Path(file_path).name}]\n"
+        f"格式: {img.format}\n"
+        f"尺寸: {img.width}x{img.height}\n"
+        f"模式: {img.mode}\n"
+        f"\n如需分析图片内容，请使用 LLM 的视觉分析能力。"
+    )
+
+
 def is_text_file(ext: str) -> bool:
     return ext in ("md", "txt", "json", "yaml", "yml")
+
+
+def is_image_ext(ext: str) -> bool:
+    return ext in ("png", "jpg", "jpeg", "gif", "bmp")
 
 
 def _validate_file_path(base_dir: Path, relative_path: str) -> Path:
@@ -146,6 +200,16 @@ class WorkspaceFileManager:
                 text = parse_xlsx(file_path)
             except Exception:
                 text = f"[无法解析 xlsx 文件: {relative_path}]"
+        elif ext == "pptx":
+            try:
+                text = parse_pptx(file_path)
+            except Exception:
+                text = f"[无法解析 pptx 文件: {relative_path}]"
+        elif is_image_ext(ext):
+            try:
+                text = parse_image(file_path)
+            except Exception:
+                text = f"[无法读取图片: {relative_path}]"
         else:
             text = file_path.read_text(encoding="utf-8", errors="replace")
 
