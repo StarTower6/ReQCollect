@@ -320,6 +320,32 @@ class WikiPage(Base):
         }
 
 
+# ── Wiki Link ──
+
+
+class WikiLink(Base):
+    """Stores [[wikilink]] relationships between wiki pages.
+
+    source_page_id -> target_page_id (directed edge).
+    link_type describes the relationship: 'reference', 'dependency', etc.
+    """
+
+    __tablename__ = "wiki_links"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=_new_id)
+    source_page_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_page_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    link_type: Mapped[str] = mapped_column(String(50), default="reference")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+    __table_args__ = (
+        Index("idx_wikilink_source", "source_page_id"),
+        Index("idx_wikilink_target", "target_page_id"),
+        # Unique constraint: one directed edge per pair
+        # (handled at app level for FileDataStore compat)
+    )
+
+
 # ── Audit Log ──
 
 

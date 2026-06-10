@@ -683,8 +683,66 @@ class FileDataStore(DataStore):
         f = self._wiki_file(ws_id, page_id)
         if f.exists():
             f.unlink(missing_ok=True)
+            # Cascade: remove all wiki links for this page
+            await self.delete_wiki_links_for_page(page_id)
             return True
         return False
+
+    # ── Wiki Links ──
+
+    def _wiki_links_path(self) -> Path:
+        p = self._base / "wiki" / "_links"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    async def get_wiki_links(self, page_id: str) -> list[dict]:
+        links = []
+        links_dir = self._base / "wiki" / "_links"
+        if not links_dir.exists():
+            return links
+        for f in links_dir.glob(f"{page_id}--*.json"):
+            data = self._load_json(f)
+            if data:
+                links.append(data)
+        return links
+
+    async def get_wiki_backlinks(self, page_id: str) -> list[dict]:
+        backlinks = []
+        links_dir = self._base / "wiki" / "_links"
+        if not links_dir.exists():
+            return backlinks
+        for f in links_dir.glob(f"*--{page_id}.json"):
+            data = self._load_json(f)
+            if data:
+                backlinks.append(data)
+        return backlinks
+
+    async def save_wiki_links(
+        self, source_page_id: str, target_ids: list[str], link_type: str = "reference"
+    ) -> None:
+        links_dir = self._base / "wiki" / "_links"
+        links_dir.mkdir(parents=True, exist_ok=True)
+        # Remove old outgoing links from this source
+        for f in list(links_dir.glob(f"{source_page_id}--*.json")):
+            f.unlink(missing_ok=True)
+        # Create new links
+        for target in target_ids:
+            data = {
+                "source_page_id": source_page_id,
+                "target_page_id": target,
+                "link_type": link_type,
+            }
+            _FileLock.write_json(links_dir / f"{source_page_id}--{target}.json", data)
+
+    async def delete_wiki_links_for_page(self, page_id: str) -> None:
+        links_dir = self._base / "wiki" / "_links"
+        if not links_dir.exists():
+            return
+        # Remove both outgoing and incoming
+        for f in list(links_dir.glob(f"{page_id}--*.json")):
+            f.unlink(missing_ok=True)
+        for f in list(links_dir.glob(f"*--{page_id}.json")):
+            f.unlink(missing_ok=True)
 
     # ── Audit ──
 

@@ -243,6 +243,30 @@ class DataStore(ABC):
     async def delete_wiki_page(self, page_id: str) -> bool:
         """Delete a wiki page."""
 
+    # ── Wiki Links ──
+
+    @abstractmethod
+    async def get_wiki_links(self, page_id: str) -> list[dict]:
+        """Get all links FROM this page (outgoing links)."""
+
+    @abstractmethod
+    async def get_wiki_backlinks(self, page_id: str) -> list[dict]:
+        """Get all links TO this page (incoming / backlinks)."""
+
+    @abstractmethod
+    async def save_wiki_links(
+        self, source_page_id: str, target_ids: list[str], link_type: str = "reference"
+    ) -> None:
+        """Replace all outgoing links from source_page_id with the given target_ids.
+
+        This is a full-replace operation: old links from this source are removed,
+        new ones are inserted. This ensures consistency when content is edited.
+        """
+
+    @abstractmethod
+    async def delete_wiki_links_for_page(self, page_id: str) -> None:
+        """Delete all links (both outgoing and incoming) for a page."""
+
     # ── Audit ──
 
     @abstractmethod

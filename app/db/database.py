@@ -92,6 +92,27 @@ async def init_db() -> bool:
                 logger.info("Applied migration: wiki_pages table")
             except Exception:
                 logger.debug("Migration: wiki_pages table already exists")
+
+        # wiki_links table
+        async with _engine.begin() as conn:
+            try:
+                await conn.execute(
+                    __import__("sqlalchemy").text(
+                        "CREATE TABLE IF NOT EXISTS wiki_links ("
+                        "id VARCHAR(64) PRIMARY KEY, "
+                        "source_page_id VARCHAR(64) NOT NULL, "
+                        "target_page_id VARCHAR(64) NOT NULL, "
+                        "link_type VARCHAR(50) DEFAULT 'reference', "
+                        "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+                        "INDEX idx_wikilink_source (source_page_id), "
+                        "INDEX idx_wikilink_target (target_page_id)"
+                        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+                    )
+                )
+                logger.info("Applied migration: wiki_links table")
+            except Exception:
+                logger.debug("Migration: wiki_links table already exists")
+
         _async_session_factory = async_sessionmaker(
             _engine, class_=AsyncSession, expire_on_commit=False
         )
