@@ -19,6 +19,7 @@ from app.db.models import (
     RequirementProfile,
     Session,
     User,
+    WikiPage,
     Workspace,
 )
 
@@ -310,6 +311,67 @@ class MySQLDataStore(DataStore):
                 .where(Session.workspace_id == workspace_id)
                 .values(workspace_id="", updated_at=datetime.now(timezone.utc))
             )
+            await s.commit()
+            return True
+
+    # ── Wiki Pages ──
+
+    async def create_wiki_page(
+        self,
+        workspace_id: str,
+        title: str,
+        content: str = "",
+        created_by: str = "",
+    ) -> dict:
+        async with await self._get_session() as s:
+            page = WikiPage(
+                workspace_id=workspace_id,
+                title=title,
+                content=content,
+                created_by=created_by,
+                updated_by=created_by,
+            )
+            s.add(page)
+            await s.commit()
+            await s.refresh(page)
+            return page.to_dict()
+
+    async def get_wiki_page(self, page_id: str) -> dict | None:
+        async with await self._get_session() as s:
+            r = await s.execute(select(WikiPage).where(WikiPage.id == page_id))
+            page = r.scalar_one_or_none()
+            return page.to_dict() if page else None
+
+    async def list_wiki_pages(self, workspace_id: str) -> list[dict]:
+        async with await self._get_session() as s:
+            r = await s.execute(
+                select(WikiPage)
+                .where(WikiPage.workspace_id == workspace_id)
+                .order_by(WikiPage.updated_at.desc())
+            )
+            return [p.to_dict() for p in r.scalars().all()]
+
+    async def update_wiki_page(self, page_id: str, **kwargs) -> dict | None:
+        async with await self._get_session() as s:
+            r = await s.execute(select(WikiPage).where(WikiPage.id == page_id))
+            page = r.scalar_one_or_none()
+            if page is None:
+                return None
+            for key, value in kwargs.items():
+                if hasattr(page, key):
+                    setattr(page, key, value)
+            page.updated_at = datetime.now(timezone.utc)
+            await s.commit()
+            await s.refresh(page)
+            return page.to_dict()
+
+    async def delete_wiki_page(self, page_id: str) -> bool:
+        async with await self._get_session() as s:
+            r = await s.execute(select(WikiPage).where(WikiPage.id == page_id))
+            page = r.scalar_one_or_none()
+            if page is None:
+                return False
+            await s.delete(page)
             await s.commit()
             return True
 
