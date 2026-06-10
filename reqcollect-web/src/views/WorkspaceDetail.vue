@@ -47,6 +47,28 @@
             </el-table>
           </div>
         </el-tab-pane>
+        <el-tab-pane label="Wiki 文库" name="wiki">
+          <div v-if="!workspace" v-loading="true" style="height:200px" />
+          <div v-else class="wiki-section">
+            <div class="section-actions">
+              <span class="section-count">共 {{ wikiPages.length }} 个页面</span>
+              <el-button size="small" type="primary" @click="goNewWiki">+ 新建页面</el-button>
+            </div>
+            <el-table :data="wikiPages" v-loading="loadingWiki" stripe style="width:100%" empty-text="暂无 Wiki 页面">
+              <el-table-column prop="title" label="页面标题" min-width="240" />
+              <el-table-column label="最后编辑" width="180">
+                <template #default="{ row }">
+                  <span>{{ formatDate(row.updated_at) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="100">
+                <template #default="{ row }">
+                  <el-button size="small" text type="primary" @click="goWikiView(row.id)">查看</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
       </el-tabs>
 
       <!-- Edit dialog -->
@@ -72,10 +94,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { fetchWorkspace, updateWorkspace, deleteWorkspace, fetchWorkspaceSessions } from '@/api/workspace'
+import { fetchWikiPages } from '@/api/wiki'
+import type { WikiPage } from '@/api/wiki'
 import { useSessionStore } from '@/stores/session'
 import { useChatStore } from '@/stores/chat'
 import { useProfileStore } from '@/stores/profile'
@@ -94,6 +118,14 @@ const activeTab = ref('sessions')
 const showEdit = ref(false)
 const editing = ref(false)
 const editForm = reactive({ name: '', code: '', description: '' })
+const wikiPages = ref<WikiPage[]>([])
+const loadingWiki = ref(false)
+
+watch(activeTab, (tab) => {
+  if (tab === 'wiki' && wikiPages.value.length === 0) {
+    loadWiki()
+  }
+})
 
 function statusType(s: string) {
   return { mining: 'warning', generating: 'primary', complete: 'success' }[s] || 'info'
@@ -147,6 +179,30 @@ async function handleDelete() {
     ElMessage.success('已删除')
     router.push('/workspaces')
   } catch (e: any) { ElMessage.error(e.message || '删除失败') }
+}
+
+async function loadWiki() {
+  const id = route.params.id as string
+  loadingWiki.value = true
+  try {
+    wikiPages.value = await fetchWikiPages(id)
+  } catch {}
+  finally { loadingWiki.value = false }
+}
+
+function goNewWiki() {
+  const wsId = route.params.id as string
+  router.push(`/workspace/${wsId}/wiki/new`)
+}
+
+function goWikiView(pageId: string) {
+  const wsId = route.params.id as string
+  router.push(`/workspace/${wsId}/wiki/${pageId}`)
+}
+
+function formatDate(d: string) {
+  if (!d) return ''
+  try { return new Date(d).toLocaleString('zh-CN') } catch { return '' }
 }
 
 onMounted(load)
