@@ -14,7 +14,7 @@ from loguru import logger
 
 from app.config import config
 
-ALLOWED_EXTENSIONS = {".md"}
+ALLOWED_EXTENSIONS = {".md", ".txt", ".json", ".yaml", ".yml", ".docx", ".xlsx"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
