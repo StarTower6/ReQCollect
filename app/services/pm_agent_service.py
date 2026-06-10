@@ -59,6 +59,7 @@ class PMAgentService:
         user_id: str | None = None,
         workspace_id: str | None = None,
         use_knowledge: bool = False,
+        referenced_files: list[str] | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Phase 1: Conversational requirement mining."""
         logger.info(f"[{thread_id}] Chat: {message[:100]}..., use_knowledge={use_knowledge}")
@@ -102,6 +103,18 @@ class PMAgentService:
         context_msgs = []
         if workspace_context:
             context_msgs.append({"role": "system", "content": workspace_context})
+
+        # Inject referenced file contents as additional context
+        if referenced_files and workspace_id:
+            for rel_path in referenced_files:
+                try:
+                    content = await self._ds.read_workspace_file(workspace_id, rel_path, max_chars=8000)
+                    context_msgs.append({
+                        "role": "system",
+                        "content": f"[用户引用了工作区文件: {rel_path}]\n\n{content['text']}"
+                    })
+                except (FileNotFoundError, RuntimeError) as e:
+                    logger.warning(f"[{thread_id}] Failed to read referenced file {rel_path}: {e}")
 
         async for event in get_mining_agent().chat_with_context(
             message=message,
@@ -381,6 +394,7 @@ class PMAgentService:
         user_id: str | None = None,
         workspace_id: str | None = None,
         use_knowledge: bool = False,
+        referenced_files: list[str] | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Convenience wrapper: auto-routes based on message intent."""
         intent = _detect_intent(message)
@@ -395,7 +409,7 @@ class PMAgentService:
             async for event in self.continue_generation(thread_id):
                 yield event
         else:
-            async for event in self.chat(message, thread_id, user_id=user_id, workspace_id=workspace_id, use_knowledge=use_knowledge):
+            async for event in self.chat(message, thread_id, user_id=user_id, workspace_id=workspace_id, use_knowledge=use_knowledge, referenced_files=referenced_files):
                 yield event
 
     # ── Data accessors ──

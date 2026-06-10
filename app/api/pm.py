@@ -188,6 +188,7 @@ async def pm_chat(
             user_id=current_user["id"],
             workspace_id=request.workspace_id or None,
             use_knowledge=request.use_knowledge,
+            referenced_files=request.referenced_files,
         ):
             yield {"event": "message", "data": json.dumps(event, ensure_ascii=False)}
 
@@ -248,6 +249,7 @@ async def pm_agent(
             user_id=current_user["id"],
             workspace_id=request.workspace_id or None,
             use_knowledge=request.use_knowledge,
+            referenced_files=request.referenced_files,
         ):
             yield {"event": "message", "data": json.dumps(event, ensure_ascii=False)}
 

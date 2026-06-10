@@ -8,6 +8,7 @@ class ChatRequest(BaseModel):
     session_id: str = Field(default="default", description="Session ID")
     use_knowledge: bool = Field(default=False, description="Force knowledge retrieval")
     workspace_id: str = Field(default="", description="Workspace ID")
+    referenced_files: list[str] = Field(default=[], description="引用的工作区文件路径")
 
     model_config = {"json_schema_extra": {"example": {
         "message": "我想做一个企业报销审批系统",
@@ -40,6 +41,7 @@ class AgentRequest(BaseModel):
     mode: str = Field(default="one_shot", description="one_shot | incremental")
     use_knowledge: bool = Field(default=False, description="Force knowledge retrieval")
     workspace_id: str = Field(default="", description="Workspace ID")
+    referenced_files: list[str] = Field(default=[], description="引用的工作区文件路径")
 
     model_config = {"json_schema_extra": {"example": {
         "message": "我想做一个企业报销审批系统",
