@@ -13,6 +13,16 @@ export interface WikiPage {
   updated_at: string
 }
 
+export interface BacklinkRef {
+  id: string
+  title: string
+}
+
+export interface WikiPageDetail {
+  page: WikiPage
+  backlinks: BacklinkRef[]
+}
+
 export async function fetchWikiPages(workspaceId: string): Promise<WikiPage[]> {
   const res: any = await apiGet(`/wiki?workspace_id=${encodeURIComponent(workspaceId)}`)
   return res.pages || []
@@ -21,6 +31,11 @@ export async function fetchWikiPages(workspaceId: string): Promise<WikiPage[]> {
 export async function fetchWikiPage(pageId: string): Promise<WikiPage> {
   const res: any = await apiGet(`/wiki/${encodeURIComponent(pageId)}`)
   return res.page
+}
+
+export async function fetchWikiPageDetail(pageId: string): Promise<WikiPageDetail> {
+  const res: any = await apiGet(`/wiki/${encodeURIComponent(pageId)}`)
+  return { page: res.page, backlinks: res.backlinks || [] }
 }
 
 export async function createWikiPage(data: { workspace_id: string; title: string; content?: string }): Promise<WikiPage> {

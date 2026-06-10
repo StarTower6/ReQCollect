@@ -27,7 +27,7 @@
       <el-result v-else-if="error" icon="error" :title="error" />
 
       <!-- Content -->
-      <div v-else-if="page" class="wiki-content">
+      <div v-else-if="page" class="wiki-content" @click="onContentClick">
         <h1 class="wiki-title">{{ page.title }}</h1>
         <div class="wiki-meta">
           <span>最后更新: {{ formatDate(page.updated_at) }}</span>
@@ -35,6 +35,23 @@
         </div>
         <el-divider />
         <div class="wiki-body markdown-body" v-html="renderedContent" />
+
+        <!-- Backlinks section -->
+        <div v-if="backlinks.length > 0" class="backlinks-section">
+          <el-divider />
+          <h3 class="backlinks-title">被以下页面引用</h3>
+          <div class="backlinks-list">
+            <div
+              v-for="bl in backlinks"
+              :key="bl.id"
+              class="backlink-item"
+              @click="goToPage(bl.id)"
+            >
+              <span class="backlink-icon">📄</span>
+              <span class="backlink-title">{{ bl.title }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <el-empty v-else description="页面不存在" />
@@ -47,22 +64,40 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { marked } from 'marked'
-import { fetchWikiPage, deleteWikiPage } from '@/api/wiki'
-import type { WikiPage } from '@/api/wiki'
+import { fetchWikiPageDetail, fetchWikiPages, deleteWikiPage } from '@/api/wiki'
+import type { WikiPage, BacklinkRef } from '@/api/wiki'
 import AppLayout from '@/components/layout/AppLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
 const page = ref<WikiPage | null>(null)
+const backlinks = ref<BacklinkRef[]>([])
 const loading = ref(true)
 const error = ref('')
+
+// Map of page title -> page id for resolving [[wikilinks]]
+const allPageTitles = ref<Record<string, string>>({})
+
+// Regex to match [[Title]] and [[Title|alias]]
+const WIKILINK_REGEX = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g
 
 const renderedContent = computed(() => {
   if (!page.value) return ''
   try {
-    return marked(page.value.content || '')
+    let html = marked(page.value.content || '') as string
+    const wsId = route.params.id as string
+    html = html.replace(WIKILINK_REGEX, (_match: string, title: string, alias?: string) => {
+      const text = alias || title
+      const pageId = allPageTitles.value[title]
+      if (pageId) {
+        return `<a href="#/workspace/${wsId}/wiki/${pageId}" class="wiki-link">${text}</a>`
+      } else {
+        return `<span class="wiki-link-missing">${text}</span>`
+      }
+    })
+    return html
   } catch {
-    return page.value.content || ''
+    return page.value?.content || ''
   }
 })
 
@@ -77,9 +112,21 @@ function goBack() {
 }
 
 function goEdit() {
-  const wsId = route.params.id
-  const pageId = route.params.pageId
-  router.push(`/workspace/${wsId}/wiki/${pageId}/edit`)
+  router.push(`/workspace/${route.params.id}/wiki/${route.params.pageId}/edit`)
+}
+
+function goToPage(pageId: string) {
+  router.push(`/workspace/${route.params.id}/wiki/${pageId}`)
+}
+
+function onContentClick(e: MouseEvent) {
+  const target = (e.target as HTMLElement).closest('a.wiki-link') as HTMLElement
+  if (target && target.getAttribute('href')) {
+    e.preventDefault()
+    const href = target.getAttribute('href')!
+    // href is a hash URL like "#/workspace/...", use router
+    router.push(href.replace(/^#/, ''))
+  }
 }
 
 async function handleDelete() {
@@ -95,7 +142,17 @@ async function handleDelete() {
 onMounted(async () => {
   loading.value = true
   try {
-    page.value = await fetchWikiPage(route.params.pageId as string)
+    const wsId = route.params.id as string
+    const [detail, pages] = await Promise.all([
+      fetchWikiPageDetail(route.params.pageId as string),
+      fetchWikiPages(wsId),
+    ])
+    page.value = detail.page
+    backlinks.value = detail.backlinks
+    // Build title→id map for wikilink resolution
+    for (const p of pages) {
+      allPageTitles.value[p.title] = p.id
+    }
   } catch (e: any) {
     error.value = e.message || '加载失败'
   } finally {
@@ -139,5 +196,59 @@ onMounted(async () => {
   line-height: 1.8;
   font-size: 15px;
   color: #1d2129;
+}
+
+.wiki-body :deep(.wiki-link) {
+  color: #409eff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.wiki-body :deep(.wiki-link-missing) {
+  color: #c0c4cc;
+  border-bottom: 1px dashed #d9d9d9;
+  cursor: default;
+}
+
+/* Backlinks */
+.backlinks-section {
+  margin-top: 8px;
+}
+
+.backlinks-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #4e5969;
+  margin: 0 0 12px;
+}
+
+.backlinks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.backlink-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.12s;
+}
+
+.backlink-item:hover {
+  background: #f0f3f8;
+}
+
+.backlink-icon {
+  font-size: 14px;
+}
+
+.backlink-title {
+  color: #409eff;
+  font-weight: 500;
 }
 </style>
