@@ -607,6 +607,85 @@ class FileDataStore(DataStore):
                 _FileLock.write_json(f, data)
         return True
 
+    # ── Wiki Pages ──
+
+    def _wiki_path(self, workspace_id: str) -> Path:
+        p = self._base / "wiki" / workspace_id
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    def _wiki_file(self, workspace_id: str, page_id: str) -> Path:
+        return self._wiki_path(workspace_id) / f"{page_id}.json"
+
+    async def create_wiki_page(
+        self,
+        workspace_id: str,
+        title: str,
+        content: str = "",
+        created_by: str = "",
+    ) -> dict:
+        import uuid
+        now = _now()
+        page_id = uuid.uuid4().hex[:16]
+        data = {
+            "id": page_id,
+            "workspace_id": workspace_id,
+            "title": title,
+            "content": content,
+            "created_by": created_by,
+            "updated_by": created_by,
+            "created_at": now,
+            "updated_at": now,
+        }
+        _FileLock.write_json(self._wiki_file(workspace_id, page_id), data)
+        return dict(data)
+
+    async def get_wiki_page(self, page_id: str) -> dict | None:
+        wiki_base = self._base / "wiki"
+        if not wiki_base.exists():
+            return None
+        for ws_dir in wiki_base.iterdir():
+            if not ws_dir.is_dir():
+                continue
+            f = ws_dir / f"{page_id}.json"
+            if f.exists():
+                return self._load_json(f)
+        return None
+
+    async def list_wiki_pages(self, workspace_id: str) -> list[dict]:
+        pages = []
+        ws_dir = self._base / "wiki" / workspace_id
+        if not ws_dir.exists():
+            return pages
+        for f in sorted(ws_dir.glob("*.json"), reverse=True):
+            data = self._load_json(f)
+            if data:
+                pages.append(data)
+        pages.sort(key=lambda p: p.get("updated_at", ""), reverse=True)
+        return pages
+
+    async def update_wiki_page(self, page_id: str, **kwargs) -> dict | None:
+        page = await self.get_wiki_page(page_id)
+        if page is None:
+            return None
+        ws_id = page.get("workspace_id", "")
+        for key, value in kwargs.items():
+            page[key] = value
+        page["updated_at"] = _now()
+        _FileLock.write_json(self._wiki_file(ws_id, page_id), page)
+        return dict(page)
+
+    async def delete_wiki_page(self, page_id: str) -> bool:
+        page = await self.get_wiki_page(page_id)
+        if page is None:
+            return False
+        ws_id = page.get("workspace_id", "")
+        f = self._wiki_file(ws_id, page_id)
+        if f.exists():
+            f.unlink(missing_ok=True)
+            return True
+        return False
+
     # ── Audit ──
 
     async def log_audit(
