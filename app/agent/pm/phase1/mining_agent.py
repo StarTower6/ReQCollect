@@ -14,10 +14,16 @@ from app.agent.pm.phase1.sufficiency import evaluate_profile_sufficiency, evalua
 from app.agent.pm.prompts import PM_SYSTEM_PROMPT
 from app.agent.pm.tools import (
     get_profile_summary,
+    get_workspace_info,
+    list_workspace_files,
+    read_file_section,
+    read_workspace_file,
     reset_current_thread_id,
+    search_in_workspace,
     set_current_thread_id,
     set_pending_questions,
     update_requirement_profile,
+    write_workspace_file,
 )
 from app.config import config
 from app.core.llm_factory import llm_factory
@@ -43,6 +49,13 @@ class MiningAgent:
             get_profile_summary,
             set_pending_questions,
             evaluate_sufficiency,
+            # 新增文件工具
+            list_workspace_files,
+            read_workspace_file,
+            read_file_section,
+            search_in_workspace,
+            write_workspace_file,
+            get_workspace_info,
         ]
         self.model = llm_factory.create_chat_model(
             model=config.llm_model,
