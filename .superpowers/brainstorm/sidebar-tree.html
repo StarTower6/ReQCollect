@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SideBar 树状设计</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f7fa; color: #1d2129; padding: 40px; }
+  h1 { font-size: 22px; margin-bottom: 8px; }
+  .subtitle { color: #86909c; font-size: 14px; margin-bottom: 32px; }
+
+  .compare { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; }
+
+  .sidebar-sample {
+    width: 320px; background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden;
+    border: 2px solid transparent; transition: border-color 0.2s;
+    cursor: pointer;
+  }
+  .sidebar-sample.selected { border-color: #409eff; }
+  .sidebar-sample:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+
+  .sample-header {
+    padding: 20px 16px 0 16px;
+  }
+  .brand-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .brand-mark { width: 28px; height: 28px; background: #409eff; border-radius: 6px; }
+  .brand-name { font-weight: 600; font-size: 16px; }
+
+  .actions { display: flex; gap: 8px; margin-bottom: 12px; }
+  .action-btn { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #e5e6eb;
+    background: #f7f8fa; cursor: default; text-align: center; font-size: 13px; color: #4e5969; }
+
+  .search-bar { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e6eb;
+    background: #f7f8fa; font-size: 13px; margin-bottom: 16px; color: #999; }
+
+  /* Tree styles */
+  .tree { padding: 0 16px 16px; }
+  .tree-item { margin-bottom: 4px; }
+  .tree-header { display: flex; align-items: center; gap: 6px; padding: 6px 8px;
+    border-radius: 6px; cursor: default; font-size: 13px; font-weight: 500;
+    transition: background 0.15s; }
+  .tree-header:hover { background: #f0f3f8; }
+  .tree-header.active { background: #e8f3ff; color: #409eff; }
+  .arrow { font-size: 10px; width: 14px; text-align: center; transition: transform 0.15s; color: #86909c; }
+  .arrow.open { transform: rotate(90deg); }
+  .ws-icon { font-size: 14px; }
+  .ws-count { font-size: 11px; color: #c0c4cc; margin-left: auto; }
+  .children { padding-left: 20px; }
+  .session-leaf { display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+    border-radius: 6px; cursor: default; font-size: 13px; transition: background 0.15s; }
+  .session-leaf:hover { background: #f0f3f8; }
+  .session-leaf.active { background: #e8f3ff; color: #409eff; }
+  .session-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .session-meta { font-size: 11px; color: #c0c4cc; }
+
+  /* Footer */
+  .footer { border-top: 1px solid #f0f0f5; padding: 12px 16px; }
+  .footer-link { display: flex; align-items: center; gap: 8px; padding: 6px 0;
+    font-size: 13px; color: #4e5969; text-decoration: none; cursor: default; }
+
+  .label-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 500; margin-bottom: 8px;
+  }
+  .label-current { background: #e8f3ff; color: #409eff; }
+  .label-proposed { background: #f0f5e8; color: #52b22e; }
+
+  .section-title { text-align: center; margin: 32px 0 16px; font-size: 16px; font-weight: 500; }
+
+  .mockup-label {
+    text-align: center; margin-top: 8px; font-size: 13px; color: #86909c;
+  }
+</style>
+</head>
+<body>
+
+<h1>左侧栏树状改造方案</h1>
+<p class="subtitle">对比当前布局（A）和树状布局（B），哪个更符合您的预期？点击选择后告诉我</p>
+
+<div class="compare">
+  <!-- A: Current -->
+  <div class="sidebar-sample" onclick="select(this)">
+    <span class="label-tag label-current">当前</span>
+    <div class="sample-header">
+      <div class="brand-row">
+        <div class="brand-mark"></div>
+        <div class="brand-name">ReQCollect</div>
+      </div>
+      <div class="actions">
+        <div class="action-btn">＋ 新对话</div>
+        <div class="action-btn">📄 导入</div>
+      </div>
+      <div class="search-bar">🔍 搜索历史会话</div>
+    </div>
+    <div class="tree">
+      <div class="tree-item">
+        <div style="padding:6px 8px;border-radius:6px;font-size:13px;font-weight:500;color:#4e5969">工作空间</div>
+      </div>
+      <div class="tree-item">
+        <div style="padding:6px 8px;border-radius:6px;font-size:13px;font-weight:500;color:#4e5969;background:#f7f8fa;">未分类会话</div>
+      </div>
+      <div class="tree-item">
+        <div class="session-leaf"><span class="session-name">报销审批系统</span><span class="session-meta">45%</span></div>
+      </div>
+      <div class="tree-item">
+        <div class="session-leaf"><span class="session-name">MES 升级项目</span><span class="session-meta">80%</span></div>
+      </div>
+      <div class="tree-item">
+        <div class="session-leaf"><span class="session-name">考勤系统需求</span><span class="session-meta">32%</span></div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="footer-link">📊 数据看板</div>
+      <div class="footer-link">👤 用户管理</div>
+    </div>
+  </div>
+
+  <!-- B: Tree (Recommended) -->
+  <div class="sidebar-sample selected" onclick="select(this)">
+    <span class="label-tag label-proposed">推荐</span>
+    <div class="sample-header">
+      <div class="brand-row">
+        <div class="brand-mark"></div>
+        <div class="brand-name">ReQCollect</div>
+      </div>
+      <div class="search-bar">🔍 搜索会话</div>
+    </div>
+    <div class="tree">
+      <!-- Workspace 1 - expanded -->
+      <div class="tree-item">
+        <div class="tree-header">
+          <span class="arrow open">▶</span>
+          <span class="ws-icon">📁</span>
+          <span>企业报销审批系统</span>
+          <span class="ws-count">3</span>
+        </div>
+        <div class="children">
+          <div class="session-leaf">
+            <span>💬</span>
+            <span class="session-name">财务模块需求</span>
+            <span class="session-meta">2天前</span>
+          </div>
+          <div class="session-leaf active">
+            <span>💬</span>
+            <span class="session-name">审批流设计</span>
+            <span class="session-meta">1天前</span>
+          </div>
+          <div class="session-leaf">
+            <span>💬</span>
+            <span class="session-name">报表导出需求</span>
+            <span class="session-meta">刚刚</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Workspace 2 - collapsed -->
+      <div class="tree-item">
+        <div class="tree-header">
+          <span class="arrow">▶</span>
+          <span class="ws-icon">📁</span>
+          <span>MES 系统升级</span>
+          <span class="ws-count">5</span>
+        </div>
+      </div>
+
+      <!-- Workspace 3 - collapsed -->
+      <div class="tree-item">
+        <div class="tree-header">
+          <span class="arrow">▶</span>
+          <span class="ws-icon">📁</span>
+          <span>考勤管理系统</span>
+          <span class="ws-count">2</span>
+        </div>
+      </div>
+
+      <!-- Ungrouped -->
+      <div class="tree-item">
+        <div class="tree-header active">
+          <span class="arrow open">▶</span>
+          <span>📋</span>
+          <span>未分类会话</span>
+          <span class="ws-count">4</span>
+        </div>
+        <div class="children">
+          <div class="session-leaf">
+            <span class="session-name">快速咨询 - IT 采购流程</span>
+            <span class="session-meta">3天前</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="footer-link" style="color:#409eff;font-weight:500;">＋ 新建工作空间</div>
+      <div class="footer-link">📊 数据看板</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function select(el) {
+  document.querySelectorAll('.sidebar-sample').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
+</script>
+
+</body>
+</html>

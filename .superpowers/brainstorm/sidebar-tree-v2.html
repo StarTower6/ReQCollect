@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SideBar 树状设计 v2 — 互斥展开</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f7fa; color: #1d2129; padding: 40px; }
+  h1 { font-size: 22px; margin-bottom: 8px; }
+  .subtitle { color: #86909c; font-size: 14px; margin-bottom: 32px; text-align: center; }
+  .note { background: #fffbe6; border: 1px solid #ffe58f; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; font-size: 13px; color: #8c6e00; text-align: center; }
+
+  .sidebar-sample {
+    width: 320px; background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden;
+    margin: 0 auto;
+  }
+
+  .sample-header { padding: 20px 16px 0 16px; }
+  .brand-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .brand-mark { width: 28px; height: 28px; background: #409eff; border-radius: 6px; }
+  .brand-name { font-weight: 600; font-size: 16px; }
+
+  .search-bar { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e6eb;
+    background: #f7f8fa; font-size: 13px; margin-bottom: 12px; color: #999; }
+
+  .add-btn { display: flex; align-items: center; gap: 6px; padding: 6px 12px; margin: 0 16px 8px;
+    border-radius: 6px; border: 1px dashed #d9d9d9; background: none; font-size: 13px; color: #409eff; cursor: default; width: calc(100% - 32px); }
+
+  .tree { padding: 0 8px 16px; }
+  .tree-item { margin-bottom: 2px; }
+  .tree-header { display: flex; align-items: center; gap: 6px; padding: 7px 8px;
+    border-radius: 6px; cursor: default; font-size: 13px; font-weight: 500;
+    transition: background 0.15s; user-select: none; }
+  .tree-header:hover { background: #f0f3f8; }
+  .tree-header.active-tree { background: #e8f3ff; color: #409eff; }
+  .arrow { font-size: 10px; width: 14px; text-align: center; transition: transform 0.15s; color: #86909c; display: inline-block; }
+  .arrow.open { transform: rotate(90deg); }
+  .ws-icon { font-size: 14px; }
+  .ws-count { font-size: 11px; color: #c0c4cc; margin-left: auto; background: #f5f5f5; padding: 1px 6px; border-radius: 8px; }
+
+  .children { overflow: hidden; transition: max-height 0.25s ease; }
+  .children.open { max-height: 300px; }
+  .children.closed { max-height: 0; }
+
+  .session-leaf { display: flex; align-items: center; gap: 6px; padding: 5px 8px 5px 24px;
+    border-radius: 6px; cursor: default; font-size: 13px; transition: background 0.15s; }
+  .session-leaf:hover { background: #f0f3f8; }
+  .session-leaf.active { background: #e8f3ff; color: #409eff; font-weight: 500; }
+  .session-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .session-meta { font-size: 11px; color: #c0c4cc; white-space: nowrap; }
+  .session-icon { font-size: 12px; opacity: 0.6; }
+
+  .footer { border-top: 1px solid #f0f0f5; padding: 12px 16px; }
+  .footer-link { display: flex; align-items: center; gap: 8px; padding: 6px 0;
+    font-size: 13px; color: #4e5969; text-decoration: none; cursor: default; border-radius: 6px; }
+  .footer-link:hover { background: #f7f8fa; }
+
+  /* Demo controls */
+  .demo-header { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; }
+  .demo-btn { padding: 8px 16px; border-radius: 8px; border: 1px solid #d9d9d9;
+    background: #fff; cursor: pointer; font-size: 13px; }
+  .demo-btn:hover { border-color: #409eff; color: #409eff; }
+
+  .scenario-tag { display: inline-block; padding: 4px 12px; border-radius: 12px;
+    font-size: 12px; font-weight: 500; margin-right: 8px; }
+  .tag-interactive { background: #e8f3ff; color: #409eff; }
+  .tag-scenario { background: #f0f5e8; color: #52b22e; }
+
+  .status-msg { text-align: center; font-size: 13px; color: #86909c; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1 style="text-align:center">互斥展开 — 最终方案</h1>
+<p class="subtitle">点击可交互预览（互斥展开 + 选中高亮 + 会话切换）</p>
+<div class="note">💡 设计要点：任何时候只有一个 workspace 展开；未分类会话默认展开；搜索时过滤全部可见会话</div>
+
+<div class="sidebar-sample" id="sidebar">
+  <div class="sample-header">
+    <div class="brand-row">
+      <div class="brand-mark"></div>
+      <div class="brand-name">ReQCollect</div>
+    </div>
+    <div class="search-bar">🔍 搜索会话</div>
+  </div>
+
+  <div class="add-btn">＋ 新建工作空间</div>
+
+  <div class="tree">
+    <!-- Workspace 1 - expanded by default -->
+    <div class="tree-item" data-ws="ws1">
+      <div class="tree-header active-tree" onclick="toggleWorkspace('ws1')">
+        <span class="arrow open" id="arrow-ws1">▶</span>
+        <span class="ws-icon">📁</span>
+        <span>企业报销审批系统</span>
+        <span class="ws-count">3</span>
+      </div>
+      <div class="children open" id="children-ws1">
+        <div class="session-leaf">
+          <span class="session-icon">💬</span>
+          <span class="session-name">财务模块需求</span>
+          <span class="session-meta">2天前</span>
+        </div>
+        <div class="session-leaf active" onclick="selectSession(this, 'ws1')">
+          <span class="session-icon">💬</span>
+          <span class="session-name">审批流设计</span>
+          <span class="session-meta">1天前</span>
+        </div>
+        <div class="session-leaf">
+          <span class="session-icon">💬</span>
+          <span class="session-name">报表导出需求</span>
+          <span class="session-meta">刚刚</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workspace 2 - collapsed -->
+    <div class="tree-item" data-ws="ws2">
+      <div class="tree-header" onclick="toggleWorkspace('ws2')">
+        <span class="arrow" id="arrow-ws2">▶</span>
+        <span class="ws-icon">📁</span>
+        <span>MES 系统升级</span>
+        <span class="ws-count">5</span>
+      </div>
+      <div class="children closed" id="children-ws2">
+        <div class="session-leaf">
+          <span class="session-icon">💬</span>
+          <span class="session-name">产线数据采集</span>
+          <span class="session-meta">5天前</span>
+        </div>
+        <div class="session-leaf">
+          <span class="session-icon">💬</span>
+          <span class="session-name">质量追溯模块</span>
+          <span class="session-meta">3天前</span>
+        </div>
+        <div class="session-leaf">
+          <span class="session-icon">💬</span>
+          <span class="session-name">设备巡检</span>
+          <span class="session-meta">2天前</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workspace 3 - collapsed -->
+    <div class="tree-item" data-ws="ws3">
+      <div class="tree-header" onclick="toggleWorkspace('ws3')">
+        <span class="arrow" id="arrow-ws3">▶</span>
+        <span class="ws-icon">📁</span>
+        <span>考勤管理系统</span>
+        <span class="ws-count">2</span>
+      </div>
+      <div class="children closed" id="children-ws3">
+        <div class="session-leaf">
+          <span class="session-icon">💬</span>
+          <span class="session-name">排班规则配置</span>
+          <span class="session-meta">1周前</span>
+        </div>
+        <div class="session-leaf">
+          <span class="session-icon">💬</span>
+          <span class="session-name">打卡异常处理</span>
+          <span class="session-meta">6天前</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ungrouped - always expanded -->
+    <div class="tree-item" data-ws="ungrouped">
+      <div class="tree-header active-tree" onclick="toggleWorkspace('ungrouped')">
+        <span class="arrow open" id="arrow-ungrouped">▶</span>
+        <span>📋</span>
+        <span>未分类会话</span>
+        <span class="ws-count">4</span>
+      </div>
+      <div class="children open" id="children-ungrouped">
+        <div class="session-leaf">
+          <span class="session-icon">💬</span>
+          <span class="session-name">IT 采购流程咨询</span>
+          <span class="session-meta">3天前</span>
+        </div>
+        <div class="session-leaf">
+          <span class="session-icon">💬</span>
+          <span class="session-name">数据仓库选型</span>
+          <span class="session-meta">1周前</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-link">📊 数据看板</div>
+    <div class="footer-link">👤 用户管理</div>
+    <div class="footer-link">⚙️ API 文档</div>
+  </div>
+</div>
+
+<p class="status-msg" id="statusMsg">当前会话：审批流设计</p>
+
+<script>
+let expandedWs = 'ws1';  // tracks which workspace is open
+
+function toggleWorkspace(id) {
+  const clickedChildren = document.getElementById('children-' + id);
+  const clickedArrow = document.getElementById('arrow-' + id);
+  const clickedHeader = clickedArrow.parentElement;
+  const isOpen = clickedChildren.classList.contains('open');
+
+  if (id === 'ungrouped') {
+    // ungrouped always stays open
+    return;
+  }
+
+  if (isOpen) {
+    // Close it
+    clickedChildren.classList.remove('open');
+    clickedChildren.classList.add('closed');
+    clickedArrow.classList.remove('open');
+    clickedHeader.classList.remove('active-tree');
+    expandedWs = null;
+    return;
+  }
+
+  // Close previously expanded workspace
+  if (expandedWs) {
+    const prevChildren = document.getElementById('children-' + expandedWs);
+    const prevArrow = document.getElementById('arrow-' + expandedWs);
+    const prevHeader = prevArrow.parentElement;
+    prevChildren.classList.remove('open');
+    prevChildren.classList.add('closed');
+    prevArrow.classList.remove('open');
+    prevHeader.classList.remove('active-tree');
+  }
+
+  // Open clicked workspace
+  clickedChildren.classList.remove('closed');
+  clickedChildren.classList.add('open');
+  clickedArrow.classList.add('open');
+  clickedHeader.classList.add('active-tree');
+  expandedWs = id;
+}
+
+function selectSession(el, wsId) {
+  // Highlight the clicked session
+  document.querySelectorAll('.session-leaf.active').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  const name = el.querySelector('.session-name').textContent;
+  document.getElementById('statusMsg').textContent = '当前会话：' + name;
+}
+</script>
+
+</body>
+</html>
