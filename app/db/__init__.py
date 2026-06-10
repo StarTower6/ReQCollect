@@ -215,6 +215,34 @@ class DataStore(ABC):
     async def delete_workspace(self, workspace_id: str) -> bool:
         """Delete workspace and all related data."""
 
+    # ── Wiki Pages ──
+
+    @abstractmethod
+    async def create_wiki_page(
+        self,
+        workspace_id: str,
+        title: str,
+        content: str = "",
+        created_by: str = "",
+    ) -> dict:
+        """Create a wiki page and return its dict."""
+
+    @abstractmethod
+    async def get_wiki_page(self, page_id: str) -> dict | None:
+        """Get wiki page by ID."""
+
+    @abstractmethod
+    async def list_wiki_pages(self, workspace_id: str) -> list[dict]:
+        """List all wiki pages in a workspace."""
+
+    @abstractmethod
+    async def update_wiki_page(self, page_id: str, **kwargs) -> dict | None:
+        """Update wiki page fields."""
+
+    @abstractmethod
+    async def delete_wiki_page(self, page_id: str) -> bool:
+        """Delete a wiki page."""
+
     # ── Audit ──
 
     @abstractmethod
