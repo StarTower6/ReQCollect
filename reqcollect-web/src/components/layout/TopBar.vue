@@ -6,7 +6,7 @@
     </div>
     <div class="topbar-title">{{ title }}</div>
     <div class="topbar-actions">
-      <span class="status-chip">完整度 {{ sufficiencyPercent }}%</span>
+      <span class="status-chip clickable" @click="$emit('showProfile')" style="cursor:pointer">完整度 {{ sufficiencyPercent }}%</span>
       <span class="status-chip">{{ sessionId ? '进行中' : '未开始' }}</span>
       <el-dropdown trigger="click" class="user-dropdown">
         <span class="user-trigger">
@@ -31,6 +31,10 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { UserFilled } from '@element-plus/icons-vue'
+
+const emit = defineEmits<{
+  showProfile: []
+}>()
 
 const props = defineProps<{
   title: string

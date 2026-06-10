@@ -8,17 +8,21 @@
           :title="title"
           :session-id="sessionStore.currentId"
           :sufficiency-percent="sufficiencyPercent"
+          @show-profile="drawerVisible = true"
         />
         <slot />
       </div>
     </div>
-    <!-- Profile Panel for desktop (sibling of main-area inside flex-row) -->
-    <div class="profile-panel profile-panel-desktop" v-if="sessionStore.currentId && profileStore.profile.project_name !== undefined && windowWidth > 1200"
-         style="width:300px;min-width:0;overflow-y:auto;border-left:1px solid var(--line);background:var(--panel);padding:16px">
-      <ProfilePanel :profile="profileStore.profile" :percent="sufficiencyPercent" />
-    </div>
-    <!-- Drawer for mobile -->
-    <el-drawer v-model="drawerVisible" title="需求画像" size="320px" append-to-body>
+    <!-- File tree sidebar (replaces old ProfilePanel) -->
+    <FileTreePanel
+      v-if="sessionStore.currentId && sessionStore.currentWorkspaceId"
+      :workspace-id="sessionStore.currentWorkspaceId"
+      :referenced-files="referencedFiles"
+      @reference="handleFileReference"
+      @remove-reference="handleRemoveReference"
+    />
+    <!-- Profile drawer (clicked from TopBar sufficiency button) -->
+    <el-drawer v-model="drawerVisible" title="需求画像" size="360px" append-to-body>
       <ProfilePanel v-if="sessionStore.currentId" :profile="profileStore.profile" :percent="sufficiencyPercent" />
       <div v-else style="color:var(--muted-light);padding:20px;text-align:center;font-size:13px">选择会话查看需求画像</div>
     </el-drawer>
@@ -33,17 +37,22 @@ import SideBar from './SideBar.vue'
 import TopBar from './TopBar.vue'
 import ProfilePanel from '@/components/profile/ProfilePanel.vue'
 import ImportDialog from '@/components/chat/ImportDialog.vue'
+import FileTreePanel from '@/components/workspace/FileTreePanel.vue'
 
 const sessionStore = useSessionStore()
 const profileStore = useProfileStore()
 
 const drawerVisible = ref(false)
 const showImport = ref(false)
-const windowWidth = ref(window.innerWidth)
+const referencedFiles = ref<string[]>([])
 
-function onResize() { windowWidth.value = window.innerWidth }
-onMounted(() => window.addEventListener('resize', onResize))
-onUnmounted(() => window.removeEventListener('resize', onResize))
+function handleFileReference(fp: string) {
+  if (!referencedFiles.value.includes(fp))
+    referencedFiles.value.push(fp)
+}
+function handleRemoveReference(fp: string) {
+  referencedFiles.value = referencedFiles.value.filter(f => f !== fp)
+}
 
 const title = computed(() => {
   if (profileStore.profile.project_name) return profileStore.profile.project_name
@@ -51,5 +60,13 @@ const title = computed(() => {
   return 'ReQCollect'
 })
 
-const sufficiencyPercent = computed(() => Math.round((profileStore.profile.sufficiency_score || 0) * 100))
+const sufficiencyPercent = computed(() =>
+  Math.round((profileStore.profile.sufficiency_score || 0) * 100)
+)
 </script>
+
+<style scoped>
+.app-layout { display: flex; height: 100vh; overflow: hidden; }
+.main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+</style>
