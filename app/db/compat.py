@@ -637,6 +637,22 @@ class FileDataStore(DataStore):
         from app.core.workspace_files import WorkspaceFileManager
         return WorkspaceFileManager(workspace_id).get_info()
 
+    async def link_workspace_directory(self, workspace_id: str, dir_path: str) -> dict:
+        from app.core.workspace_files import WorkspaceFileManager
+        return WorkspaceFileManager(workspace_id).link_directory(dir_path)
+
+    async def unlink_workspace_directory(self, workspace_id: str) -> dict:
+        from app.core.workspace_files import WorkspaceFileManager
+        return WorkspaceFileManager(workspace_id).unlink_directory()
+
+    async def sync_workspace_files(self, workspace_id: str) -> dict:
+        from app.core.workspace_files import WorkspaceFileManager
+        return WorkspaceFileManager(workspace_id).sync_linked()
+
+    async def get_workspace_linked_status(self, workspace_id: str) -> dict:
+        from app.core.workspace_files import WorkspaceFileManager
+        return WorkspaceFileManager(workspace_id).get_linked_status()
+
     # ── Wiki Pages ──
 
     def _wiki_path(self, workspace_id: str) -> Path:

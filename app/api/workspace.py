@@ -230,3 +230,69 @@ async def ws_files_delete(
     if not deleted:
         raise HTTPException(status_code=404, detail="File not found")
     return {"success": True}
+
+
+# ── Workspace Directory Linking ──
+
+
+@router.post("/workspaces/{workspace_id}/link")
+async def ws_link_dir(
+    workspace_id: str,
+    body: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """Link a server directory and scan files into the workspace."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(404, detail="Workspace not found")
+    dir_path = body.get("path", "")
+    if not dir_path:
+        raise HTTPException(400, detail="path is required")
+    try:
+        result = await ds.link_workspace_directory(workspace_id, dir_path)
+        return {"success": True, "result": result}
+    except FileNotFoundError as e:
+        raise HTTPException(400, detail=str(e))
+
+
+@router.post("/workspaces/{workspace_id}/unlink")
+async def ws_unlink_dir(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Unlink directory and remove all linked files."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(404, detail="Workspace not found")
+    result = await ds.unlink_workspace_directory(workspace_id)
+    return {"success": True, "result": result}
+
+
+@router.post("/workspaces/{workspace_id}/sync")
+async def ws_sync_files(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Manually sync linked directory files."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(404, detail="Workspace not found")
+    result = await ds.sync_workspace_files(workspace_id)
+    return {"success": True, "result": result}
+
+
+@router.get("/workspaces/{workspace_id}/linked-status")
+async def ws_linked_status(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get directory link status."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(404, detail="Workspace not found")
+    status = await ds.get_workspace_linked_status(workspace_id)
+    return {"success": True, "status": status}

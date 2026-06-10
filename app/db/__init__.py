@@ -310,6 +310,22 @@ class DataStore(ABC):
     async def get_workspace_files_info(self, workspace_id: str) -> dict:
         """Get workspace file overview."""
 
+    @abstractmethod
+    async def link_workspace_directory(self, workspace_id: str, dir_path: str) -> dict:
+        """Link a server directory to workspace and scan."""
+
+    @abstractmethod
+    async def unlink_workspace_directory(self, workspace_id: str) -> dict:
+        """Unlink directory and remove linked files."""
+
+    @abstractmethod
+    async def sync_workspace_files(self, workspace_id: str) -> dict:
+        """Manually sync linked directory."""
+
+    @abstractmethod
+    async def get_workspace_linked_status(self, workspace_id: str) -> dict:
+        """Get link status."""
+
     # ── Audit ──
 
     @abstractmethod

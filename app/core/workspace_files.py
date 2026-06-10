@@ -149,6 +149,7 @@ class WorkspaceFileManager:
     """Manages files within a single workspace. File path: <data_dir>/workspaces/<ws_id>/files/"""
 
     def __init__(self, workspace_id: str):
+        self._ws_id = workspace_id
         ws_dir = Path(config.data_dir) / "workspaces" / workspace_id
         self._files_dir = ws_dir / "files"
         self._uploads_dir = self._files_dir / "uploads"
@@ -343,3 +344,162 @@ class WorkspaceFileManager:
         index = [f for f in index if f["path"] != entry["path"]]
         index.append(entry)
         _save_index(self._files_dir, index)
+
+    # ── Directory linking ──
+
+    def link_directory(self, dir_path: str) -> dict:
+        """Associate a server directory, perform first scan, start watcher."""
+        p = Path(dir_path)
+        if not p.is_dir():
+            raise FileNotFoundError(f"Directory not found: {dir_path}")
+        abs_path = str(p.resolve())
+
+        # Store linked path
+        ws_dir = Path(config.data_dir) / "workspaces" / self._ws_id
+        meta_file = ws_dir / ".linked_path"
+        meta_file.parent.mkdir(parents=True, exist_ok=True)
+        meta_file.write_text(abs_path, encoding="utf-8")
+
+        # First scan
+        result = self._do_scan(abs_path)
+        start_watcher(self._ws_id)
+        return result
+
+    def unlink_directory(self) -> dict:
+        """Remove directory link and all linked files from index."""
+        stop_watcher(self._ws_id)
+        ws_dir = Path(config.data_dir) / "workspaces" / self._ws_id
+        meta_file = ws_dir / ".linked_path"
+        if meta_file.exists():
+            meta_file.unlink()
+
+        index = _load_index(self._files_dir)
+        linked_count = len([f for f in index if f.get("source") == "linked"])
+        index = [f for f in index if f.get("source") != "linked"]
+        _save_index(self._files_dir, index)
+        logger.info(f"[ws link] Unlinked, removed {linked_count} files")
+        return {"removed": linked_count}
+
+    def sync_linked(self) -> dict:
+        """Full sync: scan linked dir, diff index, return changes."""
+        ws_dir = Path(config.data_dir) / "workspaces" / self._ws_id
+        meta_file = ws_dir / ".linked_path"
+        if not meta_file.exists():
+            return {"error": "No linked directory"}
+        abs_path = meta_file.read_text(encoding="utf-8").strip()
+        if not Path(abs_path).is_dir():
+            return {"error": f"Linked directory not found: {abs_path}"}
+        return self._do_scan(abs_path)
+
+    def get_linked_status(self) -> dict:
+        """Get current link status."""
+        ws_dir = Path(config.data_dir) / "workspaces" / self._ws_id
+        meta_file = ws_dir / ".linked_path"
+        if not meta_file.exists():
+            return {"linked": False}
+        path = meta_file.read_text(encoding="utf-8").strip()
+        index = _load_index(self._files_dir)
+        linked_count = len([f for f in index if f.get("source") == "linked"])
+        return {"linked": True, "path": path, "file_count": linked_count,
+                "dir_exists": Path(path).is_dir()}
+
+    def _do_scan(self, abs_path: str) -> dict:
+        """Scan a directory and diff with existing index. Returns change summary."""
+        allowed = {".md", ".txt", ".json", ".yaml", ".yml", ".docx",
+                   ".xlsx", ".pptx", ".png", ".jpg", ".jpeg", ".gif", ".bmp"}
+        base = Path(abs_path)
+        scanned: dict[str, dict] = {}
+
+        for f in base.rglob("*"):
+            if not f.is_file():
+                continue
+            ext = f.suffix.lower()
+            if ext not in allowed:
+                continue
+            rel = str(f.relative_to(base))
+            stat = f.stat()
+            scanned[rel] = {
+                "path": rel,
+                "size": stat.st_size,
+                "type": ext.lstrip("."),
+                "source": "linked",
+                "abs_path": str(f.resolve()),
+                "mtime": stat.st_mtime,
+                "uploaded_at": _now(),
+                "summary": rel,
+            }
+
+        index = _load_index(self._files_dir)
+        existing = {e["path"]: e for e in index if e.get("source") == "linked"}
+
+        added, removed, updated, unchanged = [], [], [], 0
+        for path, info in scanned.items():
+            prev = existing.get(path)
+            if prev is None:
+                added.append(path)
+            elif prev.get("mtime", 0) != info["mtime"] or prev.get("size", 0) != info["size"]:
+                updated.append(path)
+            else:
+                unchanged += 1
+
+        for path in existing:
+            if path not in scanned:
+                removed.append(path)
+
+        # Rebuild index: keep non-linked + new scanned
+        new_index = [e for e in index if e.get("source") != "linked"]
+        new_index.extend(scanned.values())
+        _save_index(self._files_dir, new_index)
+
+        logger.info(f"[ws sync] {abs_path}: +{len(added)} ~{len(updated)} -{len(removed)} ={unchanged}")
+        return {"added": added, "removed": removed, "updated": updated,
+                "unchanged": unchanged, "total": len(scanned)}
+
+
+# ── Background directory watcher ──
+
+import threading
+import time
+
+_watchers: dict[str, threading.Thread] = {}
+_watcher_stop: dict[str, threading.Event] = {}
+_watcher_lock = threading.Lock()
+
+
+def start_watcher(workspace_id: str, interval: int = 300) -> None:
+    """Start a background thread that polls the linked directory every `interval` seconds."""
+    with _watcher_lock:
+        stop_watcher(workspace_id)
+        stop_event = threading.Event()
+        t = threading.Thread(
+            target=_watcher_loop,
+            args=(workspace_id, interval, stop_event),
+            daemon=True,
+            name=f"ws-watcher-{workspace_id[:8]}",
+        )
+        _watcher_stop[workspace_id] = stop_event
+        _watchers[workspace_id] = t
+        t.start()
+        logger.info(f"[ws watcher] Started for {workspace_id} (interval={interval}s)")
+
+
+def stop_watcher(workspace_id: str) -> None:
+    """Stop the background watcher for a workspace."""
+    with _watcher_lock:
+        if workspace_id in _watcher_stop:
+            _watcher_stop[workspace_id].set()
+        if workspace_id in _watchers:
+            _watchers[workspace_id].join(timeout=5)
+            del _watchers[workspace_id]
+        _watcher_stop.pop(workspace_id, None)
+
+
+def _watcher_loop(workspace_id: str, interval: int, stop: threading.Event) -> None:
+    while not stop.wait(interval):
+        try:
+            fm = WorkspaceFileManager(workspace_id)
+            result = fm.sync_linked()
+            if result.get("added") or result.get("removed") or result.get("updated"):
+                logger.info(f"[ws watcher] {workspace_id} changes: {result}")
+        except Exception as e:
+            logger.debug(f"[ws watcher] {workspace_id} sync error: {e}")
