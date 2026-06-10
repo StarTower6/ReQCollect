@@ -9,3 +9,10 @@
 - [x] Step 6: 前端新建会话关联 workspace — P1-1 — commit: 7b33198
 - [x] Step 7: 前端 workspace 上下文持久化 (localStorage) — P2-1 — commit: 7b33198
 - [x] Step 8: SideBar 按 workspace 筛选会话 (filteredSessions) — P1-6 — commit: 7b33198
+- [x] Task 1: session store — 扩展状态和计算属性 — commit: fa5a37b, e7dd061
+- [x] Task 2: SideBar.vue — 树状渲染 — commit: 4c04cd3
+- [x] Task 3: AppLayout.vue — 调整加载和新建逻辑 — commit: 4a97015
+- [x] Task 4: WorkspaceDetail.vue — 清理旧逻辑 — commit: 476b301
+- [x] Task 5: 前端构建 + 验证 — ✅ vue-tsc 零错误，npm run build 成功
+- [x] SideBar 树状设计文档 — commit: 900669b
+- [x] SideBar 树状实施计划 — commit: 3ca3e51

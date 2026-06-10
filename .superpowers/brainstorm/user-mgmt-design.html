@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>用户管理 UI 讨论</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; color: #1d2129; padding: 32px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .subtitle { color: #86909c; font-size: 14px; margin-bottom: 8px; }
+  .note { background: #e8f4fd; border: 1px solid #91caff; border-radius: 8px; padding: 10px 16px; margin-bottom: 24px; font-size: 13px; color: #1677ff; }
+  .section-title { font-size: 16px; font-weight: 600; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #e5e6eb; }
+
+  .mockup-row { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+
+  .card {
+    background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    overflow: hidden; border: 2px solid transparent; transition: border-color 0.2s;
+    cursor: pointer;
+  }
+  .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.10); }
+  .card.selected { border-color: #409eff; }
+
+  .card-tag {
+    display: inline-block; padding: 3px 10px; border-radius: 0 0 6px 6px;
+    font-size: 11px; font-weight: 500; margin-left: 16px;
+  }
+  .tag-current { background: #e8f3ff; color: #409eff; }
+  .tag-proposed { background: #f0f5e8; color: #52b22e; }
+  .tag-option { background: #fff7e6; color: #d48806; }
+
+  .label-header {
+    display: flex; align-items: center; gap: 8px; margin: 8px 12px 0;
+  }
+
+  /* Layout mockup */
+  .mock-page { width: 820px; }
+  .mock-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px 0;
+  }
+  .mock-header h2 { font-size: 18px; font-weight: 600; margin: 0; }
+  .mock-header-left { display: flex; align-items: center; gap: 8px; }
+
+  .mock-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 16px 20px 0; }
+  .mock-stat {
+    padding: 14px 16px; border-radius: 8px; background: #f9fafb;
+    border: 1px solid #eee;
+  }
+  .mock-stat .num { font-size: 22px; font-weight: 700; }
+  .mock-stat .label { font-size: 12px; color: #86909c; margin-top: 2px; }
+  .mock-stat .icon { font-size: 20px; margin-bottom: 4px; }
+
+  .mock-filter { display: flex; gap: 8px; padding: 12px 20px; }
+  .mock-input { flex: 1; padding: 6px 10px; border-radius: 6px; border: 1px solid #d9d9d9; font-size: 13px; color: #999; }
+  .mock-select { width: 120px; padding: 6px 10px; border-radius: 6px; border: 1px solid #d9d9d9; font-size: 13px; color: #4e5969; }
+
+  .mock-table { padding: 0 20px 16px; }
+  .mock-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .mock-table th { text-align: left; padding: 10px 8px; font-weight: 500; color: #606266; background: #f5f7fa; border-bottom: 1px solid #ebeef5; }
+  .mock-table td { padding: 10px 8px; border-bottom: 1px solid #f0f0f5; }
+
+  .user-cell { display: flex; align-items: center; gap: 8px; }
+  .av { width: 32px; height: 32px; border-radius: 50%; background: #409eff; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+  .av-sm { width: 24px; height: 24px; font-size: 11px; }
+  .user-name { font-weight: 500; }
+  .user-account { font-size: 12px; color: #86909c; }
+
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; line-height: 20px; }
+  .b-admin { background: #fff1f0; color: #f5222d; }
+  .b-analyst { background: #e6f7ff; color: #1890ff; }
+  .b-reviewer { background: #fff7e6; color: #fa8c16; }
+  .b-business { background: #f6ffed; color: #52c41a; }
+  .b-inactive { color: #c0c4cc; }
+  .dot-active { width: 8px; height: 8px; border-radius: 50%; background: #52c41a; display: inline-block; }
+  .dot-inactive { width: 8px; height: 8px; border-radius: 50%; background: #d9d9d9; display: inline-block; }
+
+  .mock-pagination { display: flex; justify-content: flex-end; padding: 8px 20px 16px; gap: 4px; }
+  .mock-page-btn { padding: 4px 10px; border-radius: 4px; border: 1px solid #d9d9d9; font-size: 13px; background: #fff; }
+  .mock-page-btn.active { background: #409eff; color: #fff; border-color: #409eff; }
+</style>
+</head>
+<body>
+
+<h1>👥 用户管理 — 视觉设计方案讨论</h1>
+<p class="subtitle">基于现有功能进行视觉优化，几个方向供您选择</p>
+<div class="note">💡 点击卡片可选中，在终端告诉我偏好。所有方案保留了现有功能（CRUD、筛选、状态切换等）</div>
+
+<h2 class="section-title">方案 A — 现状微调（当前页面的直接打磨）</h2>
+<div class="mockup-row">
+  <div class="card" style="width:820px" onclick="selectCard(this, 'A')">
+    <div class="card-tag tag-current">当前 → 微调</div>
+    <div class="mock-page">
+      <div class="mock-header">
+        <div class="mock-header-left">
+          <span style="font-size:14px;color:#86909c;cursor:default">← 工作空间</span>
+          <h2 style="margin-left:8px">用户管理</h2>
+        </div>
+        <div style="display:flex;gap:8px">
+          <span style="padding:5px 14px;border-radius:6px;border:1px solid #d9d9d9;font-size:13px">导出</span>
+          <span style="padding:5px 14px;border-radius:6px;background:#409eff;color:#fff;font-size:13px">+ 新增用户</span>
+        </div>
+      </div>
+
+      <div class="mock-stats">
+        <div class="mock-stat"><div class="icon">👥</div><div class="num">12</div><div class="label">总用户</div></div>
+        <div class="mock-stat"><div class="icon">✅</div><div class="num">10</div><div class="label">活跃用户</div></div>
+        <div class="mock-stat"><div class="icon">🔒</div><div class="num">2</div><div class="label">管理员</div></div>
+        <div class="mock-stat"><div class="icon">🏢</div><div class="num">6</div><div class="label">覆盖部门</div></div>
+      </div>
+
+      <div class="mock-filter">
+        <div class="mock-input">🔍 搜索用户名、显示名、邮箱...</div>
+        <div class="mock-select">角色筛选 ▾</div>
+      </div>
+
+      <div class="mock-table">
+        <table>
+          <tr><th>用户</th><th>邮箱</th><th>部门</th><th>角色</th><th>来源</th><th style="text-align:center">状态</th><th>操作</th></tr>
+          <tr>
+            <td><div class="user-cell"><div class="av">管</div><div><div class="user-name">管理员</div><div class="user-account">@admin</div></div></div></td>
+            <td style="color:#4e5969">admin@company.com</td><td>IT 部</td>
+            <td><span class="badge b-admin">管理员</span></td><td>local</td>
+            <td align="center"><span class="dot-active"></span></td>
+            <td style="color:#409eff;font-size:12px">编辑</td>
+          </tr>
+          <tr>
+            <td><div class="user-cell"><div class="av" style="background:#52c41a">张</div><div><div class="user-name">张伟</div><div class="user-account">@zhangwei</div></div></div></td>
+            <td>zhang@company.com</td><td>财务部</td>
+            <td><span class="badge b-business">业务方</span></td><td>local</td>
+            <td align="center"><span class="dot-active"></span></td>
+            <td style="color:#409eff;font-size:12px">编辑 删除</td>
+          </tr>
+          <tr>
+            <td><div class="user-cell"><div class="av" style="background:#fa8c16">李</div><div><div class="user-name">李丽</div><div class="user-account">@lili</div></div></div></td>
+            <td>lili@company.com</td><td>质量部</td>
+            <td><span class="badge b-reviewer">审核人</span></td><td>local</td>
+            <td align="center"><span class="dot-inactive"></span></td>
+            <td style="color:#409eff;font-size:12px">编辑 删除</td>
+          </tr>
+        </table>
+      </div>
+      <div class="mock-pagination">
+        <span class="mock-page-btn">‹</span>
+        <span class="mock-page-btn active">1</span>
+        <span class="mock-page-btn">2</span>
+        <span class="mock-page-btn">›</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 class="section-title">方案 B — 卡片式 + 角色分组</h2>
+<div class="mockup-row">
+  <div class="card" style="width:820px" onclick="selectCard(this, 'B')">
+    <div class="card-tag tag-proposed">推荐 — 视觉更丰富</div>
+    <div class="mock-page">
+      <div class="mock-header">
+        <div class="mock-header-left">
+          <span style="font-size:14px;color:#86909c;cursor:default">← 返回</span>
+          <h2>用户管理</h2>
+          <span style="font-size:12px;color:#c0c4cc;margin-left:4px">12 人 · 4 部门</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <span style="padding:5px 14px;border-radius:6px;border:1px dashed #d9d9d9;font-size:13px;color:#409eff">批量导入</span>
+          <span style="padding:5px 14px;border-radius:6px;background:#409eff;color:#fff;font-size:13px">+ 新增用户</span>
+        </div>
+      </div>
+
+      <div class="mock-stats">
+        <div class="mock-stat" style="border-left:3px solid #409eff">
+          <div class="num">12</div><div class="label">总用户</div>
+        </div>
+        <div class="mock-stat" style="border-left:3px solid #52c41a">
+          <div class="num">10</div><div class="label">活跃</div>
+          <span style="font-size:11px;color:#52c41a;margin-left:8px">↑ 83%</span>
+        </div>
+        <div class="mock-stat" style="border-left:3px solid #fa8c16">
+          <div class="num">4</div><div class="label">管理员 / 分析师</div>
+        </div>
+        <div class="mock-stat" style="border-left:3px solid #722ed1">
+          <div class="num">8</div><div class="label">业务方 / 审核人</div>
+        </div>
+      </div>
+
+      <div class="mock-filter" style="justify-content:space-between">
+        <div style="display:flex;gap:8px">
+          <div class="mock-input" style="width:240px">🔍 搜索用户...</div>
+          <div class="mock-select">全部角色 ▾</div>
+          <div class="mock-select">全部部门 ▾</div>
+          <div class="mock-select">全部状态 ▾</div>
+        </div>
+        <span style="font-size:12px;color:#409eff;cursor:default">重置</span>
+      </div>
+
+      <!-- Role group: Admin -->
+      <div style="padding:0 20px">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0;">
+          <span class="badge b-admin" style="border-radius:4px;padding:2px 10px">管理员</span>
+          <span style="font-size:12px;color:#c0c4cc">2 人</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="mock-table" style="padding:0 0 8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#fafafa;border-radius:8px;border:1px solid #f0f0f5">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="av">管</div>
+                <div><div class="user-name">管理员</div><div class="user-account">@admin · admin@company.com</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px">
+                <span style="font-size:12px;color:#86909c">IT 部</span>
+                <span class="badge b-admin">管理员</span>
+                <span style="color:#409eff;font-size:12px;cursor:default">编辑</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Role group: Business -->
+      <div style="padding:0 20px">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0 4px">
+          <span class="badge b-business" style="border-radius:4px;padding:2px 10px">业务方</span>
+          <span style="font-size:12px;color:#c0c4cc">5 人</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;border:1px solid #f5f5f5">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="av" style="width:28px;height:28px;font-size:11px;background:#52c41a">张</div>
+              <div><div class="user-name" style="font-size:13px">张伟</div><span class="user-account" style="font-size:11px">@zhangwei</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:12px;color:#86909c">财务部</span>
+              <span style="font-size:12px;color:#409eff;cursor:default">编辑</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 class="section-title">方案 C — 极简表格 + 侧边抽屉详情</h2>
+<div class="mockup-row">
+  <div class="card" style="width:820px" onclick="selectCard(this, 'C')">
+    <div class="card-tag tag-option">可选项 — 更现代的交互</div>
+    <div class="mock-page">
+      <div class="mock-header">
+        <div class="mock-header-left">
+          <span style="font-size:14px;color:#86909c;cursor:default">← 返回</span>
+          <h2>用户管理</h2>
+        </div>
+        <div style="display:flex;gap:8px">
+          <span style="padding:5px 14px;border-radius:6px;border:1px solid #d9d9d9;font-size:13px">🔍 筛选</span>
+          <span style="padding:5px 14px;border-radius:6px;background:#409eff;color:#fff;font-size:13px">+ 新增</span>
+        </div>
+      </div>
+
+      <!-- Compact stat bar -->
+      <div style="display:flex;gap:16px;padding:12px 20px;margin:0 20px 12px;background:#f9fafb;border-radius:8px;font-size:13px">
+        <span>👥 总 <strong>12</strong></span>
+        <span>✅ 活跃 <strong>10</strong></span>
+        <span>🔒 管理员 <strong>2</strong></span>
+        <span>🏢 部门 <strong>6</strong></span>
+      </div>
+
+      <div class="mock-table">
+        <table>
+          <tr>
+            <th style="width:30px"><input type="checkbox" style="accent-color:#409eff"></th>
+            <th>用户</th>
+            <th>部门</th>
+            <th>角色</th>
+            <th>状态</th>
+            <th style="width:80px">操作</th>
+          </tr>
+          <tr onclick="void 0" style="cursor:default">
+            <td><input type="checkbox" style="accent-color:#409eff"></td>
+            <td><div class="user-cell"><div class="av" style="width:28px;height:28px;font-size:11px">管</div><div><div>管理员</div></div></div></td>
+            <td>IT 部</td>
+            <td><span class="badge b-admin">管理员</span></td>
+            <td><span class="dot-active"></span> 活跃</td>
+            <td><span style="color:#409eff;font-size:12px;cursor:default">详情</span></td>
+          </tr>
+          <tr style="cursor:default">
+            <td><input type="checkbox" style="accent-color:#409eff"></td>
+            <td><div class="user-cell"><div class="av" style="width:28px;height:28px;font-size:11px;background:#52c41a">张</div><div><div>张伟</div></div></div></td>
+            <td>财务部</td>
+            <td><span class="badge b-business">业务方</span></td>
+            <td><span class="dot-active"></span> 活跃</td>
+            <td><span style="color:#409eff;font-size:12px;cursor:default">详情</span></td>
+          </tr>
+          <tr style="cursor:default;color:#c0c4cc">
+            <td><input type="checkbox" style="accent-color:#409eff"></td>
+            <td><div class="user-cell"><div class="av" style="width:28px;height:28px;font-size:11px;background:#d9d9d9">李</div><div><div>李丽</div></div></div></td>
+            <td>质量部</td>
+            <td><span class="badge b-reviewer">审核人</span></td>
+            <td><span class="dot-inactive"></span> <span class="b-inactive">已禁用</span></td>
+            <td><span style="color:#409eff;font-size:12px;cursor:default">详情</span></td>
+          </tr>
+        </table>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 20px 16px">
+        <span style="font-size:12px;color:#86909c">已选 0 项</span>
+        <div class="mock-pagination" style="padding:0">
+          <span class="mock-page-btn">‹</span>
+          <span class="mock-page-btn active">1</span>
+          <span class="mock-page-btn">2</span>
+          <span class="mock-page-btn">›</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function selectCard(el, label) {
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  // Scroll to show selection
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+</script>
+</body>
+</html>

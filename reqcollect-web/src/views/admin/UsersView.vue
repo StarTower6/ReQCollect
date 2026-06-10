@@ -1,50 +1,35 @@
 <template>
   <AppLayout>
     <div class="users-page">
-      <!-- 返回 + 标题 -->
+      <!-- Header -->
       <div class="page-header">
         <div class="page-header-left">
           <el-button text size="small" @click="goBack">← 返回</el-button>
           <h2>用户管理</h2>
         </div>
-        <el-button type="primary" size="default" @click="showAdd = true">
-          + 新增用户
-        </el-button>
+        <el-button type="primary" size="default" @click="showAdd = true">+ 新增</el-button>
       </div>
 
-      <!-- 统计卡片 -->
-      <div class="stat-cards">
-        <div class="stat-card-item">
-          <span class="stat-icon users-icon">👥</span>
-          <div class="stat-body">
-            <span class="stat-num">{{ stats.total }}</span>
-            <span class="stat-desc">总用户</span>
-          </div>
-        </div>
-        <div class="stat-card-item">
-          <span class="stat-icon active-icon">✅</span>
-          <div class="stat-body">
-            <span class="stat-num">{{ stats.active }}</span>
-            <span class="stat-desc">活跃用户</span>
-          </div>
-        </div>
-        <div class="stat-card-item">
-          <span class="stat-icon admin-icon">🔒</span>
-          <div class="stat-body">
-            <span class="stat-num">{{ stats.admin }}</span>
-            <span class="stat-desc">管理员</span>
-          </div>
-        </div>
-        <div class="stat-card-item">
-          <span class="stat-icon dept-icon">🏢</span>
-          <div class="stat-body">
-            <span class="stat-num">{{ stats.departments }}</span>
-            <span class="stat-desc">覆盖部门</span>
-          </div>
-        </div>
+      <!-- Compact stat bar -->
+      <div class="stat-bar">
+        <span class="stat-item">
+          👥 总 <strong>{{ stats.total }}</strong>
+        </span>
+        <span class="stat-divider"></span>
+        <span class="stat-item">
+          ✅ 活跃 <strong>{{ stats.active }}</strong>
+        </span>
+        <span class="stat-divider"></span>
+        <span class="stat-item">
+          🔒 管理员 <strong>{{ stats.admin }}</strong>
+        </span>
+        <span class="stat-divider"></span>
+        <span class="stat-item">
+          🏢 部门 <strong>{{ stats.departments }}</strong>
+        </span>
       </div>
 
-      <!-- 搜索 + 角色筛选 -->
+      <!-- Filter bar -->
       <div class="filter-bar">
         <el-input
           v-model="searchQuery"
@@ -54,86 +39,80 @@
           class="search-input"
           size="default"
         />
-        <el-select v-model="roleFilter" placeholder="角色筛选" clearable class="role-select" size="default">
+        <el-select v-model="roleFilter" placeholder="角色筛选" clearable class="filter-select" size="default">
           <el-option label="全部角色" value="" />
           <el-option :label="roleLabel('admin')" value="admin" />
           <el-option :label="roleLabel('analyst')" value="analyst" />
           <el-option :label="roleLabel('reviewer')" value="reviewer" />
           <el-option :label="roleLabel('business')" value="business" />
         </el-select>
+        <el-select v-model="statusFilter" placeholder="状态筛选" clearable class="filter-select" size="default">
+          <el-option label="全部状态" value="" />
+          <el-option label="活跃" value="active" />
+          <el-option label="已禁用" value="inactive" />
+        </el-select>
       </div>
 
-      <!-- 表格 -->
+      <!-- Table -->
       <el-table
+        ref="tableRef"
         :data="paginatedUsers"
         v-loading="loading"
         stripe
         style="width: 100%"
         empty-text="暂无用户数据"
+        @selection-change="onSelectionChange"
+        @row-click="onRowClick"
+        :row-class-name="rowClassName"
         :header-cell-style="{ background: '#f5f7fa', color: '#303133' }"
       >
-        <el-table-column label="用户" width="220">
+        <el-table-column type="selection" width="36" />
+        <el-table-column label="用户" min-width="200">
           <template #default="{ row }">
             <div class="user-cell">
-              <el-avatar :size="36" class="user-avatar">{{ row.display_name?.[0] || row.username[0] }}</el-avatar>
+              <el-avatar :size="30" class="user-avatar" :class="{ 'avatar-inactive': !row.is_active }">
+                {{ row.display_name?.[0] || row.username[0] }}
+              </el-avatar>
               <div class="user-meta">
-                <span class="user-name">{{ row.display_name || row.username }}</span>
-                <span class="user-account">@{{ row.username }}</span>
+                <span class="user-name" :class="{ 'text-inactive': !row.is_active }">{{ row.display_name || row.username }}</span>
+                <span class="user-account" :class="{ 'text-inactive': !row.is_active }">@{{ row.username }}</span>
               </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="email" label="邮箱" width="200">
+        <el-table-column prop="department" label="部门" width="120">
           <template #default="{ row }">
-            <span class="email-text">{{ row.email || '—' }}</span>
+            <span :class="{ 'text-inactive': !row.is_active }">{{ row.department || '—' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="department" label="部门" width="130">
+        <el-table-column label="角色" width="110">
           <template #default="{ row }">
-            <span>{{ row.department || '—' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="role" label="角色" width="100">
-          <template #default="{ row }">
-            <el-tag :type="roleTagType(row.role)" size="small" effect="plain">
+            <el-tag :type="roleTagType(row.role)" size="small" effect="plain" :class="{ 'tag-inactive': !row.is_active }">
               {{ roleLabel(row.role) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="source" label="来源" width="70" />
         <el-table-column label="状态" width="80" align="center">
           <template #default="{ row }">
-            <el-switch
-              v-if="row.username !== 'admin'"
-              :model-value="row.is_active"
-              :loading="switching === row.id"
-              size="small"
-              @change="(val: boolean) => toggleStatus(row, val)"
-            />
-            <span v-else class="disabled-tag">—</span>
+            <span :class="row.is_active ? 'dot-active' : 'dot-inactive'"></span>
+            <span :class="row.is_active ? 'status-active' : 'status-inactive'">
+              {{ row.is_active ? '活跃' : '禁用' }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="80" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" text type="primary" @click="startEdit(row)">编辑</el-button>
-            <el-popconfirm
-              v-if="row.username !== 'admin'"
-              title="确定删除此用户？"
-              confirm-button-text="删除"
-              cancel-button-text="取消"
-              @confirm="handleDelete(row)"
-            >
-              <template #reference>
-                <el-button size="small" text type="danger">删除</el-button>
-              </template>
-            </el-popconfirm>
+            <el-button size="small" text type="primary" @click.stop="openDetail(row)">详情</el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
-      <div class="pagination-wrap" v-if="total > 0">
+      <!-- Bottom bar -->
+      <div class="bottom-bar">
+        <span class="selected-info" v-if="selectedUsers.length > 0">已选 {{ selectedUsers.length }} 项</span>
+        <span class="selected-info" v-else></span>
         <el-pagination
+          v-if="total > 0"
           v-model:current-page="page"
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50]"
@@ -144,7 +123,7 @@
         />
       </div>
 
-      <!-- 新增用户对话框 -->
+      <!-- Add dialog -->
       <el-dialog v-model="showAdd" title="新增用户" width="480px" :close-on-click-modal="false">
         <el-form
           ref="addFormRef"
@@ -162,7 +141,7 @@
           </el-form-item>
           <el-row :gutter="12">
             <el-col :span="12">
-              <el-form-item label="显示名" prop="display_name">
+              <el-form-item label="显示名">
                 <el-input v-model="addForm.display_name" placeholder="用户友好的名称" />
               </el-form-item>
             </el-col>
@@ -177,10 +156,10 @@
               </el-form-item>
             </el-col>
           </el-row>
-          <el-form-item label="邮箱" prop="email">
+          <el-form-item label="邮箱">
             <el-input v-model="addForm.email" placeholder="user@company.com" />
           </el-form-item>
-          <el-form-item label="部门" prop="department">
+          <el-form-item label="部门">
             <el-input v-model="addForm.department" placeholder="如：财务部、IT部" />
           </el-form-item>
         </el-form>
@@ -190,47 +169,77 @@
         </template>
       </el-dialog>
 
-      <!-- 编辑用户对话框 -->
-      <el-dialog v-model="showEdit" title="编辑用户" width="480px" :close-on-click-modal="false">
-        <el-form
-          ref="editFormRef"
-          :model="editForm"
-          label-width="70px"
-          label-position="left"
-          size="default"
-        >
-          <el-form-item label="用户名">
-            <el-input :model-value="editForm.username" disabled />
-          </el-form-item>
-          <el-row :gutter="12">
-            <el-col :span="12">
-              <el-form-item label="显示名">
-                <el-input v-model="editForm.display_name" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="12">
-              <el-form-item label="角色">
-                <el-select v-model="editForm.role" style="width:100%">
-                  <el-option label="业务方" value="business" />
-                  <el-option label="分析师" value="analyst" />
-                  <el-option label="审核人" value="reviewer" />
-                  <el-option label="管理员" value="admin" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-form-item label="邮箱">
-            <el-input v-model="editForm.email" />
-          </el-form-item>
-          <el-form-item label="部门">
-            <el-input v-model="editForm.department" />
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="showEdit = false">取消</el-button>
-          <el-button type="primary" :loading="editLoading" @click="handleEdit">保存</el-button>
+      <!-- Detail drawer -->
+      <el-drawer
+        v-model="showDetail"
+        :title="detailUser ? (detailUser.display_name || detailUser.username) : ''"
+        size="420px"
+        :close-on-click-modal="false"
+      >
+        <template v-if="detailUser">
+          <div class="drawer-header">
+            <el-avatar :size="48" class="drawer-avatar">{{ detailUser.display_name?.[0] || detailUser.username[0] }}</el-avatar>
+            <div class="drawer-header-meta">
+              <span class="drawer-username">@{{ detailUser.username }}</span>
+              <el-tag :type="roleTagType(detailUser.role)" size="small" effect="plain">{{ roleLabel(detailUser.role) }}</el-tag>
+            </div>
+          </div>
+
+          <el-divider />
+
+          <el-form :model="detailForm" label-width="70px" label-position="left" size="default">
+            <el-form-item label="显示名">
+              <el-input v-model="detailForm.display_name" />
+            </el-form-item>
+            <el-form-item label="邮箱">
+              <el-input v-model="detailForm.email" />
+            </el-form-item>
+            <el-form-item label="部门">
+              <el-input v-model="detailForm.department" />
+            </el-form-item>
+            <el-form-item label="角色">
+              <el-select v-model="detailForm.role" style="width:100%">
+                <el-option label="业务方" value="business" />
+                <el-option label="分析师" value="analyst" />
+                <el-option label="审核人" value="reviewer" />
+                <el-option label="管理员" value="admin" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="来源">
+              <el-input :model-value="detailUser.source" disabled />
+            </el-form-item>
+            <el-form-item label="创建时间">
+              <el-input :model-value="formatDateTime(detailUser.created_at)" disabled />
+            </el-form-item>
+            <el-form-item label="状态">
+              <el-switch
+                v-if="detailUser.username !== 'admin'"
+                :model-value="detailUser.is_active"
+                :loading="switching === detailUser.id"
+                @change="(val: boolean) => toggleStatus(detailUser!, val)"
+              />
+              <span v-else class="disabled-tag">—</span>
+            </el-form-item>
+          </el-form>
+
+          <el-divider />
+
+          <div class="drawer-actions">
+            <el-popconfirm
+              v-if="detailUser.username !== 'admin'"
+              title="确定删除此用户？"
+              confirm-button-text="删除"
+              cancel-button-text="取消"
+              @confirm="handleDeleteFromDrawer"
+            >
+              <template #reference>
+                <el-button type="danger" size="default" plain>删除用户</el-button>
+              </template>
+            </el-popconfirm>
+            <el-button type="primary" size="default" :loading="savingDetail" @click="saveDetail">保存</el-button>
+          </div>
         </template>
-      </el-dialog>
+      </el-drawer>
     </div>
   </AppLayout>
 </template>
@@ -254,6 +263,8 @@ interface UserRow {
   role: string
   source: string
   is_active: boolean
+  created_at?: string
+  updated_at?: string
 }
 
 // ── State ──
@@ -281,6 +292,7 @@ const stats = computed(() => {
 // Filter
 const searchQuery = ref('')
 const roleFilter = ref('')
+const statusFilter = ref('')
 
 const filteredUsers = computed(() => {
   let list = allUsers.value
@@ -295,6 +307,11 @@ const filteredUsers = computed(() => {
   if (roleFilter.value) {
     list = list.filter(u => u.role === roleFilter.value)
   }
+  if (statusFilter.value === 'active') {
+    list = list.filter(u => u.is_active)
+  } else if (statusFilter.value === 'inactive') {
+    list = list.filter(u => !u.is_active)
+  }
   return list
 })
 
@@ -302,14 +319,32 @@ const filteredUsers = computed(() => {
 const page = ref(1)
 const pageSize = ref(10)
 
-// Reset to page 1 when filter changes
-watch([searchQuery, roleFilter], () => { page.value = 1 })
+watch([searchQuery, roleFilter, statusFilter], () => { page.value = 1 })
 
 const total = computed(() => filteredUsers.value.length)
 const paginatedUsers = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return filteredUsers.value.slice(start, start + pageSize.value)
 })
+
+// Selection
+const tableRef = ref()
+const selectedUsers = ref<UserRow[]>([])
+
+function onSelectionChange(rows: UserRow[]) {
+  selectedUsers.value = rows
+}
+
+// Row click → open detail
+function onRowClick(row: UserRow) {
+  openDetail(row)
+}
+
+// Row class for inactive users
+function rowClassName({ row }: { row: UserRow }) {
+  if (!row.is_active) return 'row-inactive'
+  return ''
+}
 
 // Add dialog
 const showAdd = ref(false)
@@ -326,24 +361,66 @@ const addRules: Record<string, any> = {
   ],
 }
 
-// Edit dialog
-const showEdit = ref(false)
-const editLoading = ref(false)
-const editFormRef = ref()
-const editForm = reactive({
-  id: '', username: '', display_name: '', email: '', department: '', role: '',
+// Detail drawer
+const showDetail = ref(false)
+const detailUser = ref<UserRow | null>(null)
+const savingDetail = ref(false)
+const detailForm = reactive({
+  display_name: '', email: '', department: '', role: '',
 })
+
+function openDetail(row: UserRow) {
+  detailUser.value = row
+  detailForm.display_name = row.display_name
+  detailForm.email = row.email
+  detailForm.department = row.department
+  detailForm.role = row.role
+  showDetail.value = true
+}
+
+async function saveDetail() {
+  if (!detailUser.value) return
+  savingDetail.value = true
+  try {
+    await apiPatch(`/auth/users/${detailUser.value.id}`, { ...detailForm })
+    ElMessage.success('用户信息已更新')
+    showDetail.value = false
+    await loadUsers()
+  } catch (e: any) {
+    ElMessage.error(e.message || '更新失败')
+  } finally {
+    savingDetail.value = false
+  }
+}
+
+async function handleDeleteFromDrawer() {
+  if (!detailUser.value) return
+  try {
+    await apiDelete(`/auth/users/${detailUser.value.id}`)
+    ElMessage.success('用户已删除')
+    showDetail.value = false
+    page.value = 1
+    await loadUsers()
+  } catch (e: any) {
+    ElMessage.error(e.message || '删除失败')
+  }
+}
 
 // ── Helpers ──
 
 function roleTagType(role: string): string {
-  const map: Record<string, string> = { admin: 'danger', analyst: 'primary', reviewer: 'warning', business: 'info' }
+  const map: Record<string, string> = { admin: 'danger', analyst: 'primary', reviewer: 'warning', business: 'success' }
   return map[role] || 'info'
 }
 
 function roleLabel(role: string): string {
   const map: Record<string, string> = { admin: '管理员', analyst: '分析师', reviewer: '审核人', business: '业务方' }
   return map[role] || role
+}
+
+function formatDateTime(d: string | undefined): string {
+  if (!d) return '—'
+  try { return new Date(d).toLocaleString('zh-CN') } catch { return '—' }
 }
 
 // ── CRUD ──
@@ -379,52 +456,17 @@ async function handleAdd() {
   }
 }
 
-function startEdit(row: UserRow) {
-  editForm.id = row.id
-  editForm.username = row.username
-  editForm.display_name = row.display_name
-  editForm.email = row.email
-  editForm.department = row.department
-  editForm.role = row.role
-  showEdit.value = true
-}
-
-async function handleEdit() {
-  editLoading.value = true
-  try {
-    await apiPatch(`/auth/users/${editForm.id}`, {
-      display_name: editForm.display_name,
-      email: editForm.email,
-      department: editForm.department,
-      role: editForm.role,
-    })
-    ElMessage.success('用户信息已更新')
-    showEdit.value = false
-    await loadUsers()
-  } catch (e: any) {
-    ElMessage.error(e.message || '更新失败')
-  } finally {
-    editLoading.value = false
-  }
-}
-
-async function handleDelete(row: UserRow) {
-  try {
-    await apiDelete(`/auth/users/${row.id}`)
-    ElMessage.success('用户已删除')
-    page.value = 1
-    await loadUsers()
-  } catch (e: any) {
-    ElMessage.error(e.message || '删除失败')
-  }
-}
-
 async function toggleStatus(row: UserRow, active: boolean) {
   switching.value = row.id
   try {
     await apiPatch(`/auth/users/${row.id}/status`, { is_active: active })
     row.is_active = active
     ElMessage.success(active ? '用户已启用' : '用户已禁用')
+    // Refresh to update the drawer form
+    await loadUsers()
+    if (detailUser.value?.id === row.id) {
+      detailUser.value = allUsers.value.find(u => u.id === row.id) || null
+    }
   } catch {
     ElMessage.error('操作失败')
   } finally {
@@ -446,7 +488,7 @@ onMounted(loadUsers)
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .page-header-left {
@@ -461,63 +503,54 @@ onMounted(loadUsers)
   font-weight: 600;
 }
 
-/* ── Stat Cards ── */
+/* ── Compact stat bar ── */
 
-.stat-cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.stat-card-item {
+.stat-bar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 18px 20px;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  border: 1px solid #ebeef5;
-}
-
-.stat-icon {
-  font-size: 28px;
-  line-height: 1;
-}
-
-.stat-body {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-num {
-  font-size: 26px;
-  font-weight: 700;
-  color: #1d2129;
-  line-height: 1.2;
-}
-
-.stat-desc {
+  gap: 0;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #f0f0f5;
   font-size: 13px;
-  color: #86909c;
-  margin-top: 2px;
+  color: #4e5969;
+}
+
+.stat-item {
+  padding: 0 16px;
+}
+
+.stat-item:first-child {
+  padding-left: 0;
+}
+
+.stat-item strong {
+  color: #1d2129;
+  font-size: 15px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 18px;
+  background: #e5e6eb;
 }
 
 /* ── Filter ── */
 
 .filter-bar {
   display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .search-input {
-  width: 280px;
+  width: 260px;
 }
 
-.role-select {
-  width: 140px;
+.filter-select {
+  width: 130px;
 }
 
 /* ── Table ── */
@@ -535,6 +568,10 @@ onMounted(loadUsers)
   flex-shrink: 0;
 }
 
+.user-avatar.avatar-inactive {
+  background: #d9d9d9;
+}
+
 .user-meta {
   display: flex;
   flex-direction: column;
@@ -543,7 +580,6 @@ onMounted(loadUsers)
 
 .user-name {
   font-weight: 500;
-  color: #1d2129;
   font-size: 14px;
 }
 
@@ -552,9 +588,105 @@ onMounted(loadUsers)
   color: #86909c;
 }
 
-.email-text {
-  color: #4e5969;
+.text-inactive {
+  color: #c0c4cc !important;
+}
+
+.tag-inactive {
+  opacity: 0.5;
+}
+
+/* Status dots */
+.dot-active {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #52c41a;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.dot-inactive {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d9d9d9;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.status-active {
   font-size: 13px;
+  color: #52c41a;
+  vertical-align: middle;
+}
+
+.status-inactive {
+  font-size: 13px;
+  color: #c0c4cc;
+  vertical-align: middle;
+}
+
+/* ── Row class for inactive users ── */
+
+:deep(.row-inactive) {
+  color: #c0c4cc;
+}
+
+:deep(.row-inactive td) {
+  color: #c0c4cc;
+}
+
+/* ── Bottom bar ── */
+
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 4px 0;
+}
+
+.selected-info {
+  font-size: 13px;
+  color: #606266;
+  min-width: 100px;
+}
+
+/* ── Drawer ── */
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 0 8px;
+}
+
+.drawer-avatar {
+  background: linear-gradient(135deg, #409eff, #337ecc);
+  color: #fff;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.drawer-header-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drawer-username {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4e5969;
+}
+
+.drawer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .disabled-tag {
@@ -562,20 +694,15 @@ onMounted(loadUsers)
   font-size: 12px;
 }
 
-/* ── Pagination ── */
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-  padding: 8px 0;
-}
-
 /* ── Responsive ── */
 
 @media (max-width: 768px) {
-  .stat-cards {
-    grid-template-columns: repeat(2, 1fr);
+  .stat-bar {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .stat-divider {
+    display: none;
   }
   .filter-bar {
     flex-direction: column;
