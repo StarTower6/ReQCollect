@@ -1,6 +1,6 @@
 <template>
   <div class="app-layout">
-    <SideBar @new-chat="handleNewChat" @import-doc="showImport = true" />
+    <SideBar @import-doc="showImport = true" />
     <ImportDialog v-model:visible="showImport" />
     <div class="main-area">
       <div class="main">
@@ -27,7 +27,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useProfileStore } from '@/stores/profile'
 import SideBar from './SideBar.vue'
@@ -37,7 +36,6 @@ import ImportDialog from '@/components/chat/ImportDialog.vue'
 
 const sessionStore = useSessionStore()
 const profileStore = useProfileStore()
-const router = useRouter()
 
 const drawerVisible = ref(false)
 const showImport = ref(false)
@@ -54,12 +52,4 @@ const title = computed(() => {
 })
 
 const sufficiencyPercent = computed(() => Math.round((profileStore.profile.sufficiency_score || 0) * 100))
-
-async function handleNewChat() {
-  // Starting a new global chat — clear workspace context
-  sessionStore.clearWorkspace()
-  const id = sessionStore.newSession()
-  profileStore.clear()
-  router.push(`/chat/${id}`)
-}
 </script>
