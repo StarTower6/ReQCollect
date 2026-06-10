@@ -187,3 +187,48 @@ async def wiki_delete(
     await ds.delete_wiki_page(page_id)
     logger.info(f"Wiki page deleted: '{page.get('title', page_id)}' by {current_user['username']}")
     return {"success": True}
+
+
+# ── Graph ──
+
+
+@router.get("/wiki/graph/{workspace_id}")
+async def wiki_graph(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get graph data for a workspace: nodes=pages, edges=wiki_links."""
+    ds = _ds()
+    pages = await ds.list_wiki_pages(workspace_id)
+    nodes = {}
+    for p in pages:
+        out_links = await ds.get_wiki_links(p["id"])
+        # Count outgoing links for this node
+        connected = len(out_links)
+        nodes[p["id"]] = {
+            "id": p["id"],
+            "label": p["title"],
+            "title": p["title"],
+            "group": "page",
+            "value": max(connected, 1),
+        }
+    edges = []
+    seen = set()
+    for p in pages:
+        out_links = await ds.get_wiki_links(p["id"])
+        for link in out_links:
+            edge_key = f"{link['source_page_id']}-{link['target_page_id']}"
+            if edge_key not in seen and link["target_page_id"] in nodes:
+                seen.add(edge_key)
+                edges.append({
+                    "from": link["source_page_id"],
+                    "to": link["target_page_id"],
+                    "title": "引用",
+                })
+    return {
+        "success": True,
+        "graph": {
+            "nodes": list(nodes.values()),
+            "edges": edges,
+        },
+    }
