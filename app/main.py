@@ -24,6 +24,7 @@ from app.api.auth import router as auth_router
 from app.api.pm import router as pm_router
 from app.api.workspace import router as workspace_router
 from app.api.wiki import router as wiki_router
+from app.api.wiki_ai import router as wiki_ai_router
 from app.config import config
 
 
@@ -168,6 +169,7 @@ app.include_router(auth_router, prefix="/api", tags=["Auth"])
 app.include_router(pm_router, prefix="/api", tags=["PM Agent"])
 app.include_router(workspace_router, prefix="/api", tags=["Workspace"])
 app.include_router(wiki_router, prefix="/api", tags=["Wiki"])
+app.include_router(wiki_ai_router, prefix="/api", tags=["Wiki AI"])
 
 static_dir = "static"
 _vue_dist = "reqcollect-web/dist"
