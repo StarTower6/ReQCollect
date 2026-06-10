@@ -267,6 +267,34 @@ onMounted(async () => {
   font-size: 15px;
 }
 
+/* Table styling for editor preview */
+.preview-body :deep(table),
+.ai-suggestion-body :deep(table) {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  overflow: auto;
+  margin: 12px 0;
+}
+.preview-body :deep(table th),
+.ai-suggestion-body :deep(table th) {
+  font-weight: 600;
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  padding: 8px 12px;
+  text-align: left;
+}
+.preview-body :deep(table td),
+.ai-suggestion-body :deep(table td) {
+  border: 1px solid #e4e7ed;
+  padding: 8px 12px;
+}
+.preview-body :deep(table tr:nth-child(2n)),
+.ai-suggestion-body :deep(table tr:nth-child(2n)) {
+  background: #fafafa;
+}
+
 /* AI suggestion panel */
 .ai-suggestion-panel {
   border: 1px solid #b3d8ff;

@@ -269,6 +269,30 @@ onMounted(async () => {
   cursor: default;
 }
 
+/* Table styling for markdown */
+.wiki-body :deep(table) {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  overflow: auto;
+  margin: 12px 0;
+}
+.wiki-body :deep(table th) {
+  font-weight: 600;
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  padding: 8px 12px;
+  text-align: left;
+}
+.wiki-body :deep(table td) {
+  border: 1px solid #e4e7ed;
+  padding: 8px 12px;
+}
+.wiki-body :deep(table tr:nth-child(2n)) {
+  background: #fafafa;
+}
+
 /* Backlinks */
 .backlinks-section {
   margin-top: 8px;
