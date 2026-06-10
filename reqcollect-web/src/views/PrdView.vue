@@ -1,5 +1,10 @@
 <template>
   <div class="prd-view">
+    <div class="prd-actions" v-if="prdStore.prd">
+      <el-button size="small" :loading="wikiLoading" @click="showWikiDialog = true">
+        📄 加入 Wiki
+      </el-button>
+    </div>
     <PrdToc
       v-if="prdStore.prd"
       :sections="sections"
@@ -11,17 +16,38 @@
       <div v-if="!prdStore.prd" style="padding:40px;text-align:center;color:var(--muted)">正在加载 PRD...</div>
       <div v-else ref="prdContentRef" class="prd-content" v-html="renderedMarkdown"></div>
     </div>
+
+    <!-- Wiki dialog -->
+    <el-dialog v-model="showWikiDialog" title="加入 Wiki" width="460px">
+      <el-form :model="wikiForm" label-width="80px">
+        <el-form-item label="页面标题">
+          <el-input v-model="wikiForm.title" placeholder="Wiki 页面标题" />
+        </el-form-item>
+        <el-form-item label="工作空间">
+          <el-select v-model="wikiForm.workspaceId" placeholder="选择目标工作空间" style="width:100%" filterable>
+            <el-option v-for="ws in workspaces" :key="ws.id" :label="ws.name" :value="ws.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showWikiDialog = false">取消</el-button>
+        <el-button type="primary" :loading="wikiLoading" @click="handleWikiCreate">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { usePrdStore } from '@/stores/prd'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import mermaid from 'mermaid'
 import PrdToc from '@/components/prd/PrdToc.vue'
+import { aiCreateWikiFromPrd } from '@/api/wiki'
+import { fetchWorkspaces } from '@/api/workspace'
 
 mermaid.initialize({
   startOnLoad: false,
@@ -31,7 +57,48 @@ mermaid.initialize({
 })
 
 const route = useRoute()
+const router = useRouter()
 const prdStore = usePrdStore()
+
+// Wiki dialog
+const showWikiDialog = ref(false)
+const wikiLoading = ref(false)
+const workspaces = ref<any[]>([])
+const wikiForm = ref({ title: '', workspaceId: '' })
+
+async function handleWikiCreate() {
+  if (!wikiForm.value.title.trim()) {
+    ElMessage.warning('请输入页面标题')
+    return
+  }
+  if (!wikiForm.value.workspaceId) {
+    ElMessage.warning('请选择工作空间')
+    return
+  }
+  wikiLoading.value = true
+  try {
+    const page = await aiCreateWikiFromPrd({
+      workspace_id: wikiForm.value.workspaceId,
+      title: wikiForm.value.title.trim(),
+      prd_markdown: prdStore.prd?.markdown || '',
+    })
+    ElMessage.success('Wiki 页面创建成功')
+    showWikiDialog.value = false
+    router.push(`/workspace/${wikiForm.value.workspaceId}/wiki/${page.id}`)
+  } catch (e: any) {
+    ElMessage.error(e.message || '创建失败')
+  } finally {
+    wikiLoading.value = false
+  }
+}
+
+watch(showWikiDialog, async (val) => {
+  if (val) {
+    try {
+      workspaces.value = await fetchWorkspaces()
+    } catch { /* silent */ }
+  }
+})
 const contentRef = ref<HTMLElement | null>(null)
 const prdContentRef = ref<HTMLElement | null>(null)
 const activeIndex = ref(0)
@@ -125,3 +192,12 @@ onMounted(() => {
   if (sid) prdStore.load(sid)
 })
 </script>
+
+<style scoped>
+.prd-actions {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 10;
+}
+</style>

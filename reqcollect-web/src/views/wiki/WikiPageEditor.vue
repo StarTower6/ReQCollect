@@ -6,10 +6,25 @@
         <el-button text size="small" @click="handleCancel">← 返回</el-button>
         <div class="editor-topbar-right">
           <span class="editor-mode">{{ isNew ? '新建页面' : '编辑页面' }}</span>
+          <el-button size="small" :loading="aiLoading" @click="handleAISuggest" v-if="!isNew">
+            🤖 AI 建议补充
+          </el-button>
           <el-button type="primary" size="small" :loading="saving" @click="handleSave">
             {{ isNew ? '创建' : '保存' }}
           </el-button>
         </div>
+      </div>
+
+      <!-- AI suggestion panel -->
+      <div v-if="aiSuggestion" class="ai-suggestion-panel">
+        <div class="ai-suggestion-header">
+          <span>🤖 AI 建议补充以下内容</span>
+          <div class="ai-suggestion-actions">
+            <el-button size="small" @click="applySuggestion">采纳</el-button>
+            <el-button size="small" text @click="aiSuggestion = ''">关闭</el-button>
+          </div>
+        </div>
+        <div class="ai-suggestion-body markdown-body" v-html="aiSuggestionHtml" />
       </div>
 
       <!-- Editor body -->
@@ -44,7 +59,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { marked } from 'marked'
-import { fetchWikiPage, createWikiPage, updateWikiPage } from '@/api/wiki'
+import { fetchWikiPage, createWikiPage, updateWikiPage, aiSuggestContent } from '@/api/wiki'
 import AppLayout from '@/components/layout/AppLayout.vue'
 
 const route = useRoute()
@@ -56,6 +71,8 @@ const pageId = computed(() => route.params.pageId as string)
 
 const loaded = ref(false)
 const saving = ref(false)
+const aiLoading = ref(false)
+const aiSuggestion = ref('')
 const form = reactive({ title: '', content: '' })
 
 const renderedContent = computed(() => {
@@ -63,6 +80,14 @@ const renderedContent = computed(() => {
     return marked(form.content || '')
   } catch {
     return form.content || ''
+  }
+})
+
+const aiSuggestionHtml = computed(() => {
+  try {
+    return marked(aiSuggestion.value || '')
+  } catch {
+    return aiSuggestion.value || ''
   }
 })
 
@@ -104,6 +129,32 @@ async function handleSave() {
   }
 }
 
+async function handleAISuggest() {
+  if (!form.content.trim() && !form.title.trim()) {
+    ElMessage.warning('请先写一些内容，AI 才能分析缺失章节')
+    return
+  }
+  aiLoading.value = true
+  try {
+    const suggestion = await aiSuggestContent({
+      page_id: pageId.value,
+      title: form.title,
+      existing_content: form.content,
+    })
+    aiSuggestion.value = suggestion
+  } catch (e: any) {
+    ElMessage.error(e.message || 'AI 建议失败')
+  } finally {
+    aiLoading.value = false
+  }
+}
+
+function applySuggestion() {
+  form.content += '\n\n' + aiSuggestion.value
+  aiSuggestion.value = ''
+  ElMessage.success('已采纳 AI 建议')
+}
+
 onMounted(async () => {
   if (!isNew.value) {
     try {
@@ -137,7 +188,7 @@ onMounted(async () => {
 .editor-topbar-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .editor-mode {
@@ -214,6 +265,40 @@ onMounted(async () => {
 .preview-body {
   line-height: 1.8;
   font-size: 15px;
+}
+
+/* AI suggestion panel */
+.ai-suggestion-panel {
+  border: 1px solid #b3d8ff;
+  background: #f0f7ff;
+  border-radius: 8px;
+  margin: 8px 24px;
+  padding: 12px 16px;
+  flex-shrink: 0;
+}
+
+.ai-suggestion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.ai-suggestion-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ai-suggestion-body {
+  font-size: 14px;
+  line-height: 1.6;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 6px;
 }
 
 @media (max-width: 768px) {

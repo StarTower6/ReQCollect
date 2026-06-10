@@ -74,3 +74,20 @@ export async function fetchWikiGraph(workspaceId: string): Promise<GraphData> {
   const res: any = await apiGet(`/wiki/graph/${encodeURIComponent(workspaceId)}`)
   return res.graph || { nodes: [], edges: [] }
 }
+
+// ── AI-enhanced wiki endpoints ──
+
+export async function aiCreateWikiPage(data: { workspace_id: string; title: string; context: string }): Promise<WikiPage> {
+  const res: any = await apiPost('/wiki/ai/create', data)
+  return res.page
+}
+
+export async function aiSuggestContent(data: { page_id: string; title: string; existing_content: string }): Promise<string> {
+  const res: any = await apiPost('/wiki/ai/suggest', data)
+  return res.suggestion
+}
+
+export async function aiCreateWikiFromPrd(data: { workspace_id: string; title: string; prd_markdown: string }): Promise<WikiPage> {
+  const res: any = await apiPost('/wiki/ai/from-prd', data)
+  return res.page
+}
