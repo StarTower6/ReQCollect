@@ -51,3 +51,26 @@ export async function updateWikiPage(pageId: string, data: { title?: string; con
 export async function deleteWikiPage(pageId: string): Promise<void> {
   await apiDelete(`/wiki/${encodeURIComponent(pageId)}`)
 }
+
+export interface GraphNode {
+  id: string
+  label: string
+  title: string
+  value: number
+}
+
+export interface GraphEdge {
+  from: string
+  to: string
+  title: string
+}
+
+export interface GraphData {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}
+
+export async function fetchWikiGraph(workspaceId: string): Promise<GraphData> {
+  const res: any = await apiGet(`/wiki/graph/${encodeURIComponent(workspaceId)}`)
+  return res.graph || { nodes: [], edges: [] }
+}
