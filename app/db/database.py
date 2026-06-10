@@ -70,6 +70,28 @@ async def init_db() -> bool:
                 logger.info("Applied migration: sessions.workspace_id")
             except Exception:
                 logger.debug("Migration: sessions.workspace_id already exists")
+
+        # wiki_pages table
+        async with _engine.begin() as conn:
+            try:
+                await conn.execute(
+                    __import__("sqlalchemy").text(
+                        "CREATE TABLE IF NOT EXISTS wiki_pages ("
+                        "id VARCHAR(64) PRIMARY KEY, "
+                        "workspace_id VARCHAR(64) NOT NULL, "
+                        "title VARCHAR(255) NOT NULL, "
+                        "content TEXT, "
+                        "created_by VARCHAR(64) NOT NULL, "
+                        "updated_by VARCHAR(64) DEFAULT '', "
+                        "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+                        "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, "
+                        "INDEX idx_wiki_workspace (workspace_id)"
+                        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+                    )
+                )
+                logger.info("Applied migration: wiki_pages table")
+            except Exception:
+                logger.debug("Migration: wiki_pages table already exists")
         _async_session_factory = async_sessionmaker(
             _engine, class_=AsyncSession, expire_on_commit=False
         )

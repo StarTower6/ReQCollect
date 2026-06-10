@@ -288,6 +288,38 @@ class Workspace(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
 
+# ── Wiki Page ──
+
+
+class WikiPage(Base):
+    __tablename__ = "wiki_pages"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=_new_id)
+    workspace_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str | None] = mapped_column(Text, default="")
+    created_by: Mapped[str] = mapped_column(String(64), nullable=False)
+    updated_by: Mapped[str | None] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (
+        Index("idx_wiki_workspace", "workspace_id"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "workspace_id": self.workspace_id,
+            "title": self.title or "",
+            "content": self.content or "",
+            "created_by": self.created_by,
+            "updated_by": self.updated_by or "",
+            "created_at": self.created_at.isoformat() if self.created_at else "",
+            "updated_at": self.updated_at.isoformat() if self.updated_at else "",
+        }
+
+
 # ── Audit Log ──
 
 
