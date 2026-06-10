@@ -25,6 +25,24 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/workspace/:id/wiki/new',
+      name: 'WikiNew',
+      component: () => import('@/views/wiki/WikiPageEditor.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/workspace/:id/wiki/:pageId',
+      name: 'WikiView',
+      component: () => import('@/views/wiki/WikiPageView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/workspace/:id/wiki/:pageId/edit',
+      name: 'WikiEdit',
+      component: () => import('@/views/wiki/WikiPageEditor.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/chat',
       name: 'Chat',
       component: () => import('@/views/ChatView.vue'),
