@@ -69,6 +69,10 @@
             </el-table>
           </div>
         </el-tab-pane>
+        <el-tab-pane label="📁 文件" name="files">
+          <div v-if="!workspace" v-loading="true" style="height:200px" />
+          <FileManager v-else :workspace-id="route.params.id as string" />
+        </el-tab-pane>
         <el-tab-pane label="需求图谱" name="graph">
           <div v-if="!workspace" v-loading="true" style="height:400px" />
           <GraphView v-else :workspace-id="route.params.id as string" />
@@ -105,6 +109,7 @@ import { fetchWorkspace, updateWorkspace, deleteWorkspace, fetchWorkspaceSession
 import { fetchWikiPages } from '@/api/wiki'
 import type { WikiPage } from '@/api/wiki'
 import GraphView from '@/views/wiki/GraphView.vue'
+import FileManager from '@/components/workspace/FileManager.vue'
 import { useSessionStore } from '@/stores/session'
 import { useChatStore } from '@/stores/chat'
 import { useProfileStore } from '@/stores/profile'
