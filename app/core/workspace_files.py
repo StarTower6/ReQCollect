@@ -58,9 +58,9 @@ def is_text_file(ext: str) -> bool:
     return ext in ("md", "txt", "json", "yaml", "yml")
 
 
-def _validate_file_path(workspace_dir: Path, relative_path: str) -> Path:
-    resolved = (workspace_dir / relative_path).resolve()
-    if not str(resolved).startswith(str(workspace_dir.resolve())):
+def _validate_file_path(base_dir: Path, relative_path: str) -> Path:
+    resolved = (base_dir / relative_path).resolve()
+    if not str(resolved).startswith(str(base_dir.resolve())):
         raise FileValidationError("Path traversal detected")
     return resolved
 
@@ -76,6 +76,7 @@ def _load_index(files_dir: Path) -> list[dict]:
     try:
         return json.loads(p.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
+        logger.warning(f"Corrupted or unreadable index file: {p}")
         return []
 
 
@@ -130,6 +131,8 @@ class WorkspaceFileManager:
             file_path = Path(entry["abs_path"])
             if not file_path.exists():
                 raise FileNotFoundError(f"Linked file not found: {file_path}")
+            if not str(file_path.resolve()).startswith(str(Path(config.data_dir).resolve())):
+                raise FileValidationError("Linked file path outside allowed directory")
         else:
             raise FileNotFoundError(f"Cannot resolve file: {relative_path}")
 
@@ -139,7 +142,10 @@ class WorkspaceFileManager:
         elif ext == "docx":
             text = parse_docx(file_path)
         elif ext == "xlsx":
-            text = parse_xlsx(file_path)
+            try:
+                text = parse_xlsx(file_path)
+            except Exception:
+                text = f"[无法解析 xlsx 文件: {relative_path}]"
         else:
             text = file_path.read_text(encoding="utf-8", errors="replace")
 
@@ -182,6 +188,8 @@ class WorkspaceFileManager:
         return results
 
     def write_file(self, relative_path: str, content: str) -> dict:
+        if not relative_path or not relative_path.strip():
+            raise ValueError("File path cannot be empty")
         safe_name = Path(relative_path).name
         dest = self._generated_dir / safe_name
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -237,10 +245,11 @@ class WorkspaceFileManager:
 
     def delete_file(self, relative_path: str) -> bool:
         safe_name = Path(relative_path).name
-        entries = [f for f in _load_index(self._files_dir) if f["path"] == safe_name]
+        index = _load_index(self._files_dir)
+        entries = [f for f in index if f["path"] == safe_name]
         if not entries:
             return False
-        index = [f for f in _load_index(self._files_dir) if f["path"] != safe_name]
+        index = [f for f in index if f["path"] != safe_name]
         _save_index(self._files_dir, index)
 
         entry = entries[0]

@@ -42,6 +42,9 @@ dev = [
     "black>=23.12.0",
     "ruff>=0.1.9",
 ]
+office = [
+    "python-docx>=1.1.0",
+]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
