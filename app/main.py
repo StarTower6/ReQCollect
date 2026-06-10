@@ -23,6 +23,7 @@ from loguru import logger
 from app.api.auth import router as auth_router
 from app.api.pm import router as pm_router
 from app.api.workspace import router as workspace_router
+from app.api.wiki import router as wiki_router
 from app.config import config
 
 
@@ -166,6 +167,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api", tags=["Auth"])
 app.include_router(pm_router, prefix="/api", tags=["PM Agent"])
 app.include_router(workspace_router, prefix="/api", tags=["Workspace"])
+app.include_router(wiki_router, prefix="/api", tags=["Wiki"])
 
 static_dir = "static"
 _vue_dist = "reqcollect-web/dist"
