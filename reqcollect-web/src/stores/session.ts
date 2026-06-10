@@ -6,6 +6,11 @@ import { fetchWorkspaces } from '@/api/workspace'
 
 const WS_STORAGE_KEY = 'reqcollect_workspace_id'
 
+function matchesSearch(s: Session, query: string): boolean {
+  return (s.project_name || '').toLowerCase().includes(query) ||
+         (s.session_id || '').toLowerCase().includes(query)
+}
+
 export const useSessionStore = defineStore('session', () => {
   const sessions = ref<Session[]>([])
   const currentId = ref<string | null>(null)
@@ -17,12 +22,8 @@ export const useSessionStore = defineStore('session', () => {
 
   const filteredSessions = computed(() => {
     const q = searchQuery.value.trim().toLowerCase()
-    let result = sessions.value
-    if (!q) return result
-    return result.filter(s =>
-      (s.project_name || '').toLowerCase().includes(q) ||
-      (s.session_id || '').toLowerCase().includes(q)
-    )
+    if (!q) return sessions.value
+    return sessions.value.filter(s => matchesSearch(s, q))
   })
 
   const treeData = computed(() => {
@@ -69,11 +70,6 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     return nodes
-
-    function matchesSearch(s: Session, query: string): boolean {
-      return (s.project_name || '').toLowerCase().includes(query) ||
-             (s.session_id || '').toLowerCase().includes(query)
-    }
   })
 
   async function load() {
