@@ -182,6 +182,20 @@ async def ws_files_upload(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/workspaces/{workspace_id}/files/info")
+async def ws_files_info(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get workspace file overview: counts by type/source, file list."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    info = await ds.get_workspace_files_info(workspace_id)
+    return {"success": True, "info": info}
+
+
 @router.get("/workspaces/{workspace_id}/files/{path:path}")
 async def ws_files_read(
     workspace_id: str,
@@ -216,17 +230,3 @@ async def ws_files_delete(
     if not deleted:
         raise HTTPException(status_code=404, detail="File not found")
     return {"success": True}
-
-
-@router.get("/workspaces/{workspace_id}/files/info")
-async def ws_files_info(
-    workspace_id: str,
-    current_user: dict = Depends(get_current_user),
-):
-    """Get workspace file overview: counts by type/source, file list."""
-    ds = _ds()
-    ws = await ds.get_workspace(workspace_id)
-    if ws is None:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    info = await ds.get_workspace_files_info(workspace_id)
-    return {"success": True, "info": info}
