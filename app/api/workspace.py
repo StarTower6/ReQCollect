@@ -9,10 +9,11 @@ Routes:
   GET    /api/workspaces/{id}/sessions  — list sessions in workspace
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from loguru import logger
 
 from app.core.auth import get_current_user
+from app.core.file_handler import FileValidationError
 
 
 def _svc():
@@ -140,3 +141,92 @@ async def ws_sessions(
 
     sessions = await ds.list_sessions(workspace_id=workspace_id, limit=10000)
     return {"success": True, "sessions": sessions, "total": len(sessions)}
+
+
+# ── Workspace File Management ──
+
+
+@router.get("/workspaces/{workspace_id}/files")
+async def ws_files_list(
+    workspace_id: str,
+    pattern: str = Query(default="*"),
+    max_results: int = Query(default=50, le=200),
+    current_user: dict = Depends(get_current_user),
+):
+    """List files in a workspace."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    files = await ds.list_workspace_files(workspace_id, pattern, max_results)
+    return {"success": True, "files": files, "total": len(files)}
+
+
+@router.post("/workspaces/{workspace_id}/files/upload")
+async def ws_files_upload(
+    workspace_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Upload a file to the workspace. Supported: .md .txt .json .yaml .docx .xlsx"""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    content = await file.read()
+    filename = file.filename or "untitled"
+    try:
+        result = await ds.add_workspace_file(workspace_id, filename, content, current_user["id"])
+        return {"success": True, "file": result}
+    except FileValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/workspaces/{workspace_id}/files/{path:path}")
+async def ws_files_read(
+    workspace_id: str,
+    path: str,
+    max_chars: int = Query(default=8000, le=100000),
+    current_user: dict = Depends(get_current_user),
+):
+    """Read a file from the workspace."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    try:
+        content = await ds.read_workspace_file(workspace_id, path, max_chars)
+        return {"success": True, "file": content}
+    except (FileNotFoundError, RuntimeError) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/workspaces/{workspace_id}/files/{path:path}")
+async def ws_files_delete(
+    workspace_id: str,
+    path: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete a file from the workspace."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    deleted = await ds.remove_workspace_file(workspace_id, path)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {"success": True}
+
+
+@router.get("/workspaces/{workspace_id}/files/info")
+async def ws_files_info(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get workspace file overview: counts by type/source, file list."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    info = await ds.get_workspace_files_info(workspace_id)
+    return {"success": True, "info": info}

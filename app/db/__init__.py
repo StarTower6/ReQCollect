@@ -267,6 +267,49 @@ class DataStore(ABC):
     async def delete_wiki_links_for_page(self, page_id: str) -> None:
         """Delete all links (both outgoing and incoming) for a page."""
 
+    # ── Workspace Files ──
+
+    @abstractmethod
+    async def list_workspace_files(
+        self, workspace_id: str, pattern: str = "*", max_results: int = 50
+    ) -> list[dict]:
+        """List files in workspace."""
+
+    @abstractmethod
+    async def add_workspace_file(
+        self, workspace_id: str, filename: str, content: bytes, uploaded_by: str = ""
+    ) -> dict:
+        """Upload and index a file in the workspace."""
+
+    @abstractmethod
+    async def read_workspace_file(
+        self, workspace_id: str, file_path: str, max_chars: int = 8000
+    ) -> dict:
+        """Read file content."""
+
+    @abstractmethod
+    async def remove_workspace_file(
+        self, workspace_id: str, file_path: str
+    ) -> bool:
+        """Delete a file from workspace."""
+
+    @abstractmethod
+    async def search_workspace_files(
+        self, workspace_id: str, query: str,
+        file_pattern: str = "*.md", max_results: int = 10
+    ) -> list[dict]:
+        """Full-text search in workspace files."""
+
+    @abstractmethod
+    async def write_workspace_file(
+        self, workspace_id: str, file_path: str, content: str
+    ) -> dict:
+        """Write AI-generated file to workspace."""
+
+    @abstractmethod
+    async def get_workspace_files_info(self, workspace_id: str) -> dict:
+        """Get workspace file overview."""
+
     # ── Audit ──
 
     @abstractmethod

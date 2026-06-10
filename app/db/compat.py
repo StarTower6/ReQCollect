@@ -607,6 +607,36 @@ class FileDataStore(DataStore):
                 _FileLock.write_json(f, data)
         return True
 
+    # ── Workspace Files ──
+
+    async def list_workspace_files(self, workspace_id: str, pattern: str = "*", max_results: int = 50) -> list[dict]:
+        from app.core.workspace_files import WorkspaceFileManager
+        return WorkspaceFileManager(workspace_id).list_files(pattern, max_results)
+
+    async def add_workspace_file(self, workspace_id: str, filename: str, content: bytes, uploaded_by: str = "") -> dict:
+        from app.core.workspace_files import WorkspaceFileManager
+        return WorkspaceFileManager(workspace_id).upload_file(filename, content, uploaded_by)
+
+    async def read_workspace_file(self, workspace_id: str, file_path: str, max_chars: int = 8000) -> dict:
+        from app.core.workspace_files import WorkspaceFileManager
+        return WorkspaceFileManager(workspace_id).read_file(file_path, max_chars)
+
+    async def remove_workspace_file(self, workspace_id: str, file_path: str) -> bool:
+        from app.core.workspace_files import WorkspaceFileManager
+        return WorkspaceFileManager(workspace_id).delete_file(file_path)
+
+    async def search_workspace_files(self, workspace_id: str, query: str, file_pattern: str = "*.md", max_results: int = 10) -> list[dict]:
+        from app.core.workspace_files import WorkspaceFileManager
+        return WorkspaceFileManager(workspace_id).search_files(query, file_pattern, max_results)
+
+    async def write_workspace_file(self, workspace_id: str, file_path: str, content: str) -> dict:
+        from app.core.workspace_files import WorkspaceFileManager
+        return WorkspaceFileManager(workspace_id).write_file(file_path, content)
+
+    async def get_workspace_files_info(self, workspace_id: str) -> dict:
+        from app.core.workspace_files import WorkspaceFileManager
+        return WorkspaceFileManager(workspace_id).get_info()
+
     # ── Wiki Pages ──
 
     def _wiki_path(self, workspace_id: str) -> Path:
