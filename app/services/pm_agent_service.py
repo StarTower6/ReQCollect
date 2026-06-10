@@ -78,11 +78,36 @@ class PMAgentService:
         # Save user message
         await self._ds.save_message(thread_id, "user", message)
 
+        # Build workspace file context
+        workspace_context = None
+        if workspace_id:
+            try:
+                ws = await self._ds.get_workspace(workspace_id)
+                files = await self._ds.list_workspace_files(workspace_id, max_results=30)
+                if ws and files:
+                    file_summary_lines = [
+                        f"- {f['path']} ({f.get('type', '?')})" for f in files
+                    ]
+                    workspace_context = (
+                        f"当前工作区「{ws.get('name', '')}」包含以下文件：\n"
+                        + "\n".join(file_summary_lines)
+                        + "\n\n用户可能会要求你分析这些文件。使用 list_workspace_files / "
+                          "read_workspace_file 等文件工具查阅和分析。"
+                    )
+                    logger.debug(f"[{thread_id}] Workspace context built: {len(files)} files")
+            except Exception:
+                logger.debug(f"[{thread_id}] Failed to build workspace context")
+
         assistant_content = ""
-        async for event in get_mining_agent().chat(
-            message,
-            thread_id,
+        context_msgs = []
+        if workspace_context:
+            context_msgs.append({"role": "system", "content": workspace_context})
+
+        async for event in get_mining_agent().chat_with_context(
+            message=message,
+            thread_id=thread_id,
             force_knowledge=use_knowledge,
+            context_messages=context_msgs if context_msgs else None,
         ):
             if event.get("type") == "content" and isinstance(event.get("data"), str):
                 assistant_content += event["data"]
