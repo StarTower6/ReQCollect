@@ -30,8 +30,12 @@
       <div v-else-if="page" class="wiki-content" @click="onContentClick">
         <h1 class="wiki-title">{{ page.title }}</h1>
         <div class="wiki-meta">
+          <span>创建于: {{ formatDate(page.created_at) }}</span>
+          <span v-if="page.created_by_name"> · 创建者: {{ page.created_by_name }}</span>
+        </div>
+        <div class="wiki-meta" v-if="page.updated_at">
           <span>最后更新: {{ formatDate(page.updated_at) }}</span>
-          <span v-if="page.updated_by"> · 编辑者: {{ page.updated_by }}</span>
+          <span v-if="page.updated_by_name"> · 编辑者: {{ page.updated_by_name }}</span>
         </div>
         <el-divider />
         <div class="wiki-body markdown-body" v-html="renderedContent" />
@@ -60,13 +64,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { marked } from 'marked'
+import hljs from 'highlight.js'
+import mermaid from 'mermaid'
 import { fetchWikiPageDetail, fetchWikiPages, deleteWikiPage } from '@/api/wiki'
 import type { WikiPage, BacklinkRef } from '@/api/wiki'
 import AppLayout from '@/components/layout/AppLayout.vue'
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  securityLevel: 'loose',
+  fontFamily: 'inherit',
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -84,22 +97,65 @@ const WIKILINK_REGEX = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g
 const renderedContent = computed(() => {
   if (!page.value) return ''
   try {
-    let html = marked(page.value.content || '') as string
-    const wsId = route.params.id as string
-    html = html.replace(WIKILINK_REGEX, (_match: string, title: string, alias?: string) => {
-      const text = alias || title
-      const pageId = allPageTitles.value[title]
-      if (pageId) {
-        return `<a href="#/workspace/${wsId}/wiki/${pageId}" class="wiki-link">${text}</a>`
-      } else {
-        return `<span class="wiki-link-missing">${text}</span>`
-      }
-    })
+    let html = marked.parse(page.value.content || '', { async: false }) as string
+    if (typeof html === 'object') {
+      nextTick(async () => {
+        const h = await marked.parse(page.value?.content || '')
+        const el = document.querySelector('.wiki-body')
+        if (el) {
+          el.innerHTML = renderWikilinks(h)
+        }
+        await afterRender()
+      })
+      return '加载中...'
+    }
+    html = renderWikilinks(html)
+    nextTick(() => afterRender())
     return html
   } catch {
     return page.value?.content || ''
   }
 })
+
+function renderWikilinks(html: string): string {
+  const wsId = route.params.id as string
+  return html.replace(WIKILINK_REGEX, (_match: string, title: string, alias?: string) => {
+    const text = alias || title
+    const pageId = allPageTitles.value[title]
+    if (pageId) {
+      return `<a href="#/workspace/${wsId}/wiki/${pageId}" class="wiki-link">${text}</a>`
+    } else {
+      return `<span class="wiki-link-missing">${text}</span>`
+    }
+  })
+}
+
+async function afterRender() {
+  // 1. Highlight.js — 所有代码块
+  document.querySelectorAll('.wiki-body pre code:not(.hljs)').forEach(block => {
+    const el = block as HTMLElement
+    if (el.className.includes('language-mermaid')) return
+    try { hljs.highlightElement(el) } catch { /* ignore */ }
+  })
+
+  // 2. Mermaid — 所有 mermaid 代码块
+  const mermaidBlocks = document.querySelectorAll('.wiki-body pre code.language-mermaid')
+  if (mermaidBlocks.length > 0) {
+    mermaidBlocks.forEach((block, i) => {
+      const pre = block.parentElement
+      const text = block.textContent || ''
+      if (!pre) return
+      const div = document.createElement('div')
+      div.className = 'mermaid'
+      div.id = `mermaid-${Date.now()}-${i}`
+      div.textContent = text
+      pre.replaceWith(div)
+    })
+    try {
+      await mermaid.run({ querySelector: '.mermaid' })
+    } catch { /* some diagrams may fail, skip */ }
+  }
+}
 
 function formatDate(d: string) {
   if (!d) return ''
@@ -124,7 +180,6 @@ function onContentClick(e: MouseEvent) {
   if (target && target.getAttribute('href')) {
     e.preventDefault()
     const href = target.getAttribute('href')!
-    // href is a hash URL like "#/workspace/...", use router
     router.push(href.replace(/^#/, ''))
   }
 }
@@ -166,6 +221,9 @@ onMounted(async () => {
   padding: 24px;
   max-width: 900px;
   margin: 0 auto;
+  overflow-y: auto;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .wiki-topbar {
@@ -190,6 +248,7 @@ onMounted(async () => {
 .wiki-meta {
   font-size: 13px;
   color: #86909c;
+  line-height: 1.6;
 }
 
 .wiki-body {

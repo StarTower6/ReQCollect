@@ -122,6 +122,20 @@ async def wiki_get(
     if page is None:
         raise HTTPException(status_code=404, detail="Wiki page not found")
 
+    # Resolve user IDs to display names
+    created_by = page.get("created_by", "")
+    updated_by = page.get("updated_by", "")
+    if created_by:
+        u = await ds.get_user_by_id(created_by)
+        page["created_by_name"] = u["display_name"] if u else created_by
+    else:
+        page["created_by_name"] = ""
+    if updated_by and updated_by != created_by:
+        u = await ds.get_user_by_id(updated_by)
+        page["updated_by_name"] = u["display_name"] if u else updated_by
+    elif updated_by:
+        page["updated_by_name"] = page.get("created_by_name", "")
+
     # Fetch backlinks (pages that link TO this page)
     backlinks = await ds.get_wiki_backlinks(page_id)
     backlink_pages = []
