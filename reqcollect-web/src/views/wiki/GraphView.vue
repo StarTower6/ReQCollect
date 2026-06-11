@@ -1,7 +1,7 @@
 <template>
   <div class="graph-page">
     <div v-if="loading" v-loading="loading" style="height:400px" />
-    <el-empty v-else-if="!hasData" description="暂无图谱数据——先创建 Wiki 页面并添加 [[链接]]" />
+    <el-empty v-else-if="!hasData" description="暂无图谱数据——先创建 Wiki 页面或工作区文件并使用 [[链接]] 建立关联" />
     <div v-else ref="graphContainer" class="graph-container" />
   </div>
 </template>
@@ -29,6 +29,10 @@ async function loadGraph() {
   finally { loading.value = false }
 }
 
+function nodeColor(type: string): string {
+  return type === 'file' ? '#67c23a' : '#409eff'
+}
+
 function renderGraph() {
   if (!graphContainer.value || graphData.value.nodes.length === 0) return
 
@@ -41,20 +45,21 @@ function renderGraph() {
     const Network = mod.Network
     const { DataSet } = mod
 
-    const nodes = new (DataSet as any)(graphData.value.nodes.map(n => ({
+    const nodes = new (DataSet as any)(graphData.value.nodes.map((n: any) => ({
       id: n.id,
       label: n.label,
-      title: n.title,
+      title: `${n.title} (${n.type === 'file' ? '文件' : 'Wiki'})`,
       value: n.value || 1,
       shape: 'dot',
       size: Math.min(30, Math.max(10, (n.value || 1) * 6)),
       font: { size: 13, face: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif' },
       borderWidth: 2,
       color: {
-        background: '#409eff',
-        border: '#2b7be3',
-        highlight: { background: '#409eff', border: '#1a5bb5' },
+        background: nodeColor(n.type),
+        border: nodeColor(n.type),
+        highlight: { background: nodeColor(n.type), border: nodeColor(n.type) },
       },
+      group: n.type,
     })))
 
     const edges = new (DataSet as any)(graphData.value.edges.map(e => ({
@@ -90,11 +95,16 @@ function renderGraph() {
 
     network = new Network(graphContainer.value!, { nodes, edges }, options)
 
-    // Click node → navigate to wiki page
+    // Click node → navigate to wiki page or file
     network.on('click', (params: any) => {
-      if (params.nodes.length > 0) {
-        const nodeId = params.nodes[0]
-        router.push(`/workspace/${props.workspaceId}/wiki/${nodeId}`)
+      const nodeId = params.nodes?.[0]
+      if (!nodeId) return
+      const node = graphData.value.nodes.find((n: any) => n.id === nodeId)
+      if (!node) return
+      if (node.type === 'wiki') {
+        router.push(`/workspace/${props.workspaceId}/wiki/${nodeId.replace('wiki:', '')}`)
+      } else {
+        router.push(`/workspace/${props.workspaceId}`)
       }
     })
   }).catch(() => {
