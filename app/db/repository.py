@@ -421,62 +421,93 @@ class MySQLDataStore(DataStore):
             # Cascade: remove all wiki links for this page
             await s.execute(
                 delete(WikiLink).where(
-                    (WikiLink.source_page_id == page_id) |
-                    (WikiLink.target_page_id == page_id)
+                    (WikiLink.source_ref == page_id) |
+                    (WikiLink.target_ref == page_id)
                 )
             )
             await s.delete(page)
             await s.commit()
             return True
 
-    # ── Wiki Links ──
+    # ── Wiki Links / File Links ──
 
     async def get_wiki_links(self, page_id: str) -> list[dict]:
-        async with await self._get_session() as s:
-            r = await s.execute(
-                select(WikiLink).where(WikiLink.source_page_id == page_id)
-            )
-            return [
-                {"id": l.id, "source_page_id": l.source_page_id,
-                 "target_page_id": l.target_page_id, "link_type": l.link_type}
-                for l in r.scalars().all()
-            ]
+        """DEPRECATED: Use get_links(). Kept for backward compat."""
+        return await self.get_links("", page_id, "wiki", "outgoing")
 
     async def get_wiki_backlinks(self, page_id: str) -> list[dict]:
-        async with await self._get_session() as s:
-            r = await s.execute(
-                select(WikiLink).where(WikiLink.target_page_id == page_id)
-            )
-            return [
-                {"id": l.id, "source_page_id": l.source_page_id,
-                 "target_page_id": l.target_page_id, "link_type": l.link_type}
-                for l in r.scalars().all()
-            ]
+        """DEPRECATED: Use get_links(). Kept for backward compat."""
+        return await self.get_links("", page_id, "wiki", "incoming")
 
     async def save_wiki_links(
         self, source_page_id: str, target_ids: list[str], link_type: str = "reference"
     ) -> None:
-        async with await self._get_session() as s:
-            # Remove old outgoing links
-            await s.execute(
-                delete(WikiLink).where(WikiLink.source_page_id == source_page_id)
-            )
-            # Insert new links
-            for target in target_ids:
-                link = WikiLink(
-                    source_page_id=source_page_id,
-                    target_page_id=target,
-                    link_type=link_type,
-                )
-                s.add(link)
-            await s.commit()
+        """DEPRECATED: Use save_links(). Kept for backward compat."""
+        targets = [(tid, "wiki") for tid in target_ids]
+        await self.save_links("", source_page_id, "wiki", targets, link_type)
 
     async def delete_wiki_links_for_page(self, page_id: str) -> None:
+        """DEPRECATED: Use delete_links_for_ref(). Kept for backward compat."""
+        await self.delete_links_for_ref(page_id, "wiki")
+
+    async def get_links(self, workspace_id: str, ref: str, ref_type: str = "wiki",
+                        direction: str = "outgoing") -> list[dict]:
         async with await self._get_session() as s:
+            from sqlalchemy import and_
+            if direction == "outgoing":
+                where = and_(WikiLink.source_ref == ref, WikiLink.source_type == ref_type)
+            else:
+                where = and_(WikiLink.target_ref == ref, WikiLink.target_type == ref_type)
+            if workspace_id:
+                where = and_(where, WikiLink.workspace_id == workspace_id)
+            stmt = select(WikiLink).where(where)
+            result = await s.execute(stmt)
+            return [link.to_dict() for link in result.scalars().all()]
+
+    async def save_links(self, workspace_id: str,
+                         source_ref: str, source_type: str,
+                         targets: list[tuple[str, str]],
+                         link_type: str = "reference") -> None:
+        async with await self._get_session() as s:
+            # Remove old outgoing
             await s.execute(
                 delete(WikiLink).where(
-                    (WikiLink.source_page_id == page_id) |
-                    (WikiLink.target_page_id == page_id)
+                    WikiLink.source_ref == source_ref,
+                    WikiLink.source_type == source_type,
+                    WikiLink.workspace_id == workspace_id,
+                )
+            )
+            # Insert new
+            for target_ref, target_type in targets:
+                s.add(WikiLink(
+                    source_ref=source_ref, source_type=source_type,
+                    target_ref=target_ref, target_type=target_type,
+                    link_type=link_type, workspace_id=workspace_id,
+                ))
+            await s.commit()
+
+    async def get_graph_edges(self, workspace_id: str) -> list[dict]:
+        """Get ALL links in a workspace for graph visualization."""
+        async with await self._get_session() as s:
+            result = await s.execute(
+                select(WikiLink).where(WikiLink.workspace_id == workspace_id)
+            )
+            links = result.scalars().all()
+            return [{
+                "from": f"{link.source_type}:{link.source_ref}",
+                "to": f"{link.target_type}:{link.target_ref}",
+                "title": link.link_type,
+            } for link in links]
+
+    async def delete_links_for_ref(self, ref: str, ref_type: str = "wiki") -> None:
+        async with await self._get_session() as s:
+            from sqlalchemy import or_
+            await s.execute(
+                delete(WikiLink).where(
+                    or_(
+                        and_(WikiLink.source_ref == ref, WikiLink.source_type == ref_type),
+                        and_(WikiLink.target_ref == ref, WikiLink.target_type == ref_type),
+                    )
                 )
             )
             await s.commit()

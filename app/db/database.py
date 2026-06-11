@@ -100,12 +100,16 @@ async def init_db() -> bool:
                     __import__("sqlalchemy").text(
                         "CREATE TABLE IF NOT EXISTS wiki_links ("
                         "id VARCHAR(64) PRIMARY KEY, "
-                        "source_page_id VARCHAR(64) NOT NULL, "
-                        "target_page_id VARCHAR(64) NOT NULL, "
+                        "source_ref VARCHAR(128) NOT NULL, "
+                        "source_type VARCHAR(16) DEFAULT 'wiki', "
+                        "target_ref VARCHAR(128) NOT NULL, "
+                        "target_type VARCHAR(16) DEFAULT 'wiki', "
                         "link_type VARCHAR(50) DEFAULT 'reference', "
+                        "workspace_id VARCHAR(64) DEFAULT '', "
                         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
-                        "INDEX idx_wikilink_source (source_page_id), "
-                        "INDEX idx_wikilink_target (target_page_id)"
+                        "INDEX idx_wikilink_source (source_ref), "
+                        "INDEX idx_wikilink_target (target_ref), "
+                        "INDEX idx_wikilink_workspace (workspace_id)"
                         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
                     )
                 )

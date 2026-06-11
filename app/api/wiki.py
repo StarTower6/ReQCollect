@@ -140,7 +140,7 @@ async def wiki_get(
     backlinks = await ds.get_wiki_backlinks(page_id)
     backlink_pages = []
     for bl in backlinks:
-        src = await ds.get_wiki_page(bl["source_page_id"])
+        src = await ds.get_wiki_page(bl["source_ref"])
         if src:
             backlink_pages.append({
                 "id": src["id"],
@@ -231,12 +231,12 @@ async def wiki_graph(
     for p in pages:
         out_links = await ds.get_wiki_links(p["id"])
         for link in out_links:
-            edge_key = f"{link['source_page_id']}-{link['target_page_id']}"
-            if edge_key not in seen and link["target_page_id"] in nodes:
+            edge_key = f"{link['source_ref']}-{link['target_ref']}"
+            if edge_key not in seen and link["target_ref"] in nodes:
                 seen.add(edge_key)
                 edges.append({
-                    "from": link["source_page_id"],
-                    "to": link["target_page_id"],
+                    "from": link["source_ref"],
+                    "to": link["target_ref"],
                     "title": "引用",
                 })
     return {

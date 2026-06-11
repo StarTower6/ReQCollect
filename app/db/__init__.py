@@ -243,29 +243,52 @@ class DataStore(ABC):
     async def delete_wiki_page(self, page_id: str) -> bool:
         """Delete a wiki page."""
 
-    # ── Wiki Links ──
+    # ── Wiki Links / File Links ──
 
     @abstractmethod
     async def get_wiki_links(self, page_id: str) -> list[dict]:
-        """Get all links FROM this page (outgoing links)."""
+        """DEPRECATED: Use get_links(source_ref, "wiki"). Kept for backward compat."""
 
     @abstractmethod
     async def get_wiki_backlinks(self, page_id: str) -> list[dict]:
-        """Get all links TO this page (incoming / backlinks)."""
+        """DEPRECATED: Use get_links(target_ref, "wiki", direction="incoming")."""
 
     @abstractmethod
     async def save_wiki_links(
         self, source_page_id: str, target_ids: list[str], link_type: str = "reference"
     ) -> None:
-        """Replace all outgoing links from source_page_id with the given target_ids.
+        """DEPRECATED: Use save_links(). Kept for backward compat."""
 
-        This is a full-replace operation: old links from this source are removed,
-        new ones are inserted. This ensures consistency when content is edited.
+    @abstractmethod
+    async def get_links(
+        self, workspace_id: str, ref: str, ref_type: str = "wiki",
+        direction: str = "outgoing",
+    ) -> list[dict]:
+        """Get links from/to a reference.
+        direction="outgoing": links where source_ref = ref
+        direction="incoming": links where target_ref = ref
         """
 
     @abstractmethod
+    async def save_links(
+        self, workspace_id: str,
+        source_ref: str, source_type: str,
+        targets: list[tuple[str, str]],  # [(target_ref, target_type), ...]
+        link_type: str = "reference",
+    ) -> None:
+        """Full-replace: remove old outgoing links from source_ref, insert new ones."""
+
+    @abstractmethod
+    async def get_graph_edges(self, workspace_id: str) -> list[dict]:
+        """Get ALL links in a workspace — used by graph endpoint."""
+
+    @abstractmethod
+    async def delete_links_for_ref(self, ref: str, ref_type: str = "wiki") -> None:
+        """Remove all links (outgoing + incoming) for a reference."""
+
+    @abstractmethod
     async def delete_wiki_links_for_page(self, page_id: str) -> None:
-        """Delete all links (both outgoing and incoming) for a page."""
+        """DEPRECATED: Use delete_links_for_ref(). Kept for backward compat."""
 
     # ── Workspace Files ──
 
