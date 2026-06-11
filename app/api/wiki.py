@@ -76,18 +76,34 @@ async def wiki_create(
         created_by=current_user["id"],
     )
 
-    # Parse [[links]] from content and save wiki_links
+    # Parse [[links]] from content and save links (wiki + file)
     if body.content:
         titles = set()
         for match in WIKILINK_RE.finditer(body.content):
             title = match.group(1).strip()
             if title:
                 titles.add(title)
-        all_pages = await ds.list_wiki_pages(body.workspace_id)
-        title_to_id = {p["title"]: p["id"] for p in all_pages}
-        target_ids = [title_to_id[t] for t in titles if t in title_to_id]
-        if target_ids:
-            await ds.save_wiki_links(page["id"], target_ids)
+        resolved_targets = []
+        if titles:
+            # Resolve titles to wiki page IDs
+            all_pages = await ds.list_wiki_pages(body.workspace_id)
+            title_to_id = {p["title"]: p["id"] for p in all_pages}
+            for t in titles:
+                if t in title_to_id:
+                    resolved_targets.append((title_to_id[t], "wiki"))
+                else:
+                    # Try workspace file match
+                    try:
+                        files = await ds.list_workspace_files(
+                            body.workspace_id, pattern=f"*{t}*", max_results=5
+                        )
+                        if any(f["path"] == t for f in files):
+                            resolved_targets.append((t, "file"))
+                        elif files and any(t in f["path"] for f in files):
+                            resolved_targets.append((files[0]["path"], "file"))
+                    except Exception:
+                        pass
+        await ds.save_links(body.workspace_id, page["id"], "wiki", resolved_targets)
 
     logger.info(f"Wiki page created: '{page['title']}' by {current_user['username']}")
     return {"success": True, "page": page}
@@ -166,7 +182,7 @@ async def wiki_update(
     if page is None:
         raise HTTPException(status_code=404, detail="Wiki page not found")
 
-    # Parse [[links]] from updated content and save wiki_links
+    # Parse [[links]] from updated content and save links (wiki + file)
     if "content" in kwargs:
         content = kwargs["content"]
         titles = set()
@@ -174,14 +190,26 @@ async def wiki_update(
             title = match.group(1).strip()
             if title:
                 titles.add(title)
-        all_pages = await ds.list_wiki_pages(page["workspace_id"])
-        title_to_id = {p["title"]: p["id"] for p in all_pages}
-        target_ids = [title_to_id[t] for t in titles if t in title_to_id]
-        if target_ids:
-            await ds.save_wiki_links(page_id, target_ids)
-        else:
-            # Clear links if no [[links]] remain
-            await ds.save_wiki_links(page_id, [])
+        resolved_targets = []
+        if titles:
+            all_pages = await ds.list_wiki_pages(page["workspace_id"])
+            title_to_id = {p["title"]: p["id"] for p in all_pages}
+            for t in titles:
+                if t in title_to_id:
+                    resolved_targets.append((title_to_id[t], "wiki"))
+                else:
+                    # Try workspace file match
+                    try:
+                        files = await ds.list_workspace_files(
+                            page["workspace_id"], pattern=f"*{t}*", max_results=5
+                        )
+                        if any(f["path"] == t for f in files):
+                            resolved_targets.append((t, "file"))
+                        elif files and any(t in f["path"] for f in files):
+                            resolved_targets.append((files[0]["path"], "file"))
+                    except Exception:
+                        pass
+        await ds.save_links(page["workspace_id"], page_id, "wiki", resolved_targets)
 
     logger.info(f"Wiki page updated: '{page['title']}'")
     return {"success": True, "page": page}
@@ -211,38 +239,44 @@ async def wiki_graph(
     workspace_id: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Get graph data for a workspace: nodes=pages, edges=wiki_links."""
+    """Get graph data for a workspace: wiki nodes + file nodes + edges."""
     ds = _ds()
     pages = await ds.list_wiki_pages(workspace_id)
+
+    # Build wiki nodes
     nodes = {}
     for p in pages:
-        out_links = await ds.get_wiki_links(p["id"])
-        # Count outgoing links for this node
-        connected = len(out_links)
+        out_links = await ds.get_links(workspace_id, p["id"], "wiki", "outgoing")
         nodes[p["id"]] = {
-            "id": p["id"],
+            "id": f"wiki:{p['id']}",
             "label": p["title"],
             "title": p["title"],
-            "group": "page",
-            "value": max(connected, 1),
+            "type": "wiki",
+            "value": max(len(out_links), 1),
         }
-    edges = []
-    seen = set()
-    for p in pages:
-        out_links = await ds.get_wiki_links(p["id"])
-        for link in out_links:
-            edge_key = f"{link['source_ref']}-{link['target_ref']}"
-            if edge_key not in seen and link["target_ref"] in nodes:
-                seen.add(edge_key)
-                edges.append({
-                    "from": link["source_ref"],
-                    "to": link["target_ref"],
-                    "title": "引用",
-                })
-    return {
-        "success": True,
-        "graph": {
-            "nodes": list(nodes.values()),
-            "edges": edges,
-        },
-    }
+
+    # Get all graph edges from the workspace
+    edges = await ds.get_graph_edges(workspace_id)
+
+    # Collect file nodes referenced in edges
+    for edge in edges:
+        from_parts = edge["from"].split(":", 1)
+        to_parts = edge["to"].split(":", 1)
+        if len(from_parts) == 2 and from_parts[0] == "file" and edge["from"] not in nodes:
+            nodes[edge["from"]] = {
+                "id": edge["from"],
+                "label": from_parts[1].split("/")[-1],
+                "title": from_parts[1],
+                "type": "file",
+                "value": 1,
+            }
+        if len(to_parts) == 2 and to_parts[0] == "file" and edge["to"] not in nodes:
+            nodes[edge["to"]] = {
+                "id": edge["to"],
+                "label": to_parts[1].split("/")[-1],
+                "title": to_parts[1],
+                "type": "file",
+                "value": 1,
+            }
+
+    return {"success": True, "graph": {"nodes": list(nodes.values()), "edges": edges}}
