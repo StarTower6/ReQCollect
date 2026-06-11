@@ -190,7 +190,7 @@ button { border: 0; cursor: pointer; }
 .sidebar-link:hover { color: #24334b; background: var(--sidebar-hover); }
 
 /* ── Messages ── */
-.chat-shell { position: relative; display: grid; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; }
+.chat-shell { position: relative; display: grid; min-height: 0; flex: 1; grid-template-rows: minmax(0, 1fr) auto; }
 .chat-scroll { min-height: 0; overflow-y: auto; padding: 34px 24px 24px; }
 .chat-inner { width: min(820px, 100%); margin: 0 auto; }
 .welcome { display: flex; min-height: calc(100vh - 250px); align-items: center; justify-content: center; text-align: center; }
