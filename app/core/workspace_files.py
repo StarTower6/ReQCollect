@@ -167,10 +167,17 @@ class WorkspaceFileManager:
         return matched[:max_results]
 
     def get_file_info(self, relative_path: str) -> dict | None:
-        safe = Path(relative_path).name
-        for f in _load_index(self._files_dir):
-            if f["path"] == safe:
+        index = _load_index(self._files_dir)
+        # First: exact match with full relative path (linked files may be in subdirs)
+        for f in index:
+            if f["path"] == relative_path:
                 return f
+        # Fallback: basename match for root-level files
+        safe = Path(relative_path).name
+        if safe != relative_path:
+            for f in index:
+                if f["path"] == safe:
+                    return f
         return None
 
     def read_file(self, relative_path: str, max_chars: int = 8000) -> dict:
@@ -338,6 +345,16 @@ class WorkspaceFileManager:
                 "files": [{"path": f["path"], "type": f.get("type", ""), "size": f.get("size", 0),
                            "source": f.get("source", ""), "uploaded_at": f.get("uploaded_at", ""),
                            "summary": f.get("summary", "")} for f in index]}
+
+    def upsert_analysis(self, relative_path: str, analysis: dict) -> None:
+        """Write analysis metadata to the file index entry without touching other fields."""
+        safe = Path(relative_path).name
+        index = _load_index(self._files_dir)
+        for f in index:
+            if f["path"] == safe:
+                f["analysis"] = analysis
+                break
+        _save_index(self._files_dir, index)
 
     def _upsert_index(self, entry: dict) -> None:
         index = _load_index(self._files_dir)
