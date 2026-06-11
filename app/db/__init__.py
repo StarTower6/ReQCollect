@@ -270,6 +270,10 @@ class DataStore(ABC):
         """
 
     @abstractmethod
+    async def resolve_wiki_title(self, workspace_id: str, title: str) -> dict | None:
+        """Resolve a wiki page title to page dict. Returns None if not found."""
+
+    @abstractmethod
     async def save_links(
         self, workspace_id: str,
         source_ref: str, source_type: str,

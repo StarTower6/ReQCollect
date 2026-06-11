@@ -1,11 +1,8 @@
 """Tests for workspace_analyzer — LLM-based file analyzer."""
 import pytest
 import tempfile
-import json
-import os
-from pathlib import Path
-from app.core.workspace_analyzer import analyze_workspace_file, _parse_llm_json
-from app.core.workspace_files import WorkspaceFileManager, _load_index
+from app.core.workspace_analyzer import _parse_llm_json
+from app.core.workspace_files import WorkspaceFileManager
 
 TEST_WS_ID = "test_ws_analyze"
 

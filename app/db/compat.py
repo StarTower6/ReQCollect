@@ -710,6 +710,14 @@ class FileDataStore(DataStore):
         pages.sort(key=lambda p: p.get("updated_at", ""), reverse=True)
         return pages
 
+    async def resolve_wiki_title(self, workspace_id: str, title: str) -> dict | None:
+        """Resolve a wiki page title to page dict. Returns None if not found."""
+        pages = await self.list_wiki_pages(workspace_id)
+        for p in pages:
+            if p.get("title", "").strip() == title.strip():
+                return p
+        return None
+
     async def update_wiki_page(self, page_id: str, **kwargs) -> dict | None:
         page = await self.get_wiki_page(page_id)
         if page is None:
@@ -730,7 +738,7 @@ class FileDataStore(DataStore):
         if f.exists():
             f.unlink(missing_ok=True)
             # Cascade: remove all wiki links for this page
-            await self.delete_wiki_links_for_page(page_id)
+            await self.delete_links_for_ref(page_id, "wiki")
             return True
         return False
 

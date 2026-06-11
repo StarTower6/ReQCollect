@@ -398,6 +398,18 @@ class MySQLDataStore(DataStore):
             )
             return [p.to_dict() for p in r.scalars().all()]
 
+    async def resolve_wiki_title(self, workspace_id: str, title: str) -> dict | None:
+        """Resolve a wiki page title to page dict. Returns None if not found."""
+        async with await self._get_session() as s:
+            r = await s.execute(
+                select(WikiPage)
+                .where(WikiPage.workspace_id == workspace_id)
+                .where(WikiPage.title == title.strip())
+                .limit(1)
+            )
+            page = r.scalar_one_or_none()
+            return page.to_dict() if page else None
+
     async def update_wiki_page(self, page_id: str, **kwargs) -> dict | None:
         async with await self._get_session() as s:
             r = await s.execute(select(WikiPage).where(WikiPage.id == page_id))

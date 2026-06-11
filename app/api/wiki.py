@@ -225,7 +225,7 @@ async def wiki_delete(
     page = await ds.get_wiki_page(page_id)
     if page is None:
         raise HTTPException(status_code=404, detail="Wiki page not found")
-    await ds.delete_wiki_links_for_page(page_id)
+    await ds.delete_links_for_ref(page_id, "wiki")
     await ds.delete_wiki_page(page_id)
     logger.info(f"Wiki page deleted: '{page.get('title', page_id)}' by {current_user['username']}")
     return {"success": True}

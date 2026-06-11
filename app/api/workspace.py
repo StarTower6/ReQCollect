@@ -287,6 +287,10 @@ async def ws_sync_files(
     if ws is None:
         raise HTTPException(404, detail="Workspace not found")
     result = await ds.sync_workspace_files(workspace_id)
+    # Trigger analysis on newly added files
+    if result.get("added"):
+        for fname in result["added"]:
+            asyncio.ensure_future(analyze_workspace_file(workspace_id, fname))
     return {"success": True, "result": result}
 
 

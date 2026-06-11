@@ -86,14 +86,23 @@ class PMAgentService:
                 ws = await self._ds.get_workspace(workspace_id)
                 files = await self._ds.list_workspace_files(workspace_id, max_results=30)
                 if ws and files:
-                    file_summary_lines = [
-                        f"- {f['path']} ({f.get('type', '?')})" for f in files
-                    ]
+                    file_lines = []
+                    for f in files:
+                        line = f"- {f['path']} ({f.get('type', '?')})"
+                        if f.get("analysis") and f["analysis"].get("tags"):
+                            tags = ",".join(f["analysis"]["tags"])
+                            line += f" [{tags}]"
+                            if f["analysis"].get("summary"):
+                                line += f" — {f['analysis']['summary']}"
+                        file_lines.append(line)
+                    file_summary_lines = file_lines
                     workspace_context = (
-                        f"当前工作区「{ws.get('name', '')}」包含以下文件：\n"
+                        f"当前工作区「{ws.get('name', '')}」（ID: {workspace_id}）包含以下文件：\n"
                         + "\n".join(file_summary_lines)
-                        + "\n\n用户可能会要求你分析这些文件。使用 list_workspace_files / "
-                          "read_workspace_file 等文件工具查阅和分析。"
+                        + f"\n\n你可以调用文件工具来查阅和分析工作区文件，例如：\n"
+                        f"  list_workspace_files(workspace_id=\"{workspace_id}\", pattern=\"*\")\n"
+                        f"  read_workspace_file(workspace_id=\"{workspace_id}\", file_path=\"...\")\n"
+                        f"  search_in_workspace(workspace_id=\"{workspace_id}\", query=\"...\")"
                     )
                     logger.debug(f"[{thread_id}] Workspace context built: {len(files)} files")
             except Exception:
@@ -111,7 +120,11 @@ class PMAgentService:
                     content = await self._ds.read_workspace_file(workspace_id, rel_path, max_chars=8000)
                     context_msgs.append({
                         "role": "system",
-                        "content": f"[用户引用了工作区文件: {rel_path}]\n\n{content['text']}"
+                        "content": (
+                            f"[用户引用了工作区文件 ({workspace_id}): {rel_path}]\n\n"
+                            f"{content['text']}\n\n"
+                            f"(如需查阅同一工作区的其它文件，请使用文件工具并传入 workspace_id=\"{workspace_id}\")"
+                        )
                     })
                 except (FileNotFoundError, RuntimeError) as e:
                     logger.warning(f"[{thread_id}] Failed to read referenced file {rel_path}: {e}")

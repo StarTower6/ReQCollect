@@ -392,8 +392,19 @@ def write_workspace_file(
         fm = WorkspaceFileManager(workspace_id)
         result = fm.write_file(file_path, content)
 
+        # Trigger analysis in background
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                from app.core.workspace_analyzer import analyze_workspace_file
+                asyncio.ensure_future(analyze_workspace_file(workspace_id, file_path))
+        except Exception:
+            pass
+
         # Parse [[links]] in content and create file references
         import re
+        import asyncio
         WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
         link_titles = [t for t, _ in WIKILINK_RE.findall(content)]
         if link_titles and _datastore:
@@ -405,8 +416,10 @@ def write_workspace_file(
                     continue
                 # Try wiki page match
                 try:
-                    import asyncio
-                    page = asyncio.run(_datastore.resolve_wiki_title(workspace_id, title))
+                    loop = asyncio.get_event_loop()
+                    page = loop.run_until_complete(
+                        _datastore.resolve_wiki_title(workspace_id, title)
+                    )
                     if page:
                         targets.append((page["id"], "wiki"))
                         continue
@@ -416,10 +429,13 @@ def write_workspace_file(
                 if any(f["path"] == title for f in all_files):
                     targets.append((title, "file"))
             if targets:
-                import asyncio
-                asyncio.run(_datastore.save_links(
-                    workspace_id, file_path, "file", targets
-                ))
+                try:
+                    loop = asyncio.get_event_loop()
+                    loop.run_until_complete(_datastore.save_links(
+                        workspace_id, file_path, "file", targets
+                    ))
+                except Exception:
+                    pass
 
         return f"文件已写入工作区：{result['path']} ({_fmt_size(result['size'])})"
     except Exception as e:
