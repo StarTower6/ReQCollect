@@ -394,11 +394,8 @@ def write_workspace_file(
 
         # Trigger analysis in background
         try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                from app.core.workspace_analyzer import analyze_workspace_file
-                asyncio.ensure_future(analyze_workspace_file(workspace_id, file_path))
+            from app.core.workspace_analyzer import _fire
+            _fire(workspace_id, file_path)
         except Exception:
             pass
 
@@ -414,28 +411,46 @@ def write_workspace_file(
                 title = title.strip()
                 if not title:
                     continue
-                # Try wiki page match
-                try:
-                    loop = asyncio.get_event_loop()
-                    page = loop.run_until_complete(
-                        _datastore.resolve_wiki_title(workspace_id, title)
-                    )
-                    if page:
-                        targets.append((page["id"], "wiki"))
-                        continue
-                except (AttributeError, Exception):
-                    pass
-                # Try workspace file match
+                # Try workspace file match (fast, synchronous)
                 if any(f["path"] == title for f in all_files):
                     targets.append((title, "file"))
+                    continue
+                # Try wiki page match (async — fire via ensure_future)
+            # Save links asynchronously
             if targets:
-                try:
-                    loop = asyncio.get_event_loop()
-                    loop.run_until_complete(_datastore.save_links(
+                async def _save():
+                    await _datastore.save_links(
                         workspace_id, file_path, "file", targets
-                    ))
+                    )
+                try:
+                    asyncio.ensure_future(_save())
                 except Exception:
                     pass
+            # Wiki page resolution is done via ensure_future separately
+            async def _resolve_wiki():
+                for title in link_titles:
+                    title = title.strip()
+                    if not title:
+                        continue
+                    # Skip if already matched as file
+                    if any(f["path"] == title for f in all_files):
+                        continue
+                    try:
+                        page = await _datastore.resolve_wiki_title(workspace_id, title)
+                        if page:
+                            try:
+                                await _datastore.save_links(
+                                    workspace_id, file_path, "file",
+                                    [(page["id"], "wiki")]
+                                )
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+            try:
+                asyncio.ensure_future(_resolve_wiki())
+            except Exception:
+                pass
 
         return f"文件已写入工作区：{result['path']} ({_fmt_size(result['size'])})"
     except Exception as e:

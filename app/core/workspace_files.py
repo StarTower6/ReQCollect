@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import fnmatch
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,18 @@ from app.core.file_handler import (
     decode_content,
     validate_upload,
 )
+
+# ── Thread-safe index access ──
+# One lock per workspace to protect _load_index + modify + _save_index sequences
+_index_locks: dict[str, threading.Lock] = {}
+_index_locks_lock = threading.Lock()
+
+
+def _get_index_lock(workspace_id: str) -> threading.Lock:
+    with _index_locks_lock:
+        if workspace_id not in _index_locks:
+            _index_locks[workspace_id] = threading.Lock()
+        return _index_locks[workspace_id]
 
 # ── Office parsing (optional) ──
 
@@ -36,22 +49,27 @@ def parse_docx(file_path: str | Path) -> str:
     if not _HAS_DOCX:
         raise RuntimeError("python-docx not installed. Run: pip install python-docx")
     doc = _docx_module.Document(str(file_path))
-    return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    try:
+        return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    finally:
+        doc.close()
 
 
 def parse_xlsx(file_path: str | Path) -> str:
     from openpyxl import load_workbook
     wb = load_workbook(str(file_path), read_only=True)
-    lines = []
-    for sheet_name in wb.sheetnames:
-        ws = wb[sheet_name]
-        lines.append(f"=== {sheet_name} ===")
-        for row in ws.iter_rows(values_only=True):
-            row_text = " | ".join(str(c) if c is not None else "" for c in row)
-            if row_text.strip(" |"):
-                lines.append(row_text)
-    wb.close()
-    return "\n".join(lines)
+    try:
+        lines = []
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            lines.append(f"=== {sheet_name} ===")
+            for row in ws.iter_rows(values_only=True):
+                row_text = " | ".join(str(c) if c is not None else "" for c in row)
+                if row_text.strip(" |"):
+                    lines.append(row_text)
+        return "\n".join(lines)
+    finally:
+        wb.close()
 
 
 # ── PPTX parsing (optional) ──
@@ -262,22 +280,22 @@ class WorkspaceFileManager:
     def write_file(self, relative_path: str, content: str) -> dict:
         if not relative_path or not relative_path.strip():
             raise ValueError("File path cannot be empty")
-        safe_name = Path(relative_path).name
-        dest = self._generated_dir / safe_name
+        p = Path(relative_path)
+        dest = self._generated_dir / p
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(content, encoding="utf-8")
 
         self._upsert_index({
-            "path": safe_name,
+            "path": relative_path,
             "size": len(content.encode("utf-8")),
-            "type": Path(safe_name).suffix.lower().lstrip("."),
+            "type": p.suffix.lower().lstrip("."),
             "source": "generated",
             "uploaded_at": _now(),
             "uploaded_by": "agent",
             "summary": content[:100].replace("\n", " "),
         })
-        logger.info(f"[ws files] Generated: {safe_name}")
-        return {"path": safe_name, "size": len(content)}
+        logger.info(f"[ws files] Generated: {relative_path}")
+        return {"path": relative_path, "size": len(content)}
 
     def upload_file(self, filename: str, content: bytes, uploaded_by: str = "") -> dict:
         validate_upload(filename, content)
@@ -316,13 +334,15 @@ class WorkspaceFileManager:
         return {"path": safe_name, "size": len(content), "type": ext}
 
     def delete_file(self, relative_path: str) -> bool:
-        safe_name = Path(relative_path).name
-        index = _load_index(self._files_dir)
-        entries = [f for f in index if f["path"] == safe_name]
-        if not entries:
-            return False
-        index = [f for f in index if f["path"] != safe_name]
-        _save_index(self._files_dir, index)
+        lock = _get_index_lock(self._ws_id)
+        with lock:
+            safe_name = Path(relative_path).name
+            index = _load_index(self._files_dir)
+            entries = [f for f in index if f["path"] == safe_name]
+            if not entries:
+                return False
+            index = [f for f in index if f["path"] != safe_name]
+            _save_index(self._files_dir, index)
 
         entry = entries[0]
         if entry["source"] == "upload":
@@ -348,19 +368,30 @@ class WorkspaceFileManager:
 
     def upsert_analysis(self, relative_path: str, analysis: dict) -> None:
         """Write analysis metadata to the file index entry without touching other fields."""
-        safe = Path(relative_path).name
-        index = _load_index(self._files_dir)
-        for f in index:
-            if f["path"] == safe:
-                f["analysis"] = analysis
-                break
-        _save_index(self._files_dir, index)
+        lock = _get_index_lock(self._ws_id)
+        with lock:
+            index = _load_index(self._files_dir)
+            # First: exact match with full relative path (linked files in subdirs)
+            for f in index:
+                if f["path"] == relative_path:
+                    f["analysis"] = analysis
+                    _save_index(self._files_dir, index)
+                    return
+            # Fallback: basename match for root-level files
+            safe = Path(relative_path).name
+            for f in index:
+                if f["path"] == safe:
+                    f["analysis"] = analysis
+                    break
+            _save_index(self._files_dir, index)
 
     def _upsert_index(self, entry: dict) -> None:
-        index = _load_index(self._files_dir)
-        index = [f for f in index if f["path"] != entry["path"]]
-        index.append(entry)
-        _save_index(self._files_dir, index)
+        lock = _get_index_lock(self._ws_id)
+        with lock:
+            index = _load_index(self._files_dir)
+            index = [f for f in index if f["path"] != entry["path"]]
+            index.append(entry)
+            _save_index(self._files_dir, index)
 
     # ── Directory linking ──
 
@@ -442,30 +473,32 @@ class WorkspaceFileManager:
                 "source": "linked",
                 "abs_path": str(f.resolve()),
                 "mtime": stat.st_mtime,
-                "uploaded_at": _now(),
+                "uploaded_at": stat.st_mtime,
                 "summary": rel,
             }
 
-        index = _load_index(self._files_dir)
-        existing = {e["path"]: e for e in index if e.get("source") == "linked"}
+        lock = _get_index_lock(self._ws_id)
+        with lock:
+            index = _load_index(self._files_dir)
+            existing = {e["path"]: e for e in index if e.get("source") == "linked"}
 
-        added, removed, updated, unchanged = [], [], [], 0
-        for path, info in scanned.items():
-            prev = existing.get(path)
-            if prev is None:
-                added.append(path)
-            elif prev.get("mtime", 0) != info["mtime"] or prev.get("size", 0) != info["size"]:
-                updated.append(path)
-            else:
-                unchanged += 1
+            added, removed, updated, unchanged = [], [], [], 0
+            for path, info in scanned.items():
+                prev = existing.get(path)
+                if prev is None:
+                    added.append(path)
+                elif prev.get("mtime", 0) != info["mtime"] or prev.get("size", 0) != info["size"]:
+                    updated.append(path)
+                else:
+                    unchanged += 1
 
-        for path in existing:
-            if path not in scanned:
-                removed.append(path)
+            for path in existing:
+                if path not in scanned:
+                    removed.append(path)
 
-        # Rebuild index: keep non-linked + new scanned
-        new_index = [e for e in index if e.get("source") != "linked"]
-        new_index.extend(scanned.values())
+            # Rebuild index: keep non-linked + new scanned
+            new_index = [e for e in index if e.get("source") != "linked"]
+            new_index.extend(scanned.values())
         _save_index(self._files_dir, new_index)
 
         logger.info(f"[ws sync] {abs_path}: +{len(added)} ~{len(updated)} -{len(removed)} ={unchanged}")

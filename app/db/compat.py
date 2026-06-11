@@ -749,24 +749,50 @@ class FileDataStore(DataStore):
         p.mkdir(parents=True, exist_ok=True)
         return p
 
+    @staticmethod
+    def _link_filename(source_ref: str, target_ref: str) -> str:
+        """Create a filesystem-safe link filename from refs that may contain path separators."""
+        safe_src = source_ref.replace("/", "_").replace(":", "_")
+        safe_tgt = target_ref.replace("/", "_").replace(":", "_")
+        return f"{safe_src}--{safe_tgt}.json"
+
+    @staticmethod
+    def _link_glob(source_ref: str) -> str:
+        return f"{source_ref.replace('/', '_').replace(':', '_')}--*.json"
+
+    @staticmethod
+    def _backlink_glob(target_ref: str) -> str:
+        return f"*--{target_ref.replace('/', '_').replace(':', '_')}.json"
+
     async def get_links(self, workspace_id: str, ref: str, ref_type: str = "wiki",
                         direction: str = "outgoing") -> list[dict]:
-        """Get links from/to a reference in a workspace."""
+        """Get links from/to a reference in a workspace.
+
+        When workspace_id is empty string (backward compat path), skip workspace_id filtering.
+        """
         links_dir = self._base / "wiki" / "_links"
         if not links_dir.exists():
             return []
         result = []
-        pattern = f"{ref}--*.json" if direction == "outgoing" else f"*--{ref}.json"
-        for f in links_dir.glob(pattern):
+        for f in links_dir.rglob("*.json"):
+            if not f.is_file():
+                continue
             data = self._load_json(f)
-            if data and data.get("workspace_id", "") == workspace_id:
-                # Normalize old format (source_page_id) to new format (source_ref)
-                if "source_page_id" in data and "source_ref" not in data:
-                    data["source_ref"] = data.pop("source_page_id")
-                    data["source_type"] = data.get("source_type", "wiki")
-                if "target_page_id" in data and "target_ref" not in data:
-                    data["target_ref"] = data.pop("target_page_id")
-                    data["target_type"] = data.get("target_type", "wiki")
+            if data is None:
+                continue
+            if workspace_id and data.get("workspace_id", "") != workspace_id:
+                continue
+            # Normalize old format (source_page_id) to new format (source_ref)
+            if "source_page_id" in data and "source_ref" not in data:
+                data["source_ref"] = data.pop("source_page_id")
+                data["source_type"] = data.get("source_type", "wiki")
+            if "target_page_id" in data and "target_ref" not in data:
+                data["target_ref"] = data.pop("target_page_id")
+                data["target_type"] = data.get("target_type", "wiki")
+            # Check ref match using decoded refs
+            check_ref = data.get("source_ref" if direction == "outgoing" else "target_ref")
+            check_type = data.get("source_type" if direction == "outgoing" else "target_type")
+            if check_ref == ref and check_type == ref_type:
                 result.append(data)
         return result
 
@@ -778,7 +804,7 @@ class FileDataStore(DataStore):
         links_dir = self._base / "wiki" / "_links"
         links_dir.mkdir(parents=True, exist_ok=True)
         # Remove old outgoing links from this source
-        for f in list(links_dir.glob(f"{source_ref}--*.json")):
+        for f in list(links_dir.rglob(self._link_glob(source_ref))):
             f.unlink(missing_ok=True)
         # Create new links
         for target_ref, target_type in targets:
@@ -790,7 +816,9 @@ class FileDataStore(DataStore):
                 "link_type": link_type,
                 "workspace_id": workspace_id,
             }
-            _FileLock.write_json(links_dir / f"{source_ref}--{target_ref}.json", data)
+            _FileLock.write_json(
+                links_dir / self._link_filename(source_ref, target_ref), data
+            )
 
     async def get_graph_edges(self, workspace_id: str) -> list[dict]:
         """Get ALL links in a workspace."""
@@ -798,7 +826,9 @@ class FileDataStore(DataStore):
         if not links_dir.exists():
             return []
         edges = []
-        for f in links_dir.glob("*.json"):
+        for f in links_dir.rglob("*.json"):
+            if not f.is_file():
+                continue
             data = self._load_json(f)
             if data and data.get("workspace_id", "") == workspace_id:
                 # Normalize old format
@@ -820,10 +850,21 @@ class FileDataStore(DataStore):
         links_dir = self._base / "wiki" / "_links"
         if not links_dir.exists():
             return
-        for f in list(links_dir.glob(f"{ref}--*.json")):
-            f.unlink(missing_ok=True)
-        for f in list(links_dir.glob(f"*--{ref}.json")):
-            f.unlink(missing_ok=True)
+        for f in list(links_dir.rglob("*.json")):
+            if not f.is_file():
+                continue
+            data = self._load_json(f)
+            if data is None:
+                continue
+            if "source_page_id" in data and "source_ref" not in data:
+                data["source_ref"] = data.pop("source_page_id")
+                data["source_type"] = data.get("source_type", "wiki")
+            if "target_page_id" in data and "target_ref" not in data:
+                data["target_ref"] = data.pop("target_page_id")
+                data["target_type"] = data.get("target_type", "wiki")
+            if (data.get("source_ref") == ref and data.get("source_type") == ref_type) or \
+               (data.get("target_ref") == ref and data.get("target_type") == ref_type):
+                f.unlink(missing_ok=True)
 
     # ── Backward compat aliases ──
     async def get_wiki_links(self, page_id: str) -> list[dict]:

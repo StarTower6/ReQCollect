@@ -7,7 +7,17 @@ Failures degrade silently — analysis is optional enrichment.
 
 import re
 import json
+import asyncio
 from loguru import logger
+
+# Track background tasks to prevent GC warnings during shutdown
+_background_tasks: set[asyncio.Task] = set()
+
+def _fire(workspace_id: str, file_path: str) -> None:
+    """Fire and track a background analysis task."""
+    task = asyncio.ensure_future(analyze_workspace_file(workspace_id, file_path))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
 # Regex to extract JSON from LLM markdown-wrapped responses
 _JSON_IN_MD = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
