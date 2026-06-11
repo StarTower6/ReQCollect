@@ -93,8 +93,46 @@ async def init_db() -> bool:
             except Exception:
                 logger.debug("Migration: wiki_pages table already exists")
 
-        # wiki_links table
+        # wiki_links table — with idempotent migration from old schema
         async with _engine.begin() as conn:
+            # Check if old table exists and migrate columns
+            try:
+                result = await conn.execute(
+                    __import__("sqlalchemy").text(
+                        "SHOW COLUMNS FROM wiki_links LIKE 'source_page_id'"
+                    )
+                )
+                if result.fetchone():
+                    # Old schema: rename columns
+                    await conn.execute(__import__("sqlalchemy").text(
+                        "ALTER TABLE wiki_links CHANGE source_page_id source_ref VARCHAR(128) NOT NULL"
+                    ))
+                    await conn.execute(__import__("sqlalchemy").text(
+                        "ALTER TABLE wiki_links CHANGE target_page_id target_ref VARCHAR(128) NOT NULL"
+                    ))
+                    await conn.execute(__import__("sqlalchemy").text(
+                        "ALTER TABLE wiki_links ADD COLUMN source_type VARCHAR(16) DEFAULT 'wiki' AFTER source_ref"
+                    ))
+                    await conn.execute(__import__("sqlalchemy").text(
+                        "ALTER TABLE wiki_links ADD COLUMN target_type VARCHAR(16) DEFAULT 'wiki' AFTER target_ref"
+                    ))
+                    await conn.execute(__import__("sqlalchemy").text(
+                        "ALTER TABLE wiki_links ADD COLUMN workspace_id VARCHAR(64) DEFAULT '' AFTER link_type"
+                    ))
+                    await conn.execute(__import__("sqlalchemy").text(
+                        "ALTER TABLE wiki_links ADD INDEX idx_wikilink_source (source_ref)"
+                    ))
+                    await conn.execute(__import__("sqlalchemy").text(
+                        "ALTER TABLE wiki_links ADD INDEX idx_wikilink_target (target_ref)"
+                    ))
+                    await conn.execute(__import__("sqlalchemy").text(
+                        "ALTER TABLE wiki_links ADD INDEX idx_wikilink_workspace (workspace_id)"
+                    ))
+                    logger.info("Applied migration: wiki_links schema upgrade (source_page_id -> source_ref)")
+            except Exception as e:
+                logger.debug(f"Migration: wiki_links upgrade skipped ({e})")
+
+            # Ensure new schema table exists for fresh installs
             try:
                 await conn.execute(
                     __import__("sqlalchemy").text(
