@@ -31,11 +31,30 @@
               <span class="ftp-fname" @click="preview(child)">{{ child.label }}</span>
               <span class="ftp-fsize" v-if="child.size">{{ fmtSize(child.size) }}</span>
               <span v-if="child.source === 'generated'" class="ftp-ai">AI</span>
+              <span v-if="child.analysis?.tags?.length" class="ftp-tags" :title="child.analysis?.summary || ''">
+                <span v-for="tag in child.analysis.tags.slice(0, 2)" :key="tag" class="ftp-tag">{{ tag }}</span>
+              </span>
               <button v-if="child._showRef || isRef(child.path)" class="ftp-ref"
                 @click.stop="toggleRef(child.path)">
                 {{ isRef(child.path) ? '✕' : '⊕' }}
               </button>
             </div>
+          </div>
+          <!-- File at root level (no directory) -->
+          <div v-if="node.isLeaf" class="ftp-file"
+            :class="{ 'ftp-referenced': isRef(node.path) }"
+            @mouseenter="node._showRef = true" @mouseleave="node._showRef = false">
+            <span class="ftp-ficon">{{ ficon(node.type) }}</span>
+            <span class="ftp-fname" @click="preview(node)">{{ node.label }}</span>
+            <span class="ftp-fsize" v-if="node.size">{{ fmtSize(node.size) }}</span>
+            <span v-if="node.source === 'generated'" class="ftp-ai">AI</span>
+            <span v-if="node.analysis?.tags?.length" class="ftp-tags" :title="node.analysis?.summary || ''">
+              <span v-for="tag in node.analysis.tags.slice(0, 2)" :key="tag" class="ftp-tag">{{ tag }}</span>
+            </span>
+            <button v-if="node._showRef || isRef(node.path)" class="ftp-ref"
+              @click.stop="toggleRef(node.path)">
+              {{ isRef(node.path) ? '✕' : '⊕' }}
+            </button>
           </div>
         </div>
       </div>
@@ -66,10 +85,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { marked } from 'marked'
 import { fetchWorkspaceFiles, readWorkspaceFile, uploadWorkspaceFile } from '@/api/workspace_files'
+import { fetchWorkspace } from '@/api/workspace'
+import { apiGet } from '@/api/client'
 
 const props = defineProps<{
   workspaceId: string | null
@@ -107,6 +128,7 @@ interface TreeNode {
   type?: string
   size?: number
   source?: string
+  analysis?: { tags?: string[]; summary?: string; domain?: string }
   _showRef?: boolean
 }
 
@@ -124,7 +146,7 @@ const tree = computed<TreeNode[]>(() => {
         // Leaf
         current.push({
           label: part, path: full, isLeaf: true, expanded: false,
-          children: [], type: f.type, size: f.size, source: f.source,
+          children: [], type: f.type, size: f.size, source: f.source, analysis: f.analysis,
         })
       } else {
         // Directory
@@ -219,13 +241,9 @@ async function loadFiles() {
   loading.value = true
   try {
     files.value = await fetchWorkspaceFiles(props.workspaceId)
-    // Try to get workspace name
-    const { fetchWorkspace } = await import('@/api/workspace')
     const ws = await fetchWorkspace(props.workspaceId)
     wsName.value = ws?.name || '工作区'
-    // Try linked status
     try {
-      const { apiGet } = await import('@/api/client')
       const res: any = await apiGet(`/workspaces/${props.workspaceId}/linked-status`)
       linkedStatus.value = res.status
     } catch {}
@@ -233,7 +251,7 @@ async function loadFiles() {
     finally { loading.value = false }
 }
 
-watch(() => props.workspaceId, () => { loadFiles() })
+watch(() => props.workspaceId, () => { loadFiles() }, { immediate: true })
 </script>
 
 <style scoped>
@@ -257,6 +275,8 @@ watch(() => props.workspaceId, () => { loadFiles() })
 .ftp-fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .ftp-fsize { font-size: 10px; color: #c0c4cc; flex-shrink: 0; }
 .ftp-ai { font-size: 10px; color: #67c23a; background: #f0f9eb; padding: 0 4px; border-radius: 3px; flex-shrink: 0; }
+.ftp-tags { display: inline-flex; gap: 2px; flex-shrink: 0; }
+.ftp-tag { font-size: 10px; color: #909399; background: #f4f4f5; padding: 0 4px; border-radius: 3px; line-height: 16px; white-space: nowrap; }
 .ftp-ref { font-size: 12px; border: none; background: none; cursor: pointer; color: #409eff; padding: 0 2px; flex-shrink: 0; }
 .ftp-references { border-top: 1px solid var(--line, #f0f0f5); padding: 6px 12px; flex-shrink: 0; max-height: 120px; overflow-y: auto; }
 .ftp-reftitle { font-size: 11px; color: #c0c4cc; margin-bottom: 4px; }

@@ -14,6 +14,8 @@ from loguru import logger
 
 from app.core.auth import get_current_user
 from app.core.file_handler import FileValidationError
+from app.core.workspace_analyzer import analyze_workspace_file
+import asyncio
 
 
 def _svc():
@@ -177,6 +179,10 @@ async def ws_files_upload(
     filename = file.filename or "untitled"
     try:
         result = await ds.add_workspace_file(workspace_id, filename, content, current_user["id"])
+        # Trigger background analysis
+        safe_name = result.get("path", "")
+        if safe_name:
+            asyncio.ensure_future(analyze_workspace_file(workspace_id, safe_name))
         return {"success": True, "file": result}
     except FileValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
