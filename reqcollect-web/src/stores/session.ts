@@ -105,6 +105,14 @@ export const useSessionStore = defineStore('session', () => {
 
   function setCurrent(id: string) {
     currentId.value = id
+    const session = sessions.value.find(s => s.session_id === id)
+    if (session && session.workspace_id) {
+      currentWorkspaceId.value = session.workspace_id
+      localStorage.setItem(WS_STORAGE_KEY, session.workspace_id)
+    }
+    // Do NOT clear currentWorkspaceId when session not found yet:
+    // newSession creates a local ID before the session is persisted,
+    // and setCurrent gets called before sessions.value is refreshed.
   }
 
   function newSession(workspaceId?: string): string {
