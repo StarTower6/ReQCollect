@@ -378,6 +378,7 @@ def write_workspace_file(
     """在工作区中创建或更新文件。
     用于 AI 生成的产出——分析报告、需求总结、会议纪要等。
     文件会自动写入工作区的 _generated/ 子目录。
+    如果内容中包含 [[链接]] 语法，会自动建立文件引用关系。
 
     Args:
         workspace_id: 工作区 ID
@@ -390,6 +391,36 @@ def write_workspace_file(
     try:
         fm = WorkspaceFileManager(workspace_id)
         result = fm.write_file(file_path, content)
+
+        # Parse [[links]] in content and create file references
+        import re
+        WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
+        link_titles = [t for t, _ in WIKILINK_RE.findall(content)]
+        if link_titles and _datastore:
+            targets = []
+            all_files = fm.list_files()
+            for title in link_titles:
+                title = title.strip()
+                if not title:
+                    continue
+                # Try wiki page match
+                try:
+                    import asyncio
+                    page = asyncio.run(_datastore.resolve_wiki_title(workspace_id, title))
+                    if page:
+                        targets.append((page["id"], "wiki"))
+                        continue
+                except (AttributeError, Exception):
+                    pass
+                # Try workspace file match
+                if any(f["path"] == title for f in all_files):
+                    targets.append((title, "file"))
+            if targets:
+                import asyncio
+                asyncio.run(_datastore.save_links(
+                    workspace_id, file_path, "file", targets
+                ))
+
         return f"文件已写入工作区：{result['path']} ({_fmt_size(result['size'])})"
     except Exception as e:
         return f"写入文件失败：{e}"
