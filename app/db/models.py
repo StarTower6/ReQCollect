@@ -324,26 +324,41 @@ class WikiPage(Base):
 
 
 class WikiLink(Base):
-    """Stores [[wikilink]] relationships between wiki pages.
+    """Stores [[link]] relationships between wiki pages AND workspace files.
 
-    source_page_id -> target_page_id (directed edge).
-    link_type describes the relationship: 'reference', 'dependency', etc.
+    source_ref + source_type -> target_ref + target_type (directed edge).
+    source_type / target_type: "wiki" | "file"
+    link_type describes the relationship: "reference", "dependency", etc.
+    workspace_id ties the link to a workspace for graph queries.
     """
 
     __tablename__ = "wiki_links"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=_new_id)
-    source_page_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    target_page_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_ref: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    source_type: Mapped[str] = mapped_column(String(16), default="wiki")
+    target_ref: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    target_type: Mapped[str] = mapped_column(String(16), default="wiki")
     link_type: Mapped[str] = mapped_column(String(50), default="reference")
+    workspace_id: Mapped[str] = mapped_column(String(64), default="", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
     __table_args__ = (
-        Index("idx_wikilink_source", "source_page_id"),
-        Index("idx_wikilink_target", "target_page_id"),
-        # Unique constraint: one directed edge per pair
-        # (handled at app level for FileDataStore compat)
+        Index("idx_wikilink_source", "source_ref"),
+        Index("idx_wikilink_target", "target_ref"),
     )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "source_ref": self.source_ref,
+            "source_type": self.source_type,
+            "target_ref": self.target_ref,
+            "target_type": self.target_type,
+            "link_type": self.link_type,
+            "workspace_id": self.workspace_id,
+            "created_at": self.created_at.isoformat() if self.created_at else "",
+        }
 
 
 # ── Audit Log ──
