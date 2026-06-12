@@ -1,6 +1,6 @@
 /* ── Workspace Files API ── */
 
-import { apiGet, apiPost, apiDelete } from './client'
+import { apiGet, apiPost, apiPatch, apiDelete } from './client'
 
 export interface WorkspaceFile {
   path: string
@@ -12,11 +12,45 @@ export interface WorkspaceFile {
   analysis?: { summary: string; tags: string[]; domain: string }
 }
 
+export interface Folder {
+  id: string
+  name: string
+  parent_id: string
+  children?: Folder[]
+  file_count?: number
+}
+
 export interface RelatedFile {
   path: string
   summary: string
   tags: string[]
   similarity: number
+}
+
+// ── Folders ──
+
+export async function fetchFolders(wsId: string, tree?: boolean): Promise<Folder[]> {
+  const params = tree ? '?tree=true' : ''
+  const res: any = await apiGet(`/workspaces/${wsId}/folders${params}`)
+  return res.folders || []
+}
+
+export async function createFolder(wsId: string, name: string, parentId?: string): Promise<Folder> {
+  const res: any = await apiPost(`/workspaces/${wsId}/folders`, { name, parent_id: parentId || '' })
+  return res.folder
+}
+
+export async function renameFolder(wsId: string, folderId: string, name: string): Promise<Folder> {
+  const res: any = await apiPatch(`/workspaces/${wsId}/folders/${folderId}`, { name })
+  return res.folder
+}
+
+export async function deleteFolder(wsId: string, folderId: string): Promise<void> {
+  await apiDelete(`/workspaces/${wsId}/folders/${folderId}`)
+}
+
+export async function setFileFolder(wsId: string, filePath: string, folderId: string): Promise<void> {
+  await apiPatch(`/workspaces/${wsId}/files/${encodeURIComponent(filePath)}/folder`, { folder_id: folderId })
 }
 
 export async function fetchWorkspaceFiles(

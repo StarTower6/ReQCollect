@@ -325,3 +325,117 @@ async def ws_files_related(
     fm = WorkspaceFileManager(workspace_id)
     related = fm.get_related_files(path, threshold)
     return {"success": True, "related": related}
+
+
+# ── Folder Management ──
+
+
+@router.get("/workspaces/{workspace_id}/folders")
+async def ws_folders_list(
+    workspace_id: str,
+    tree: bool = Query(default=False),
+    current_user: dict = Depends(get_current_user),
+):
+    """List folders. Use tree=true to get nested structure."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(404, detail="Workspace not found")
+    from app.core.workspace_files import WorkspaceFileManager
+    fm = WorkspaceFileManager(workspace_id)
+    if tree:
+        return {"success": True, "folders": fm.get_folder_tree()}
+    return {"success": True, "folders": fm.list_folders()}
+
+
+class FolderCreate(BaseModel):
+    name: str
+    parent_id: str = ""
+
+
+@router.post("/workspaces/{workspace_id}/folders")
+async def ws_folders_create(
+    workspace_id: str,
+    body: FolderCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    """Create a new folder."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(404, detail="Workspace not found")
+    from app.core.workspace_files import WorkspaceFileManager
+    fm = WorkspaceFileManager(workspace_id)
+    try:
+        folder = fm.create_folder(body.name, body.parent_id)
+        return {"success": True, "folder": folder}
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+
+
+class FolderRename(BaseModel):
+    name: str
+
+
+@router.patch("/workspaces/{workspace_id}/folders/{folder_id}")
+async def ws_folders_update(
+    workspace_id: str,
+    folder_id: str,
+    body: FolderRename,
+    current_user: dict = Depends(get_current_user),
+):
+    """Rename a folder."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(404, detail="Workspace not found")
+    from app.core.workspace_files import WorkspaceFileManager
+    fm = WorkspaceFileManager(workspace_id)
+    try:
+        folder = fm.rename_folder(folder_id, body.name)
+        if folder is None:
+            raise HTTPException(404, detail="Folder not found")
+        return {"success": True, "folder": folder}
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+
+
+@router.delete("/workspaces/{workspace_id}/folders/{folder_id}")
+async def ws_folders_delete(
+    workspace_id: str,
+    folder_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete a folder. Files in it are unlinked, sub-folders become root-level."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(404, detail="Workspace not found")
+    from app.core.workspace_files import WorkspaceFileManager
+    fm = WorkspaceFileManager(workspace_id)
+    ok = fm.delete_folder(folder_id)
+    if not ok:
+        raise HTTPException(404, detail="Folder not found")
+    return {"success": True}
+
+
+class FileFolderAssign(BaseModel):
+    folder_id: str  # "" to unlink from folder
+
+
+@router.patch("/workspaces/{workspace_id}/files/{path:path}/folder")
+async def ws_file_set_folder(
+    workspace_id: str,
+    path: str,
+    body: FileFolderAssign,
+    current_user: dict = Depends(get_current_user),
+):
+    """Assign a file to a folder. folder_id="" to unlink."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(404, detail="Workspace not found")
+    from app.core.workspace_files import WorkspaceFileManager
+    fm = WorkspaceFileManager(workspace_id)
+    fm.set_file_folder(path, body.folder_id)
+    return {"success": True}

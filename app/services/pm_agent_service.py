@@ -326,6 +326,29 @@ class PMAgentService:
                     thread_id, "assistant", markdown,
                     event_type="prd_complete", meta={"mode": mode},
                 )
+
+                # Save to workspace files in PRD/ folder
+                try:
+                    session_data = await self._ds.get_session(thread_id)
+                    ws_id = session_data.get("workspace_id", "") if session_data else ""
+                    if ws_id:
+                        from app.core.workspace_files import WorkspaceFileManager
+                        from app.core.workspace_analyzer import _fire as _fire_analysis
+                        import re
+                        fm = WorkspaceFileManager(ws_id)
+                        folders = fm.list_folders()
+                        prd_folder = next((f for f in folders if f["name"] == "PRD"), None)
+                        if not prd_folder:
+                            prd_folder = fm.create_folder("PRD")
+                        slug = re.sub(r'[^\w一-鿿]+', '_', project_name)[:20]
+                        existing = fm.list_files(f"{slug}*.md")
+                        version = len(existing) + 1
+                        fp = f"{slug}-PRD-v{version}.md"
+                        fm.write_file(fp, markdown)
+                        fm.set_file_folder(fp, prd_folder["id"])
+                        _fire_analysis(ws_id, fp)
+                except Exception:
+                    logger.debug(f"[{thread_id}] Failed to save PRD to workspace files")
             yield event
 
     async def continue_generation(

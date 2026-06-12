@@ -214,6 +214,125 @@ class WorkspaceFileManager:
         self._files_dir = ws_dir / "files"
         self._uploads_dir = self._files_dir / "uploads"
         self._generated_dir = self._files_dir / "_generated"
+        self._folders_path = self._files_dir / "_folders.json"
+
+    # ── Folder management ──
+
+    def _load_folders(self) -> list[dict]:
+        if not self._folders_path.exists():
+            return []
+        try:
+            return json.loads(self._folders_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return []
+
+    def _save_folders(self, folders: list[dict]) -> None:
+        self._folders_path.parent.mkdir(parents=True, exist_ok=True)
+        self._folders_path.write_text(
+            json.dumps(folders, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    def _new_folder_id(self) -> str:
+        import uuid
+        return "fl-" + uuid.uuid4().hex[:12]
+
+    def list_folders(self) -> list[dict]:
+        """Return all folders sorted by name."""
+        return sorted(self._load_folders(), key=lambda f: f.get("name", ""))
+
+    def create_folder(self, name: str, parent_id: str = "") -> dict:
+        """Create a new folder. parent_id="" means root level."""
+        if not name or not name.strip():
+            raise ValueError("Folder name cannot be empty")
+        folders = self._load_folders()
+        folder = {
+            "id": self._new_folder_id(),
+            "name": name.strip(),
+            "parent_id": parent_id,
+            "created_at": _now(),
+        }
+        folders.append(folder)
+        self._save_folders(folders)
+        return folder
+
+    def rename_folder(self, folder_id: str, name: str) -> dict | None:
+        """Rename a folder. Returns updated folder or None if not found."""
+        if not name or not name.strip():
+            raise ValueError("Folder name cannot be empty")
+        folders = self._load_folders()
+        for f in folders:
+            if f["id"] == folder_id:
+                f["name"] = name.strip()
+                self._save_folders(folders)
+                return f
+        return None
+
+    def delete_folder(self, folder_id: str) -> bool:
+        """Delete a folder. Files in it are unlinked (folder="").
+        Sub-folders are NOT deleted — they become root-level."""
+        folders = self._load_folders()
+        before = len(folders)
+        folders = [f for f in folders if f["id"] != folder_id]
+        if len(folders) == before:
+            return False
+        self._save_folders(folders)
+        # Unlink files in this folder
+        index = _load_index(self._files_dir)
+        changed = False
+        for entry in index:
+            if entry.get("folder") == folder_id:
+                entry["folder"] = ""
+                changed = True
+        if changed:
+            _save_index(self._files_dir, index)
+        return True
+
+    def set_file_folder(self, file_path: str, folder_id: str) -> None:
+        """Assign a file to a folder. folder_id="" to unlink from folder."""
+        lock = _get_index_lock(self._ws_id)
+        with lock:
+            index = _load_index(self._files_dir)
+            for entry in index:
+                if entry["path"] == file_path:
+                    entry["folder"] = folder_id
+                    _save_index(self._files_dir, index)
+                    return
+            # Fallback: basename match
+            safe = Path(file_path).name
+            if safe != file_path:
+                for entry in index:
+                    if entry["path"] == safe:
+                        entry["folder"] = folder_id
+                        _save_index(self._files_dir, index)
+                        return
+
+    def get_files_in_folder(self, folder_id: str) -> list[dict]:
+        """List all files assigned to a folder."""
+        index = _load_index(self._files_dir)
+        return [f for f in index if f.get("folder") == folder_id]
+
+    def get_folder_tree(self) -> list[dict]:
+        """Return folders as a nested tree structure for frontend."""
+        folders = self._load_folders()
+        children_map: dict[str, list[dict]] = {}
+        for f in folders:
+            pid = f.get("parent_id", "")
+            if pid not in children_map:
+                children_map[pid] = []
+            children_map[pid].append({**f, "children": []})
+
+        def build(parent_id: str) -> list[dict]:
+            result = []
+            for f in children_map.get(parent_id, []):
+                f["children"] = build(f["id"])
+                # Count files in this folder and sub-folders
+                f["file_count"] = len(self.get_files_in_folder(f["id"])) + sum(
+                    c.get("file_count", 0) for c in f["children"]
+                )
+                result.append(f)
+            return result
+
+        return build("")
 
     # ── public API ──
 

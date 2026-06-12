@@ -514,6 +514,65 @@ def get_workspace_info(workspace_id: str) -> str:
         return f"获取工作区信息失败：{e}"
 
 
+@tool
+def list_workspace_folders(workspace_id: str) -> str:
+    """列出工作区的文件夹结构。
+    每个文件夹有名称、ID、包含的文件数、以及子文件夹。
+
+    Args:
+        workspace_id: 工作区 ID
+
+    Returns:
+        文件夹树文本
+    """
+    try:
+        fm = WorkspaceFileManager(workspace_id)
+        folders = fm.get_folder_tree()
+        if not folders:
+            return "工作区暂无文件夹。"
+
+        def _fmt(folders: list[dict], indent: int = 0) -> list[str]:
+            lines = []
+            for f in folders:
+                prefix = "  " * indent
+                fc = f.get("file_count", 0)
+                count_str = f" ({fc} 个文件)" if fc else ""
+                lines.append(f"{prefix}📁 {f['name']}{count_str}")
+                if f.get("children"):
+                    lines.extend(_fmt(f["children"], indent + 1))
+            return lines
+
+        return "\n".join(_fmt(folders))
+    except Exception as e:
+        return f"无法列出工作区文件夹：{e}"
+
+
+@tool
+def create_workspace_folder(
+    workspace_id: str,
+    name: str,
+    parent_folder_id: str = "",
+) -> str:
+    """在工作区中创建一个文件夹。
+
+    Args:
+        workspace_id: 工作区 ID
+        name: 文件夹名称
+        parent_folder_id: 父文件夹 ID（留空则创建在根级）
+
+    Returns:
+        创建结果
+    """
+    try:
+        fm = WorkspaceFileManager(workspace_id)
+        result = fm.create_folder(name, parent_folder_id)
+        return f"文件夹「{result['name']}」已创建 (ID: {result['id']})"
+    except ValueError as e:
+        return f"创建文件夹失败：{e}"
+    except Exception as e:
+        return f"创建文件夹失败：{e}"
+
+
 def _fmt_size(size: int) -> str:
     if size < 1024:
         return f"{size}B"

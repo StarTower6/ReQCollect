@@ -13,9 +13,11 @@ from loguru import logger
 from app.agent.pm.phase1.sufficiency import evaluate_profile_sufficiency, evaluate_sufficiency
 from app.agent.pm.prompts import PM_SYSTEM_PROMPT
 from app.agent.pm.tools import (
+    create_workspace_folder,
     get_profile_summary,
     get_workspace_info,
     list_workspace_files,
+    list_workspace_folders,
     read_file_section,
     read_workspace_file,
     reset_current_thread_id,
@@ -56,6 +58,9 @@ class MiningAgent:
             search_in_workspace,
             write_workspace_file,
             get_workspace_info,
+            # 文件夹工具
+            list_workspace_folders,
+            create_workspace_folder,
         ]
         self.model = llm_factory.create_chat_model(
             model=config.llm_model,
