@@ -36,11 +36,7 @@ function nodeColor(type: string): string {
 function renderGraph() {
   if (!graphContainer.value || graphData.value.nodes.length === 0) return
 
-  // Dynamic import vis-network (vanilla JS, no TS types needed)
-  const { Network } = (window as any).vis || {}
-
-  // Actually, vis-network needs to be imported properly
-  // Use the globally available version or import dynamically
+  // Dynamic import vis-network
   import('vis-network').then(mod => {
     const Network = mod.Network
     const { DataSet } = mod

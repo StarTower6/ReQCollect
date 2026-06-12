@@ -347,6 +347,20 @@ class PMAgentService:
                         fm.write_file(fp, markdown)
                         fm.set_file_folder(fp, prd_folder["id"])
                         _fire_analysis(ws_id, fp)
+                        # Auto-link PRD to related workspace files by key phrases
+                        try:
+                            from app.core.workspace_files import auto_match_links
+                            all_files = fm.list_files()
+                            auto_targets = auto_match_links(markdown, all_files)
+                            if auto_targets and self._ds:
+                                # Exclude self
+                                auto_targets = [(p, t) for p, t in auto_targets if p != fp]
+                                if auto_targets:
+                                    await self._ds.save_links(
+                                        ws_id, fp, "file", auto_targets
+                                    )
+                        except Exception:
+                            pass
                 except Exception:
                     logger.debug(f"[{thread_id}] Failed to save PRD to workspace files")
             yield event
@@ -419,6 +433,36 @@ class PMAgentService:
             "markdown": full_md,
             "sections": [{"key": s["key"], "title": s["title"], "status": s.get("status", "done")} for s in sections],
         }}
+
+        # Save to workspace files too
+        try:
+            session_data = await self._ds.get_session(thread_id)
+            ws_id = session_data.get("workspace_id", "") if session_data else ""
+            if ws_id:
+                from app.core.workspace_files import WorkspaceFileManager, auto_match_links
+                from app.core.workspace_analyzer import _fire as _fire_analysis
+                import re
+                fm = WorkspaceFileManager(ws_id)
+                folders = fm.list_folders()
+                prd_folder = next((f for f in folders if f["name"] == "PRD"), None)
+                if not prd_folder:
+                    prd_folder = fm.create_folder("PRD")
+                project_name = profile.get("project_name", "PRD")
+                slug = re.sub(r'[^\w一-鿿]+', '_', project_name)[:20]
+                existing = fm.list_files(f"{slug}*.md")
+                fp = f"{slug}-PRD-v{len(existing) + 1}.md"
+                fm.write_file(fp, full_md)
+                fm.set_file_folder(fp, prd_folder["id"])
+                _fire_analysis(ws_id, fp)
+                # Auto-link to related files
+                all_files = fm.list_files()
+                auto_targets = auto_match_links(full_md, all_files)
+                if auto_targets:
+                    auto_targets = [(p, t) for p, t in auto_targets if p != fp]
+                    if auto_targets:
+                        await self._ds.save_links(ws_id, fp, "file", auto_targets)
+        except Exception:
+            logger.debug(f"[{thread_id}] Failed to save incremental PRD to workspace files")
 
     # ── Convenience wrapper ──
 
