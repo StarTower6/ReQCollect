@@ -1,6 +1,5 @@
 <template>
   <aside class="file-tree-panel">
-    <!-- Header -->
     <div class="ftp-header">
       <span class="ftp-icon">📁</span>
       <span class="ftp-title">{{ wsName }}</span>
@@ -9,59 +8,75 @@
       <el-button text size="small" @click="showNewFolder = true" :disabled="!workspaceId">📂</el-button>
     </div>
 
-    <!-- Loading / Empty / Tree -->
     <div class="ftp-body">
       <div v-if="loading" v-loading="true" style="height:200px" />
       <div v-else-if="!workspaceId" class="ftp-hint">请选择一个工作空间</div>
       <div v-else-if="files.length === 0 && allFolders.length === 0" class="ftp-hint">暂无文件</div>
       <div v-else class="ftp-tree">
-        <!-- Render folder tree recursively -->
-        <template v-for="fnode in folderTree" :key="fnode.folder.id">
-          <FolderNode
-            :node="fnode"
-            :referenced-files="referencedFiles"
-            :selected-path="selectedFilePath"
-            :renaming-id="renamingId"
-            :renaming-text="renamingText"
-            :all-folders="allFolders"
-            @toggle="fnode.expanded = !fnode.expanded"
-            @preview="preview"
-            @toggle-ref="toggleRef"
-            @start-rename="startRename"
-            @do-rename="doRename"
-            @cancel-rename="renamingId = ''"
-            @confirm-delete-folder="confirmDelete"
-            @move-file="startMoveFile"
-            @delete-file="confirmDeleteFile"
-            @update:renaming-text="renamingText = $event"
-          />
+        <!-- Flattened folder + file tree -->
+        <template v-for="item in flatTree" :key="item.key">
+          <!-- Folder header -->
+          <div v-if="item.type === 'folder'" class="ftp-dir"
+            :style="{ paddingLeft: (item.depth * 16 + 8) + 'px' }"
+            @click="item.id && toggleFolder(item.id)"
+            @mouseenter="hoverFolderId = item.id || ''" @mouseleave="hoverFolderId = ''">
+            <span class="ftp-arrow" :class="{ open: item.id ? expandedState[item.id] : false }">▶</span>
+            <span>📂</span>
+            <span v-if="renamingId !== item.id" class="ftp-name" @dblclick="startRename(item)">{{ item.label }}</span>
+            <input v-else class="ftp-rename-input" v-model="renamingText"
+              @keyup.enter="doRename(item.id, item.label)" @blur="doRename(item.id, item.label)"
+              @keyup.escape="renamingId = ''" ref="renameInputRef" />
+            <span class="ftp-badge">{{ item.fileCount }}</span>
+            <span v-if="hoverFolderId === item.id && renamingId !== item.id" class="ftp-folder-actions">
+              <button class="ftp-fa-btn" @click.stop="startRename(item)" title="重命名">✏️</button>
+              <button class="ftp-fa-btn" @click.stop="confirmDelete(item)" title="删除">🗑️</button>
+            </span>
+          </div>
+          <!-- File inside a folder -->
+          <div v-else-if="item.type === 'file'" class="ftp-file"
+            :style="{ paddingLeft: (item.depth * 16 + 24) + 'px' }"
+            :class="{ 'ftp-referenced': isRef(item.path), 'ftp-selected': selectedFilePath === item.path }"
+            @mouseenter="hoverFilePath = item.path" @mouseleave="hoverFilePath = ''">
+            <span class="ftp-ficon">{{ ficon(item.fileType) }}</span>
+            <span class="ftp-fname" @click="preview(item)">{{ item.label }}</span>
+            <span class="ftp-fsize" v-if="item.size">{{ fmtSize(item.size) }}</span>
+            <span v-if="item.source === 'generated'" class="ftp-ai">AI</span>
+            <span v-if="item.analysis?.tags?.length" class="ftp-tags" :title="item.analysis?.summary || ''">
+              <span v-for="tag in item.analysis.tags.slice(0, 2)" :key="tag" class="ftp-tag">{{ tag }}</span>
+            </span>
+            <span v-if="hoverFilePath === item.path" class="ftp-file-actions">
+              <button class="ftp-fa-btn" @click.stop="startMoveFile(item.path)" title="移动到文件夹">📁</button>
+              <button class="ftp-fa-btn" @click.stop="confirmDeleteFile(item.path)" title="删除">🗑️</button>
+            </span>
+            <button v-if="hoverFilePath === item.path || isRef(item.path)" class="ftp-ref"
+              @click.stop="toggleRef(item.path)">
+              {{ isRef(item.path) ? '✕' : '⊕' }}
+            </button>
+          </div>
+          <!-- Root-level file -->
+          <div v-else-if="item.type === 'rootFile'" class="ftp-file ftp-root-file"
+            :class="{ 'ftp-referenced': isRef(item.path), 'ftp-selected': selectedFilePath === item.path }"
+            @mouseenter="hoverFilePath = item.path" @mouseleave="hoverFilePath = ''">
+            <span class="ftp-ficon">{{ ficon(item.fileType) }}</span>
+            <span class="ftp-fname" @click="preview(item)">{{ item.label }}</span>
+            <span class="ftp-fsize" v-if="item.size">{{ fmtSize(item.size) }}</span>
+            <span v-if="item.source === 'generated'" class="ftp-ai">AI</span>
+            <span v-if="item.analysis?.tags?.length" class="ftp-tags" :title="item.analysis?.summary || ''">
+              <span v-for="tag in item.analysis.tags.slice(0, 2)" :key="tag" class="ftp-tag">{{ tag }}</span>
+            </span>
+            <span v-if="hoverFilePath === item.path" class="ftp-file-actions">
+              <button class="ftp-fa-btn" @click.stop="startMoveFile(item.path)" title="移动到文件夹">📁</button>
+              <button class="ftp-fa-btn" @click.stop="confirmDeleteFile(item.path)" title="删除">🗑️</button>
+            </span>
+            <button v-if="hoverFilePath === item.path || isRef(item.path)" class="ftp-ref"
+              @click.stop="toggleRef(item.path)">
+              {{ isRef(item.path) ? '✕' : '⊕' }}
+            </button>
+          </div>
         </template>
-
-        <!-- Root-level files (no folder) -->
-        <div v-if="rootFiles.length > 0" class="ftp-root-separator" v-show="folderTree.length > 0">— 未分类 —</div>
-        <div v-for="file in rootFiles" :key="file.path" class="ftp-file ftp-root-file"
-          :class="{ 'ftp-referenced': isRef(file.path), 'ftp-selected': selectedFilePath === file.path }"
-          @mouseenter="file._showActions = true" @mouseleave="file._showActions = false">
-          <span class="ftp-ficon">{{ ficon(file.type) }}</span>
-          <span class="ftp-fname" @click="preview(file)">{{ file.label }}</span>
-          <span class="ftp-fsize" v-if="file.size">{{ fmtSize(file.size) }}</span>
-          <span v-if="file.source === 'generated'" class="ftp-ai">AI</span>
-          <span v-if="file.analysis?.tags?.length" class="ftp-tags" :title="file.analysis?.summary || ''">
-            <span v-for="tag in file.analysis.tags.slice(0, 2)" :key="tag" class="ftp-tag">{{ tag }}</span>
-          </span>
-          <span v-if="file._showActions" class="ftp-file-actions">
-            <button class="ftp-fa-btn" @click.stop="startMoveFile(file.path)" title="移动到文件夹">📁</button>
-            <button class="ftp-fa-btn" @click.stop="confirmDeleteFile(file.path)" title="删除">🗑️</button>
-          </span>
-          <button v-if="file._showActions || isRef(file.path)" class="ftp-ref"
-            @click.stop="toggleRef(file.path)">
-            {{ isRef(file.path) ? '✕' : '⊕' }}
-          </button>
-        </div>
       </div>
     </div>
 
-    <!-- Referenced files section -->
     <div v-if="referencedFiles.length" class="ftp-references">
       <div class="ftp-reftitle">📎 当前引用</div>
       <div v-for="rf in referencedFiles" :key="rf" class="ftp-reffile">
@@ -70,7 +85,6 @@
       </div>
     </div>
 
-    <!-- Related files section (tag similarity) -->
     <div v-if="relatedFiles.length" class="ftp-rel-section">
       <div class="ftp-rel-title">🔗 相关文件</div>
       <div v-for="rf in relatedFiles" :key="rf.path" class="ftp-rel-item"
@@ -81,20 +95,17 @@
       </div>
     </div>
 
-    <!-- Footer -->
     <div class="ftp-footer">
       <span v-if="linkedStatus?.linked" class="ftp-ftime">🔄 {{ syncTime }}</span>
       <span v-else class="ftp-ftime" style="color:#c0c4cc">未关联目录</span>
     </div>
 
-    <!-- Preview dialog -->
     <el-dialog v-model="previewVisible" :title="previewTitle" width="700px" top="5vh" destroy-on-close>
       <div v-if="previewLoading" v-loading="true" style="height:200px" />
       <div v-else-if="previewType === 'md'" class="ftp-preview-md" v-html="previewHtml" />
       <pre v-else class="ftp-preview-text">{{ previewText }}</pre>
     </el-dialog>
 
-    <!-- New folder dialog -->
     <el-dialog v-model="showNewFolder" title="新建文件夹" width="360px" append-to-body>
       <el-input v-model="newFolderName" placeholder="文件夹名称" @keyup.enter="createFolder" />
       <div style="margin-top:8px">
@@ -108,7 +119,6 @@
       </template>
     </el-dialog>
 
-    <!-- Upload target folder picker -->
     <el-dialog v-model="showUploadPicker" title="上传到文件夹" width="360px" append-to-body>
       <p style="font-size:12px;color:#909399;margin-bottom:8px">选择上传文件的存放位置（可选）</p>
       <el-select v-model="uploadFolderId" placeholder="根目录（不放入文件夹）" clearable style="width:100%">
@@ -120,7 +130,6 @@
       </template>
     </el-dialog>
 
-    <!-- Move file to folder dialog -->
     <el-dialog v-model="showMovePicker" title="移动到文件夹" width="360px" append-to-body>
       <el-select v-model="moveTargetFolderId" placeholder="选择目标文件夹" style="width:100%">
         <el-option v-for="f in allFolders" :key="f.id" :label="f.name" :value="f.id" />
@@ -132,7 +141,6 @@
       </template>
     </el-dialog>
 
-    <!-- Delete file confirm -->
     <el-dialog v-model="showDeleteFileConfirm" title="删除文件" width="360px" append-to-body>
       <p>确定删除文件「{{ deletingFilePath }}」？</p>
       <p style="font-size:12px;color:#909399">此操作不可恢复。</p>
@@ -142,7 +150,6 @@
       </template>
     </el-dialog>
 
-    <!-- Delete folder confirm -->
     <el-dialog v-model="showDeleteConfirm" title="删除文件夹" width="360px" append-to-body>
       <p>确定删除文件夹「{{ deletingFolder?.name }}」？</p>
       <p style="font-size:12px;color:#909399">文件夹内的文件将移出文件夹（不会删除文件本身）。</p>
@@ -155,8 +162,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, reactive, h } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, computed, watch, nextTick, reactive } from 'vue'
+import { ElMessage } from 'element-plus'
 import { marked } from 'marked'
 import { fetchWorkspaceFiles, readWorkspaceFile, uploadWorkspaceFile, fetchRelatedFiles,
   fetchFolders, createFolder as apiCreateFolder, renameFolder as apiRenameFolder,
@@ -181,8 +188,10 @@ const wsName = ref('')
 const linkedStatus = ref<any>(null)
 const relatedFiles = ref<any[]>([])
 const selectedFilePath = ref('')
+const hoverFilePath = ref('')
+const hoverFolderId = ref('')
 
-// Folder state
+// Folders
 const rawFolders = ref<any[]>([])
 const allFolders = ref<any[]>([])
 const showNewFolder = ref(false)
@@ -192,13 +201,14 @@ const showDeleteConfirm = ref(false)
 const deletingFolder = ref<any>(null)
 const renamingId = ref('')
 const renamingText = ref('')
+const renameInputRef = ref<HTMLInputElement | null>(null)
 
-// Upload folder picker
+// Upload
 const showUploadPicker = ref(false)
 const uploadFolderId = ref('')
 const pendingUploadFile = ref<File | null>(null)
 
-// Move file
+// Move
 const showMovePicker = ref(false)
 const moveTargetFolderId = ref('')
 const movingFilePath = ref('')
@@ -217,15 +227,119 @@ const previewHtml = ref('')
 
 const acceptStr = '.md,.txt,.json,.yaml,.yml,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.gif,.bmp'
 
-interface FolderItem {
-  folder: any
-  expanded: boolean
-  files: any[]
-  children: FolderItem[]
-  fileCount: number
+const expandedState = reactive<Record<string, boolean>>({})
+
+function toggleFolder(id: string) {
+  expandedState[id] = !expandedState[id]
 }
 
-// Build flat list for select
+// Flat tree: one flat array with all folders + files, depth-ordered
+interface FlatItem {
+  key: string
+  id: string
+  type: 'folder' | 'file' | 'rootFile'
+  label: string
+  depth: number
+  path: string
+  fileType?: string
+  size?: number
+  source?: string
+  analysis?: any
+  fileCount?: number
+}
+
+const flatTree = computed<FlatItem[]>(() => {
+  const result: FlatItem[] = []
+
+  function walk(nodes: any[], parentId: string, depth: number) {
+    const children = nodes.filter((n: any) => (n.parent_id || '') === parentId)
+    for (const n of children) {
+      if (expandedState[n.id] === undefined) expandedState[n.id] = true
+      // Get files in this folder
+      const folderFiles = files.value.filter((f: any) => f.folder === n.id)
+      const subFolders = nodes.filter((f: any) => (f.parent_id || '') === n.id)
+      const subFileCount = folderFiles.length + subFolders.length
+      // Count recursively for badge
+      let totalFileCount = folderFiles.length
+      function countSub(fid: string): number {
+        let c = 0
+        for (const f of nodes) {
+          if ((f.parent_id || '') === fid) {
+            const ff = files.value.filter((x: any) => x.folder === f.id)
+            c += ff.length + countSub(f.id)
+          }
+        }
+        return c
+      }
+      totalFileCount += countSub(n.id)
+
+      result.push({
+        key: 'folder-' + n.id,
+        id: n.id,
+        path: '',
+        type: 'folder',
+        label: n.name,
+        depth,
+        fileCount: totalFileCount,
+      })
+
+      if (expandedState[n.id]) {
+        // Files
+        for (const f of folderFiles) {
+          result.push({
+            key: 'file-' + f.path,
+            id: f.path,
+            path: f.path,
+            type: 'file',
+            label: f.path,
+            depth: depth + 1,
+            fileType: f.type,
+            size: f.size,
+            source: f.source,
+            analysis: f.analysis,
+          })
+        }
+        // Sub-folders
+        walk(nodes, n.id, depth + 1)
+      }
+    }
+  }
+
+  walk(rawFolders.value, '', 0)
+  return result
+})
+
+// Root-level files (no folder)
+const rootFiles = computed(() => {
+  return files.value
+    .filter((f: any) => !f.folder)
+    .map((f: any) => ({
+      label: f.path, path: f.path, type: f.type, size: f.size,
+      source: f.source, analysis: f.analysis,
+    }))
+})
+
+// Flat list also includes root-level files after folders
+const allFlatItems = computed<FlatItem[]>(() => {
+  const items = [...flatTree.value]
+  // Add root-level files at the end
+  for (const f of rootFiles.value) {
+    items.push({
+      key: 'root-' + f.path,
+      id: f.path,
+      path: f.path,
+      type: 'rootFile',
+      label: f.label,
+      depth: 0,
+      fileType: f.type,
+      size: f.size,
+      source: f.source,
+      analysis: f.analysis,
+    })
+  }
+  return items
+})
+
 function flattenFolders(f: any[], prefix = ''): any[] {
   const result: any[] = []
   for (const n of f) {
@@ -234,46 +348,6 @@ function flattenFolders(f: any[], prefix = ''): any[] {
   }
   return result
 }
-
-const expandedState = reactive<Record<string, boolean>>({})
-
-// Build recursive folder tree
-const folderTree = computed<FolderItem[]>(() => {
-  return buildRecursive(rawFolders.value, '')
-})
-
-function buildRecursive(nodes: any[], parentId: string): FolderItem[] {
-  const result: FolderItem[] = []
-  const children = nodes.filter((n: any) => (n.parent_id || '') === parentId)
-  for (const n of children) {
-    const subs = buildRecursive(nodes, n.id)
-    const dirFiles = files.value
-      .filter((f: any) => f.folder === n.id)
-      .map((f: any) => ({
-        label: f.path, path: f.path, type: f.type, size: f.size,
-        source: f.source, analysis: f.analysis, _showActions: false,
-      }))
-    if (expandedState[n.id] === undefined) expandedState[n.id] = true
-    const subCount = subs.reduce((s: number, c: FolderItem) => s + c.fileCount, 0)
-    result.push({
-      folder: n,
-      expanded: expandedState[n.id],
-      files: dirFiles,
-      children: subs,
-      fileCount: dirFiles.length + subCount,
-    })
-  }
-  return result
-}
-
-const rootFiles = computed(() => {
-  return files.value
-    .filter((f: any) => !f.folder)
-    .map((f: any) => ({
-      label: f.path, path: f.path, type: f.type, size: f.size,
-      source: f.source, analysis: f.analysis, _showActions: false,
-    }))
-})
 
 const syncTime = computed(() => {
   if (!linkedStatus.value) return ''
@@ -302,7 +376,7 @@ function toggleRef(path: string) {
   else emit('reference', path)
 }
 
-async function preview(p: { path: string; type?: string }) {
+async function preview(p: { path?: string; type?: string }) {
   if (!p.path || !props.workspaceId) return
   previewVisible.value = true
   previewLoading.value = true
@@ -340,7 +414,6 @@ async function handleUpload(e: Event) {
   const inp = e.target as HTMLInputElement
   const file = inp?.files?.[0]
   if (!file || !props.workspaceId) return
-  // Show folder picker before upload
   pendingUploadFile.value = file
   uploadFolderId.value = ''
   showUploadPicker.value = true
@@ -351,7 +424,6 @@ async function doUploadWithFolder() {
   if (!props.workspaceId || !pendingUploadFile.value) return
   try {
     const result = await uploadWorkspaceFile(props.workspaceId, pendingUploadFile.value, localStorage.getItem('reqcollect_token') || '')
-    // Assign to folder if selected
     if (uploadFolderId.value && result?.path) {
       await setFileFolder(props.workspaceId, result.path, uploadFolderId.value)
     }
@@ -380,20 +452,19 @@ async function createFolder() {
   }
 }
 
-function startRename(folder: any) {
-  renamingId.value = folder.id
-  renamingText.value = folder.name
+function startRename(item: any) {
+  renamingId.value = item.id
+  renamingText.value = item.label
   nextTick(() => {
     const el = document.querySelector('.ftp-rename-input') as HTMLInputElement
     if (el) { el.focus(); el.select() }
   })
 }
 
-async function doRename(folder: any) {
-  if (renamingId.value !== folder.id) return
-  const id = renamingId.value
+async function doRename(id: string, oldLabel: string) {
+  if (renamingId.value !== id) return
   renamingId.value = ''
-  if (!renamingText.value.trim() || renamingText.value.trim() === folder.name) return
+  if (!renamingText.value.trim() || renamingText.value.trim() === oldLabel) return
   try {
     await apiRenameFolder(props.workspaceId!, id, renamingText.value.trim())
     ElMessage.success('重命名成功')
@@ -493,80 +564,6 @@ async function loadFiles() {
     finally { loading.value = false }
 }
 
-// ── FolderNode recursive component ──
-// Registered as a local component for recursive rendering
-const FolderNode = {
-  name: 'FolderNode',
-  props: {
-    node: Object, referencedFiles: Array, selectedPath: String,
-    renamingId: String, renamingText: String, allFolders: Array,
-    depth: { type: Number, default: 0 },
-  },
-  emits: ['toggle', 'preview', 'toggle-ref', 'start-rename', 'do-rename', 'cancel-rename',
-    'confirm-delete-folder', 'move-file', 'delete-file', 'update:renaming-text'],
-  template: `
-    <div>
-      <div class="ftp-dir" :style="{ paddingLeft: (8 + depth * 16) + 'px' }"
-        @click="$emit('toggle')"
-        @mouseenter="sH = true" @mouseleave="sH = false">
-        <span class="ftp-arrow" :class="{ open: node.expanded }">▶</span>
-        <span>📂</span>
-        <span class="ftp-name" v-if="renamingId !== node.folder.id" @dblclick="$emit('start-rename', node.folder)">{{ node.folder.name }}</span>
-        <input v-else class="ftp-rename-input" :value="renamingText" @input="$emit('update:renaming-text', $event.target.value)"
-          @keyup.enter="$emit('do-rename', node.folder)" @blur="$emit('do-rename', node.folder)" @keyup.escape="$emit('cancel-rename')" ref="ri" />
-        <span class="ftp-badge">{{ node.fileCount }}</span>
-        <span v-if="sH && renamingId !== node.folder.id" class="ftp-folder-actions">
-          <button class="ftp-fa-btn" @click.stop="$emit('start-rename', node.folder)" title="重命名">✏️</button>
-          <button class="ftp-fa-btn" @click.stop="$emit('confirm-delete-folder', node.folder)" title="删除">🗑️</button>
-        </span>
-      </div>
-      <div v-if="node.expanded">
-        <!-- Files in folder -->
-        <div v-for="f in node.files" :key="f.path" class="ftp-file"
-          :style="{ paddingLeft: (24 + depth * 16) + 'px' }"
-          :class="{ 'ftp-referenced': referencedFiles.includes(f.path), 'ftp-selected': selectedPath === f.path }"
-          @mouseenter="f._sA = true" @mouseleave="f._sA = false">
-          <span class="ftp-ficon">{{ ficon(f.type) }}</span>
-          <span class="ftp-fname" @click="$emit('preview', f)">{{ f.label }}</span>
-          <span class="ftp-fsize" v-if="f.size">{{ fmtSize(f.size) }}</span>
-          <span v-if="f.source === 'generated'" class="ftp-ai">AI</span>
-          <span v-if="f.analysis?.tags?.length" class="ftp-tags" :title="f.analysis?.summary || ''">
-            <span v-for="tag in f.analysis.tags.slice(0, 2)" :key="tag" class="ftp-tag">{{ tag }}</span>
-          </span>
-          <span v-if="f._sA" class="ftp-file-actions">
-            <button class="ftp-fa-btn" @click.stop="$emit('move-file', f.path)" title="移动到文件夹">📁</button>
-            <button class="ftp-fa-btn" @click.stop="$emit('delete-file', f.path)" title="删除">🗑️</button>
-          </span>
-          <button v-if="f._sA || referencedFiles.includes(f.path)" class="ftp-ref"
-            @click.stop="$emit('toggle-ref', f.path)">
-            {{ referencedFiles.includes(f.path) ? '✕' : '⊕' }}
-          </button>
-        </div>
-        <!-- Sub-folders (recursive) -->
-        <FolderNode v-for="child in node.children" :key="child.folder.id"
-          :node="child" :referenced-files="referencedFiles" :selected-path="selectedPath"
-          :renaming-id="renamingId" :renaming-text="renamingText" :all-folders="allFolders"
-          :depth="depth + 1"
-          @toggle="child.expanded = !child.expanded"
-          @preview="$emit('preview', $event)"
-          @toggle-ref="$emit('toggle-ref', $event)"
-          @start-rename="$emit('start-rename', $event)"
-          @do-rename="$emit('do-rename', $event)"
-          @cancel-rename="$emit('cancel-rename')"
-          @confirm-delete-folder="$emit('confirm-delete-folder', $event)"
-          @move-file="$emit('move-file', $event)"
-          @delete-file="$emit('delete-file', $event)"
-          @update:renaming-text="$emit('update:renaming-text', $event)"
-        />
-      </div>
-    </div>
-  `,
-  setup() {
-    const sH = ref(false)
-    return { sH, ficon, fmtSize }
-  }
-}
-
 watch(() => props.workspaceId, () => {
   reloadAll()
 }, { immediate: true })
@@ -590,7 +587,6 @@ watch(() => props.workspaceId, () => {
 .ftp-file.ftp-referenced { background: #ecf5ff; }
 .ftp-file.ftp-selected { background: #e8f3ff; }
 .ftp-root-file { padding-left: 8px; }
-.ftp-root-separator { font-size: 11px; color: #c0c4cc; padding: 8px 8px 4px; text-align: center; border-top: 1px dashed #eee; margin-top: 4px; }
 .ftp-ficon { font-size: 14px; flex-shrink: 0; }
 .ftp-fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .ftp-fsize { font-size: 10px; color: #c0c4cc; flex-shrink: 0; }
