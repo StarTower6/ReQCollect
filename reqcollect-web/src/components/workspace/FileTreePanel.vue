@@ -5,7 +5,7 @@
       <span class="ftp-icon">📁</span>
       <span class="ftp-title">{{ wsName }}</span>
       <input ref="fileInput" type="file" hidden :accept="acceptStr" @change="handleUpload" />
-      <el-button text size="small" @click="chooseUploadFolder || fileInput?.click()" :disabled="!workspaceId">+</el-button>
+      <el-button text size="small" @click="fileInput?.click()" :disabled="!workspaceId">+</el-button>
       <el-button text size="small" @click="showNewFolder = true" :disabled="!workspaceId">📂</el-button>
     </div>
 
@@ -197,7 +197,6 @@ const renamingText = ref('')
 const showUploadPicker = ref(false)
 const uploadFolderId = ref('')
 const pendingUploadFile = ref<File | null>(null)
-const chooseUploadFolder = ref(false)
 
 // Move file
 const showMovePicker = ref(false)
@@ -416,7 +415,7 @@ async function doDelete() {
     ElMessage.success('文件夹已删除')
     showDeleteConfirm.value = false
     deletingFolder.value = null
-    loadFoldersData()
+    reloadAll()
   } catch (err: any) {
     ElMessage.error(err.message || '删除失败')
   }
