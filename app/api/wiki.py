@@ -12,6 +12,7 @@ Routes:
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+import traceback
 from loguru import logger
 from pydantic import BaseModel
 
@@ -289,6 +290,7 @@ async def wiki_graph(
                 }
                 seen_file_ids.add(fid)
     except Exception:
+        logger.warning(f"[wiki] Failed to load workspace files for graph: {traceback.format_exc()}")
         pass
 
     # Add tag-based similarity edges (dashed) for file nodes
