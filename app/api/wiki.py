@@ -238,7 +238,9 @@ async def wiki_graph(
     workspace_id: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Get graph data for a workspace: wiki nodes + file nodes + edges."""
+    """Get graph data for a workspace: wiki nodes + file nodes + edges.
+    All files are included. Tag-overlap edges shown as dashed lines.
+    """
     ds = _ds()
     pages = await ds.list_wiki_pages(workspace_id)
 
@@ -254,28 +256,66 @@ async def wiki_graph(
             "value": max(len(out_links), 1),
         }
 
-    # Get all graph edges from the workspace
+    # Get all graph edges from the workspace (explicit [[links]])
     edges = await ds.get_graph_edges(workspace_id)
 
-    # Collect file nodes referenced in edges
+    # Collect file nodes from edges
     for edge in edges:
-        from_parts = edge["from"].split(":", 1)
-        to_parts = edge["to"].split(":", 1)
-        if len(from_parts) == 2 and from_parts[0] == "file" and edge["from"] not in nodes:
-            nodes[edge["from"]] = {
-                "id": edge["from"],
-                "label": from_parts[1].split("/")[-1],
-                "title": from_parts[1],
-                "type": "file",
-                "value": 1,
-            }
-        if len(to_parts) == 2 and to_parts[0] == "file" and edge["to"] not in nodes:
-            nodes[edge["to"]] = {
-                "id": edge["to"],
-                "label": to_parts[1].split("/")[-1],
-                "title": to_parts[1],
-                "type": "file",
-                "value": 1,
-            }
+        for prefix, key in [("file:", "from"), ("file:", "to")]:
+            parts = edge[key].split(":", 1)
+            if len(parts) == 2 and parts[0] == "file" and edge[key] not in nodes:
+                nodes[edge[key]] = {
+                    "id": edge[key],
+                    "label": parts[1].split("/")[-1],
+                    "title": parts[1],
+                    "type": "file",
+                    "value": 1,
+                }
+
+    # Add ALL workspace files as nodes (even those without links)
+    seen_file_ids = {n for n in nodes if n.startswith("file:")}
+    try:
+        files = await ds.list_workspace_files(workspace_id, max_results=200)
+        for f in files:
+            fid = f"file:{f['path']}"
+            if fid not in seen_file_ids:
+                nodes[fid] = {
+                    "id": fid,
+                    "label": f["path"].split("/")[-1],
+                    "title": f["path"],
+                    "type": "file",
+                    "value": 1,
+                    "tags": (f.get("analysis") or {}).get("tags", []),
+                }
+                seen_file_ids.add(fid)
+    except Exception:
+        pass
+
+    # Add tag-based similarity edges (dashed) for file nodes
+    file_nodes = [(nid, n) for nid, n in nodes.items() if n["type"] == "file" and n.get("tags")]
+    for i in range(len(file_nodes)):
+        for j in range(i + 1, len(file_nodes)):
+            nid_a, n_a = file_nodes[i]
+            nid_b, n_b = file_nodes[j]
+            tags_a = set(n_a.get("tags", []))
+            tags_b = set(n_b.get("tags", []))
+            if not tags_a or not tags_b:
+                continue
+            intersection = len(tags_a & tags_b)
+            union = len(tags_a | tags_b)
+            if union > 0 and intersection / union >= 0.3:
+                # Only add dashed edge if no explicit edge exists
+                edge_key = f"{nid_a}->{nid_b}"
+                rev_key = f"{nid_b}->{nid_a}"
+                existing = {f"{e['from']}->{e['to']}" for e in edges}
+                if edge_key not in existing and rev_key not in existing:
+                    edges.append({
+                        "from": nid_a,
+                        "to": nid_b,
+                        "title": f"标签重叠 {round(intersection/union*100)}%",
+                        "dashes": True,
+                        "color": {"color": "#c0c4cc"},
+                        "width": max(0.5, intersection / union * 2),
+                    })
 
     return {"success": True, "graph": {"nodes": list(nodes.values()), "edges": edges}}

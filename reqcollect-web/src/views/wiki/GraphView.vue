@@ -62,13 +62,14 @@ function renderGraph() {
       group: n.type,
     })))
 
-    const edges = new (DataSet as any)(graphData.value.edges.map(e => ({
+    const edges = new (DataSet as any)(graphData.value.edges.map((e: any) => ({
       from: e.from,
       to: e.to,
       title: e.title || '引用',
-      color: { color: '#c0c4cc', highlight: '#409eff' },
-      width: 1.5,
-      arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+      color: e.dashes ? { color: '#c0c4cc' } : { color: '#c0c4cc', highlight: '#409eff' },
+      width: e.width || 1.5,
+      dashes: e.dashes || false,
+      arrows: e.dashes ? false : { to: { enabled: true, scaleFactor: 0.6 } },
       smooth: { type: 'continuous' },
     })))
 
