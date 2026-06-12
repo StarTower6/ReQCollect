@@ -96,7 +96,7 @@ function renderGraph() {
 
     network = new Network(graphContainer.value!, { nodes, edges }, options)
 
-    // Click node → navigate to wiki page or file
+    // Click node → navigate to wiki page or preview file
     network.on('click', (params: any) => {
       const nodeId = params.nodes?.[0]
       if (!nodeId) return
@@ -104,8 +104,11 @@ function renderGraph() {
       if (!node) return
       if (node.type === 'wiki') {
         router.push(`/workspace/${props.workspaceId}/wiki/${nodeId.replace('wiki:', '')}`)
-      } else {
-        router.push(`/workspace/${props.workspaceId}`)
+      } else if (node.type === 'file') {
+        // Extract file path from node id (format: "file:path/to/file.md")
+        const filePath = node.title || nodeId.replace('file:', '')
+        // Navigate to workspace detail with a file hash for preview
+        router.push(`/workspace/${props.workspaceId}?file=${encodeURIComponent(filePath)}`)
       }
     })
   }).catch(() => {
