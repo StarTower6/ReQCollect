@@ -399,41 +399,58 @@ def write_workspace_file(
         except Exception:
             pass
 
-        # Parse [[links]] in content and create file references
+        # Build cross-reference links
         import re
         import asyncio
+        from app.core.workspace_files import auto_match_links
         WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
         link_titles = [t for t, _ in WIKILINK_RE.findall(content)]
-        if link_titles and _datastore:
-            targets = []
-            all_files = fm.list_files()
+
+        targets: list[tuple[str, str]] = []
+        all_files = fm.list_files() if (link_titles or _datastore) else []
+
+        # 1. Explicit [[links]] — match workspace files
+        if link_titles:
             for title in link_titles:
                 title = title.strip()
                 if not title:
                     continue
-                # Try workspace file match (fast, synchronous)
                 if any(f["path"] == title for f in all_files):
                     targets.append((title, "file"))
-                    continue
-                # Try wiki page match (async — fire via ensure_future)
-            # Save links asynchronously
-            if targets:
-                async def _save():
+
+        # 2. Semantic auto-match — extract key phrases, match file names/tags/summary
+        try:
+            auto_targets = auto_match_links(content, all_files)
+            existing = set(t[0] for t in targets)
+            for pt, _ptype in auto_targets:
+                if pt not in existing:
+                    targets.append((pt, "file"))
+                    existing.add(pt)
+        except Exception:
+            pass
+
+        # 3. Save file→file links asynchronously
+        if targets and _datastore:
+            async def _save_links():
+                try:
                     await _datastore.save_links(
                         workspace_id, file_path, "file", targets
                     )
-                try:
-                    asyncio.ensure_future(_save())
                 except Exception:
                     pass
-            # Wiki page resolution is done via ensure_future separately
+            try:
+                asyncio.ensure_future(_save_links())
+            except Exception:
+                pass
+
+        # 4. Wiki page resolution (async) for [[links]] not matched as files
+        if link_titles and _datastore:
             async def _resolve_wiki():
                 for title in link_titles:
                     title = title.strip()
                     if not title:
                         continue
-                    # Skip if already matched as file
-                    if any(f["path"] == title for f in all_files):
+                    if any(t[0] == title for t in targets):
                         continue
                     try:
                         page = await _datastore.resolve_wiki_title(workspace_id, title)

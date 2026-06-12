@@ -305,3 +305,23 @@ async def ws_linked_status(
         raise HTTPException(404, detail="Workspace not found")
     status = await ds.get_workspace_linked_status(workspace_id)
     return {"success": True, "status": status}
+
+
+@router.get("/workspaces/{workspace_id}/files/related")
+async def ws_files_related(
+    workspace_id: str,
+    path: str = Query(default=""),
+    threshold: float = Query(default=0.3, ge=0, le=1),
+    current_user: dict = Depends(get_current_user),
+):
+    """Find files related by tag similarity using Jaccard overlap."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(404, detail="Workspace not found")
+    if not path:
+        return {"success": True, "related": []}
+    from app.core.workspace_files import WorkspaceFileManager
+    fm = WorkspaceFileManager(workspace_id)
+    related = fm.get_related_files(path, threshold)
+    return {"success": True, "related": related}

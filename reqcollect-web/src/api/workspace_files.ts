@@ -9,6 +9,14 @@ export interface WorkspaceFile {
   source: string
   uploaded_at: string
   summary: string
+  analysis?: { summary: string; tags: string[]; domain: string }
+}
+
+export interface RelatedFile {
+  path: string
+  summary: string
+  tags: string[]
+  similarity: number
 }
 
 export async function fetchWorkspaceFiles(
@@ -37,6 +45,16 @@ export async function deleteWorkspaceFile(
   path: string
 ): Promise<void> {
   await apiDelete(`/workspaces/${wsId}/files/${encodeURIComponent(path)}`)
+}
+
+export async function fetchRelatedFiles(
+  wsId: string,
+  path: string,
+): Promise<RelatedFile[]> {
+  const res: any = await apiGet(
+    `/workspaces/${wsId}/files/related?path=${encodeURIComponent(path)}`
+  )
+  return res.related || []
 }
 
 export async function uploadWorkspaceFile(

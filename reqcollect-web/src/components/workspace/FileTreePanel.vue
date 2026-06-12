@@ -69,6 +69,17 @@
       </div>
     </div>
 
+    <!-- Related files section (tag similarity) -->
+    <div v-if="relatedFiles.length" class="ftp-rel-section">
+      <div class="ftp-rel-title">🔗 相关文件</div>
+      <div v-for="rf in relatedFiles" :key="rf.path" class="ftp-rel-item"
+        @click="previewNode(rf.path)" :title="rf.summary">
+        <span>📄</span>
+        <span class="ftp-rfname">{{ rf.path }}</span>
+        <span class="ftp-rel-sim">{{ Math.round(rf.similarity * 100) }}%</span>
+      </div>
+    </div>
+
     <!-- Footer -->
     <div class="ftp-footer">
       <span v-if="linkedStatus?.linked" class="ftp-ftime">🔄 {{ syncTime }}</span>
@@ -88,7 +99,7 @@
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { marked } from 'marked'
-import { fetchWorkspaceFiles, readWorkspaceFile, uploadWorkspaceFile } from '@/api/workspace_files'
+import { fetchWorkspaceFiles, readWorkspaceFile, uploadWorkspaceFile, fetchRelatedFiles } from '@/api/workspace_files'
 import { fetchWorkspace } from '@/api/workspace'
 import { apiGet } from '@/api/client'
 
@@ -107,6 +118,8 @@ const files = ref<any[]>([])
 const loading = ref(false)
 const wsName = ref('')
 const linkedStatus = ref<any>(null)
+const relatedFiles = ref<any[]>([])
+const selectedFilePath = ref('')
 
 // Preview
 const previewVisible = ref(false)
@@ -220,6 +233,20 @@ async function preview(node: TreeNode) {
   } finally {
     previewLoading.value = false
   }
+  // Load related files
+  selectedFilePath.value = node.path
+  try {
+    relatedFiles.value = await fetchRelatedFiles(props.workspaceId, node.path)
+  } catch {
+    relatedFiles.value = []
+  }
+}
+
+// Also load related files when user clicks a file name directly in the tree
+async function previewNode(fp: string) {
+  if (!props.workspaceId) return
+  const node = { path: fp, type: 'md' } as TreeNode
+  await preview(node)
 }
 
 async function handleUpload(e: Event) {
@@ -285,6 +312,11 @@ watch(() => props.workspaceId, () => { loadFiles() }, { immediate: true })
 .ftp-rfdel { border: none; background: none; cursor: pointer; font-size: 11px; color: #c0c4cc; padding: 0; }
 .ftp-footer { border-top: 1px solid var(--line, #f0f0f5); padding: 6px 12px; font-size: 11px; flex-shrink: 0; }
 .ftp-ftime { color: #c0c4cc; }
+.ftp-rel-section { border-top: 1px solid var(--line, #f0f0f5); padding: 6px 12px; flex-shrink: 0; max-height: 120px; overflow-y: auto; }
+.ftp-rel-title { font-size: 11px; color: #c0c4cc; margin-bottom: 4px; }
+.ftp-rel-item { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 12px; color: #606266; border-radius: 4px; margin-bottom: 2px; cursor: pointer; }
+.ftp-rel-item:hover { background: #f0f3f8; }
+.ftp-rel-sim { font-size: 10px; color: #c0c4cc; flex-shrink: 0; }
 .ftp-preview-md { padding: 16px; max-height: 65vh; overflow-y: auto; }
 .ftp-preview-text { padding: 16px; max-height: 65vh; overflow-y: auto; white-space: pre-wrap; font-size: 13px; }
 </style>

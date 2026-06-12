@@ -6,6 +6,7 @@ FileManager operates on the workspace's files/ directory under data_dir.
 
 from __future__ import annotations
 
+import re
 import json
 import fnmatch
 import threading
@@ -128,6 +129,47 @@ def is_text_file(ext: str) -> bool:
 
 def is_image_ext(ext: str) -> bool:
     return ext in ("png", "jpg", "jpeg", "gif", "bmp")
+
+
+# ── Semantic phrase matching for auto-linking ──
+
+_CHINESE_RE = re.compile(r'[一-鿿]+')
+
+
+def extract_key_phrases(text: str) -> set[str]:
+    """从文本中提取 2-4 字中文短语，用于文件名/标签语义匹配。"""
+    phrases: set[str] = set()
+    for chunk in _CHINESE_RE.findall(text):
+        if len(chunk) <= 4:
+            phrases.add(chunk)
+        else:
+            for length in (2, 3, 4):
+                for i in range(len(chunk) - length + 1):
+                    phrases.add(chunk[i:i + length])
+    return phrases
+
+
+def auto_match_links(content: str, all_files: list[dict]) -> list[tuple[str, str]]:
+    """从内容中提取关键短语，匹配工作区文件的标题/标签/摘要，返回匹配的 (path, type)。"""
+    phrases = extract_key_phrases(content)
+    if not phrases:
+        return []
+    targets: list[tuple[str, str]] = []
+    matched: set[str] = set()
+    for f in all_files:
+        fp = f["path"]
+        if fp in matched:
+            continue
+        name = Path(fp).stem
+        analysis = f.get("analysis") or {}
+        tags = analysis.get("tags") or []
+        summary = analysis.get("summary") or ""
+        if (name in phrases or
+                (summary and summary in phrases) or
+                any(t in phrases for t in tags)):
+            targets.append((fp, "file"))
+            matched.add(fp)
+    return targets
 
 
 def _validate_file_path(base_dir: Path, relative_path: str) -> Path:
@@ -384,6 +426,37 @@ class WorkspaceFileManager:
                     f["analysis"] = analysis
                     break
             _save_index(self._files_dir, index)
+
+    def get_related_files(self, file_path: str, threshold: float = 0.3, max_results: int = 5) -> list[dict]:
+        """Based on analysis tags, find files with similar tag profiles using Jaccard similarity."""
+        index = _load_index(self._files_dir)
+        target = next((f for f in index if f["path"] == file_path), None)
+        if not target or not target.get("analysis"):
+            return []
+        target_tags = set(target["analysis"].get("tags", []))
+        if not target_tags:
+            return []
+        results = []
+        for f in index:
+            if f["path"] == file_path:
+                continue
+            tags = set(f.get("analysis", {}).get("tags", []))
+            if not tags:
+                continue
+            intersection = len(target_tags & tags)
+            union = len(target_tags | tags)
+            if union == 0:
+                continue
+            jaccard = intersection / union
+            if jaccard >= threshold:
+                results.append({
+                    "path": f["path"],
+                    "summary": f.get("analysis", {}).get("summary", ""),
+                    "tags": list(tags),
+                    "similarity": round(jaccard, 2),
+                })
+        results.sort(key=lambda r: r["similarity"], reverse=True)
+        return results[:max_results]
 
     def _upsert_index(self, entry: dict) -> None:
         lock = _get_index_lock(self._ws_id)
