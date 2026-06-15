@@ -7,7 +7,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchWikiGraph } from '@/api/wiki'
 
@@ -36,10 +36,10 @@ function nodeColor(type: string): string {
 function renderGraph() {
   if (!graphContainer.value || graphData.value.nodes.length === 0) return
 
-  // Dynamic import vis-network
-  import('vis-network').then(mod => {
-    const Network = mod.Network
-    const { DataSet } = mod
+  // Dynamic import vis-network v10 + vis-data (DataSet lives in vis-data)
+  Promise.all([import('vis-data'), import('vis-network')]).then(([vdata, vnet]) => {
+    const DataSet = vdata.DataSet
+    const Network = vnet.Network
 
     const nodes = new (DataSet as any)(graphData.value.nodes.map((n: any) => ({
       id: n.id,
@@ -107,17 +107,18 @@ function renderGraph() {
         router.push(`/workspace/${props.workspaceId}?file=${encodeURIComponent(filePath)}`)
       }
     })
-  }).catch(() => {
+  }).catch((err) => {
     // vis-network not loaded
-    console.warn('vis-network not available')
+    console.warn('vis-network not available', err)
   })
 }
 
 onMounted(async () => {
   await loadGraph()
   if (hasData.value) {
-    // Wait for DOM render
-    setTimeout(renderGraph, 100)
+    // Wait for DOM paint before initializing vis-network (container needs real dimensions)
+    await nextTick()
+    setTimeout(renderGraph, 50)
   }
 })
 

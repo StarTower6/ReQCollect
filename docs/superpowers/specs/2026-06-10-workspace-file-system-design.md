@@ -477,14 +477,15 @@ Office 解析为可选依赖，不强制安装。
 
 ### Phase 2 (P1) — 体验完善
 
-- [ ] 关联服务器目录 + 自动同步
-- [ ] 前端文件树视图 + 拖拽上传
-- [ ] ChatInput @ 引用文件
-- [ ] 图片/PPTX 文件解析
+- [x] PPTX 文件解析 + 图片元数据提取
+- [ ] 关联服务器目录 + 手动同步 + 后台轮询
+- [ ] 右侧文件树边栏（替代 ProfilePanel 位置）
+- [ ] TopBar 完整度按钮 → el-drawer 展示 ProfilePanel
+- [ ] ChatInput @ 引用文件 + ⊕ 引用按钮
+- [ ] ChatRequest 模型扩展 referenced_files 字段
 
 ### Phase 3 (P2) — 智能增强
 
-- [ ] 文件变更 Watch（轮询）
 - [ ] Agent 主动建议分析
 - [ ] 文件间交叉引用图谱
 - [ ] 语义搜索（向量化文件名和摘要）

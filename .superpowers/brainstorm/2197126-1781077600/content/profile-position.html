@@ -1,0 +1,132 @@
+<h2>需求完整度面板 — 位置方案</h2>
+<p class="subtitle">右侧文件树和需求画像面板如何共存？三种方案</p>
+
+<div class="section">
+  <h3>方案 A：右侧 Tab 切换（推荐 🌟）</h3>
+  <div style="display:flex;gap:12px;border:1px solid #e5e6eb;border-radius:8px;background:#fafafa;padding:12px">
+    <!-- Main area -->
+    <div style="flex:1;border:1px solid #d9d9d9;border-radius:8px;background:#fff;display:flex;flex-direction:column;min-height:300px">
+      <div style="padding:8px 14px;border-bottom:1px solid #f0f0f5;font-weight:500;font-size:13px">需求初步沟通</div>
+      <div style="flex:1;padding:14px;display:flex;flex-direction:column;gap:8px">
+        <div style="background:#f7f8fa;border-radius:8px;padding:10px 14px;max-width:70%;align-self:flex-start;font-size:13px">
+          <div style="font-weight:500;margin-bottom:2px">ReQCollect</div>
+          <div>你好！当前工作区有 5 个文件，需要我分析什么？</div>
+        </div>
+      </div>
+    </div>
+    <!-- Right panel with tabs -->
+    <div style="width:260px;min-width:260px;border:1px solid #d9d9d9;border-radius:8px;background:#fff;display:flex;flex-direction:column">
+      <!-- Tab bar -->
+      <div style="display:flex;border-bottom:1px solid #f0f0f5">
+        <div style="flex:1;padding:8px;text-align:center;font-size:12px;cursor:pointer;border-bottom:2px solid #409eff;color:#409eff;font-weight:500">📁 文件</div>
+        <div style="flex:1;padding:8px;text-align:center;font-size:12px;cursor:pointer;color:#666">📊 画像</div>
+      </div>
+      <!-- File tree content (active tab) -->
+      <div style="padding:8px 12px;font-size:13px">
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;font-size:12px;color:#666">
+          <span style="font-size:10px;transform:rotate(90deg)">▶</span>
+          <span>📂</span><span style="font-weight:500;flex:1">docs</span><span style="font-size:11px;color:#c0c4cc">4</span>
+        </div>
+        <div style="padding:2px 8px 2px 24px;display:flex;align-items:center;gap:4px">📝 需求文档-v2.md</div>
+        <div style="padding:2px 8px 2px 24px;display:flex;align-items:center;gap:4px">📘 会议纪要.docx</div>
+        <div style="padding:2px 8px 2px 24px;display:flex;align-items:center;gap:4px">📊 审批流程.xlsx</div>
+      </div>
+      <!-- Footer hint -->
+      <div style="margin-top:auto;border-top:1px solid #f0f0f5;padding:6px 12px;font-size:11px;color:#c0c4cc;text-align:center">
+        切换「画像」Tab 查看需求完整度
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:8px;padding:8px 12px;background:#f0f9eb;border-radius:6px;font-size:13px">
+    ✅ 右侧边栏顶部加 Tab 栏：「📁 文件」和「📊 画像」两个 tab 切换。文件树是默认视图，切到画像时显示 SufficiencyRing + 字段列表。互不干扰。
+  </div>
+</div>
+
+<div class="section">
+  <h3>方案 B：按钮展开抽屉</h3>
+  <div style="display:flex;gap:12px;border:1px solid #e5e6eb;border-radius:8px;background:#fafafa;padding:12px">
+    <div style="flex:1;border:1px solid #d9d9d9;border-radius:8px;background:#fff;display:flex;flex-direction:column;min-height:200px">
+      <div style="padding:8px 14px;border-bottom:1px solid #f0f0f5;display:flex;align-items:center;gap:8px">
+        <span style="font-weight:500;flex:1;font-size:13px">需求初步沟通</span>
+        <span style="font-size:12px;color:#409eff;background:#ecf5ff;padding:2px 8px;border-radius:4px;cursor:pointer">📊 完整度 75%</span>
+      </div>
+      <div style="flex:1;padding:14px;font-size:13px;color:#c0c4cc;display:flex;align-items:center;justify-content:center">[对话区域]</div>
+    </div>
+    <!-- Right panel: file tree only -->
+    <div style="width:260px;min-width:260px;border:1px solid #d9d9d9;border-radius:8px;background:#fff;display:flex;flex-direction:column">
+      <div style="padding:8px 12px;border-bottom:1px solid #f0f0f5;font-weight:500;font-size:13px">📁 ERP升级项目</div>
+      <div style="padding:8px 12px;font-size:13px;color:#666">
+        <div>📂 docs/</div>
+        <div style="padding-left:20px">📝 需求文档-v2.md</div>
+        <div style="padding-left:20px">📘 会议纪要.docx</div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:8px;padding:8px 12px;background:#fff7e6;border-radius:6px;font-size:13px">
+    ⚠️ 顶部栏显示一个「完整度 75%」按钮（带进度），点击弹出一个侧边抽屉展示完整的画像面板。优点：文件树独占右侧空间；缺点：画像需要两次点击才能看到。
+  </div>
+</div>
+
+<div class="section">
+  <h3>方案 C：需求画像内嵌到对话区域</h3>
+  <div style="display:flex;gap:12px;border:1px solid #e5e6eb;border-radius:8px;background:#fafafa;padding:12px">
+    <div style="flex:1;border:1px solid #d9d9d9;border-radius:8px;background:#fff;display:flex;flex-direction:column;min-height:300px">
+      <div style="padding:8px 14px;border-bottom:1px solid #f0f0f5;font-weight:500;font-size:13px">需求初步沟通</div>
+      <div style="flex:1;padding:14px;display:flex;gap:12px">
+        <!-- Chat messages -->
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div style="background:#f7f8fa;border-radius:8px;padding:10px 14px;font-size:13px">你好！需要我分析什么？</div>
+        </div>
+        <!-- Profile panel inline -->
+        <div style="width:200px;min-width:200px;border:1px solid #e5e6eb;border-radius:8px;background:#fafafa;padding:10px;font-size:12px">
+          <div style="font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:4px">
+            <span>📊</span>
+            <span style="flex:1">需求画像</span>
+            <span style="color:#67c23a">75%</span>
+          </div>
+          <div style="height:4px;background:#e5e6eb;border-radius:2px;margin-bottom:8px">
+            <div style="height:4px;width:75%;background:#67c23a;border-radius:2px"></div>
+          </div>
+          <div style="color:#666">✅ 项目名称</div>
+          <div style="color:#666">✅ 业务背景</div>
+          <div style="color:#c0c4cc">⬜ 用户角色</div>
+          <div style="color:#c0c4cc">⬜ 数据规模</div>
+        </div>
+      </div>
+    </div>
+    <!-- Right panel: file tree -->
+    <div style="width:260px;min-width:260px;border:1px solid #d9d9d9;border-radius:8px;background:#fff;display:flex;flex-direction:column">
+      <div style="padding:8px 12px;border-bottom:1px solid #f0f0f5;font-weight:500;font-size:13px">📁 ERP升级项目</div>
+      <div style="padding:8px 12px">📂 docs/</div>
+    </div>
+  </div>
+  <div style="margin-top:8px;padding:8px 12px;background:#f0f9eb;border-radius:6px;font-size:13px">
+    画像面板嵌入对话区域的右侧（消息列表和输入框之间），类似 GitHub PR 右侧的文件变更列表。优点：右侧边栏全留给文件树，画像在对话区侧边可见；缺点：空间紧凑，小屏幕体验差。
+  </div>
+</div>
+
+<hr style="margin:24px 0">
+
+<div class="options" style="max-width:800px">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>右侧 Tab 切换</h3>
+      <p>文件树和画像面板在右侧边栏通过 Tab 切换，默认显示文件树</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>顶部按钮 + 抽屉</h3>
+      <p>顶部栏显示完整度按钮，点击弹出抽屉显示画像</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>对话区侧边内嵌</h3>
+      <p>画像面板嵌入对话区域右侧，文件树独占右侧边栏</p>
+    </div>
+  </div>
+</div>

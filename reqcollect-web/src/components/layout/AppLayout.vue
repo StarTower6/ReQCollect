@@ -15,8 +15,8 @@
     </div>
     <!-- File tree sidebar (replaces old ProfilePanel) -->
     <FileTreePanel
-      v-if="sessionStore.currentId && sessionStore.currentWorkspaceId"
-      :workspace-id="sessionStore.currentWorkspaceId"
+      v-if="showFileTree"
+      :workspace-id="currentFileWsId"
       :referenced-files="referencedFiles"
       @reference="handleFileReference"
       @remove-reference="handleRemoveReference"
@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, provide, onMounted, onUnmounted } from 'vue'
+import { ref, computed, provide } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { useProfileStore } from '@/stores/profile'
 import SideBar from './SideBar.vue'
@@ -41,6 +41,22 @@ import FileTreePanel from '@/components/workspace/FileTreePanel.vue'
 
 const sessionStore = useSessionStore()
 const profileStore = useProfileStore()
+
+const showFileTree = computed((): boolean => {
+  return !!currentFileWsId.value
+})
+
+const currentFileWsId = computed((): string | null => {
+  // Priority 1: In a chat session with associated workspace
+  if (sessionStore.currentId && sessionStore.currentWorkspaceId) {
+    return sessionStore.currentWorkspaceId as string
+  }
+  // Priority 2: Workspace expanded in sidebar
+  if (sessionStore.expandedWsId && sessionStore.expandedWsId !== '__ungrouped__') {
+    return sessionStore.expandedWsId as string
+  }
+  return null
+})
 
 const drawerVisible = ref(false)
 const showImport = ref(false)

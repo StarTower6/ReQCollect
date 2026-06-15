@@ -14,9 +14,11 @@
       <div v-else-if="files.length === 0 && allFolders.length === 0" class="ftp-hint">暂无文件</div>
       <div v-else class="ftp-tree">
         <!-- Flattened folder + file tree -->
-        <template v-for="item in flatTree" :key="item.key">
+        <template v-for="item in allFlatItems" :key="item.key">
+          <!-- Separator -->
+          <div v-if="item.key === '---separator---'" class="ftp-root-separator">{{ item.label }}</div>
           <!-- Folder header -->
-          <div v-if="item.type === 'folder'" class="ftp-dir"
+          <div v-else-if="item.type === 'folder'" class="ftp-dir"
             :style="{ paddingLeft: (item.depth * 16 + 8) + 'px' }"
             @click="item.id && toggleFolder(item.id)"
             @mouseenter="hoverFolderId = item.id || ''" @mouseleave="hoverFolderId = ''">
@@ -53,6 +55,8 @@
               {{ isRef(item.path) ? '✕' : '⊕' }}
             </button>
           </div>
+          <!-- Separator -->
+          <div v-else-if="item.key === '---separator---'" class="ftp-root-separator">{{ item.label }}</div>
           <!-- Root-level file -->
           <div v-else-if="item.type === 'rootFile'" class="ftp-file ftp-root-file"
             :class="{ 'ftp-referenced': isRef(item.path), 'ftp-selected': selectedFilePath === item.path }"
@@ -322,20 +326,33 @@ const rootFiles = computed(() => {
 // Flat list also includes root-level files after folders
 const allFlatItems = computed<FlatItem[]>(() => {
   const items = [...flatTree.value]
-  // Add root-level files at the end
-  for (const f of rootFiles.value) {
-    items.push({
-      key: 'root-' + f.path,
-      id: f.path,
-      path: f.path,
-      type: 'rootFile',
-      label: f.label,
-      depth: 0,
-      fileType: f.type,
-      size: f.size,
-      source: f.source,
-      analysis: f.analysis,
-    })
+  const rf = rootFiles.value
+  if (rf.length > 0) {
+    if (flatTree.value.length > 0) {
+      // Insert a separator before root-level files when there are folders
+      items.push({
+        key: '---separator---',
+        id: '__sep__',
+        path: '',
+        type: 'folder',
+        label: '— 未分类 —',
+        depth: -1,
+      })
+    }
+    for (const f of rf) {
+      items.push({
+        key: 'root-' + f.path,
+        id: f.path,
+        path: f.path,
+        type: 'rootFile',
+        label: f.label,
+        depth: 0,
+        fileType: f.type,
+        size: f.size,
+        source: f.source,
+        analysis: f.analysis || undefined,
+      })
+    }
   }
   return items
 })

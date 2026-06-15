@@ -1,0 +1,3 @@
+{"type":"click","text":"A\n    \n      右侧 Tab 切换\n      文件树和画像面板在右侧边栏通过 Tab 切换，默认显示文件树","choice":"a","id":null,"timestamp":1781078725986}
+{"type":"click","text":"B\n    \n      顶部按钮 + 抽屉\n      顶部栏显示完整度按钮，点击弹出抽屉显示画像","choice":"b","id":null,"timestamp":1781078727121}
+{"type":"click","text":"C\n    \n      对话区侧边内嵌\n      画像面板嵌入对话区域右侧，文件树独占右侧边栏","choice":"c","id":null,"timestamp":1781078727665}

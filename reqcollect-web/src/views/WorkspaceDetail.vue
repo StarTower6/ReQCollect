@@ -75,7 +75,7 @@
         </el-tab-pane>
         <el-tab-pane label="需求图谱" name="graph">
           <div v-if="!workspace" v-loading="true" style="height:400px" />
-          <GraphView v-else :workspace-id="route.params.id as string" />
+          <GraphView v-else-if="activeTab === 'graph'" :workspace-id="route.params.id as string" />
         </el-tab-pane>
       </el-tabs>
 
