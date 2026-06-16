@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SideBar 操作按钮位置设计</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f7fa; color: #1d2129; padding: 32px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .subtitle { color: #86909c; font-size: 13px; margin-bottom: 24px; }
+
+  .compare { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; }
+
+  .sidebar-sample {
+    width: 300px; background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden;
+    border: 2px solid transparent; transition: border-color 0.2s;
+  }
+  .sidebar-sample.selected { border-color: #409eff; }
+  .sidebar-sample:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+
+  .tag-row { display: flex; gap: 8px; padding: 10px 16px 0; }
+  .tag { display: inline-block; padding: 3px 10px; border-radius: 0 0 6px 6px; font-size: 11px; font-weight: 500; }
+  .tag-current { background: #e8f3ff; color: #409eff; }
+  .tag-proposed { background: #f0f5e8; color: #52b22e; }
+
+  /* ── 当前 ── */
+  .header { padding: 16px 16px 0; }
+  .brand-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .brand-mark { width: 24px; height: 24px; background: #409eff; border-radius: 6px; }
+  .brand-name { flex: 1; font-weight: 600; font-size: 15px; }
+
+  .action-btn {
+    display: flex; align-items: center; gap: 6px;
+    width: 100%; padding: 7px 12px; border-radius: 8px;
+    border: 1px solid #e5e6eb; background: #f7f8fa;
+    font-size: 13px; color: #4e5969; margin-bottom: 6px;
+  }
+
+  .search-input {
+    width: 100%; padding: 7px 10px; border-radius: 8px;
+    border: 1px solid #e5e6eb; background: #f7f8fa;
+    font-size: 13px; color: #999; margin-bottom: 8px;
+  }
+
+  .tree { padding: 0 8px 8px; }
+
+  .node-header {
+    display: flex; align-items: center; gap: 4px;
+    padding: 6px 8px; border-radius: 6px;
+    font-size: 13px; cursor: default; user-select: none;
+  }
+  .node-header:hover { background: #f0f3f8; }
+  .node-header.open { color: #409eff; font-weight: 500; }
+
+  .arrow { font-size: 10px; width: 14px; text-align: center; transition: transform 0.15s; color: #c0c4cc; }
+  .arrow.open { transform: rotate(90deg); }
+  .icon { font-size: 14px; }
+  .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font-size: 11px; background: #f0f0f5; padding: 0 6px; border-radius: 8px; line-height: 18px; }
+
+  .children { padding-left: 16px; }
+
+  .leaf {
+    display: flex; align-items: center; gap: 4px;
+    padding: 5px 8px; border-radius: 6px; font-size: 13px; cursor: default;
+  }
+  .leaf:hover { background: #f0f3f8; }
+  .leaf.active { background: #e8f3ff; color: #409eff; font-weight: 500; }
+  .leaf-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .leaf-meta { font-size: 11px; color: #c0c4cc; }
+
+  .inline-action {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px; border-radius: 6px; font-size: 12px;
+    color: #409eff; cursor: default;
+  }
+  .inline-action:hover { background: #f0f7ff; }
+
+  .footer { border-top: 1px solid #f0f0f5; padding: 8px 16px; }
+  .footer-link { padding: 6px 8px; border-radius: 6px; font-size: 13px; color: #4e5969; cursor: default; }
+
+  .label-title {
+    text-align: center; margin: 8px 0; font-size: 14px; font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<h1>操作按钮位置：当前 vs 建议</h1>
+<p class="subtitle">点击卡片选中，告诉我您的选择</p>
+
+<div class="compare">
+
+  <!-- 当前：顶部全局 -->
+  <div class="sidebar-sample" onclick="select(this)">
+    <div class="tag-row"><span class="tag tag-current">当前</span></div>
+    <div class="header">
+      <div class="brand-row"><div class="brand-mark"></div><div class="brand-name">ReQCollect</div></div>
+      <div class="action-btn">＋ 新对话</div>
+      <div class="action-btn">📄 导入记录</div>
+      <div class="search-input">🔍 搜索会话</div>
+    </div>
+    <div class="tree">
+      <div class="node-header open">
+        <span class="arrow open">▶</span>
+        <span class="icon">📁</span>
+        <span class="label">费控报销流程信息化改造</span>
+        <span class="badge">4</span>
+      </div>
+      <div class="children">
+        <div class="leaf"><span class="leaf-name">报销审批流程</span><span class="leaf-meta">1天前</span></div>
+        <div class="leaf"><span class="leaf-name">预算控制设置</span><span class="leaf-meta">2天前</span></div>
+      </div>
+      <div class="node-header" style="margin-top:4px">
+        <span class="arrow">▶</span>
+        <span class="icon">📁</span>
+        <span class="label">MES 系统升级</span>
+        <span class="badge">2</span>
+      </div>
+      <div class="node-header open" style="color:#409eff;font-weight:500;margin-top:4px">
+        <span class="arrow open">▶</span>
+        <span class="icon">📋</span>
+        <span class="label">未分类会话</span>
+        <span class="badge">1</span>
+      </div>
+      <div class="children">
+        <div class="leaf"><span class="leaf-name">快速咨询</span><span class="leaf-meta">5天前</span></div>
+      </div>
+    </div>
+    <div class="footer"><div class="footer-link">📊 数据看板</div></div>
+  </div>
+
+  <!-- 建议：按钮移到工作空间内部 -->
+  <div class="sidebar-sample selected" onclick="select(this)">
+    <div class="tag-row"><span class="tag tag-proposed">建议</span></div>
+    <div class="header">
+      <div class="brand-row"><div class="brand-mark"></div><div class="brand-name">ReQCollect</div></div>
+      <div class="search-input">🔍 搜索会话</div>
+    </div>
+    <div class="tree">
+      <!-- Workspace 1 - expanded -->
+      <div class="node-header open">
+        <span class="arrow open">▶</span>
+        <span class="icon">📁</span>
+        <span class="label">费控报销流程信息化改造</span>
+        <span class="badge">4</span>
+      </div>
+      <div class="children">
+        <div class="inline-action">＋ 新建会话</div>
+        <div class="inline-action">📄 导入需求文档</div>
+        <div class="leaf"><span class="leaf-name">报销审批流程</span><span class="leaf-meta">1天前</span></div>
+        <div class="leaf"><span class="leaf-name">预算控制设置</span><span class="leaf-meta">2天前</span></div>
+      </div>
+
+      <!-- Workspace 2 - collapsed -->
+      <div class="node-header" style="margin-top:4px">
+        <span class="arrow">▶</span>
+        <span class="icon">📁</span>
+        <span class="label">MES 系统升级</span>
+        <span class="badge">2</span>
+      </div>
+      <!-- No inline-actions shown when collapsed -->
+
+      <!-- Ungrouped -->
+      <div class="node-header open" style="margin-top:4px">
+        <span class="arrow open">▶</span>
+        <span class="icon">📋</span>
+        <span class="label">未分类会话</span>
+        <span class="badge">1</span>
+      </div>
+      <div class="children">
+        <div class="inline-action">＋ 新建会话</div>
+        <div class="leaf"><span class="leaf-name">快速咨询</span><span class="leaf-meta">5天前</span></div>
+      </div>
+    </div>
+    <div class="footer"><div class="footer-link">📊 数据看板</div></div>
+  </div>
+
+</div>
+
+<p style="text-align:center;margin-top:24px;font-size:13px;color:#86909c">
+  建议方案：顶部只保留品牌和搜索 → "新对话"和"导入"移入工作空间内作为第一行操作项<br>
+  → 折叠时隐藏，展开时显示 → 操作明确归属工作空间
+</p>
+
+<script>
+function select(el) {
+  document.querySelectorAll('.sidebar-sample').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
+</script>
+</body>
+</html>

@@ -1,23 +1,12 @@
 <template>
   <aside class="sidebar" aria-label="会话导航">
-    <!-- Brand -->
+    <!-- Brand + Search only -->
     <div class="sidebar-header">
       <div class="brand-row">
         <div class="brand-mark" aria-hidden="true"></div>
         <div class="brand-name">ReQCollect</div>
         <el-button text size="small" class="ws-mgr-btn" @click="goWorkspaceList">📁</el-button>
       </div>
-      <!-- New chat -->
-      <button class="sidebar-action" type="button" @click="handleNewChat">
-        <span aria-hidden="true">＋</span>
-        <span>新对话</span>
-      </button>
-      <!-- Import -->
-      <button class="sidebar-action import-btn" type="button" @click="$emit('importDoc')">
-        <span aria-hidden="true">📄</span>
-        <span>导入记录</span>
-      </button>
-      <!-- Search -->
       <input class="sidebar-search"
              type="search"
              placeholder="搜索会话"
@@ -26,7 +15,7 @@
              @blur="onSearchBlur" />
     </div>
 
-    <!-- New workspace button (只有在有 ws 时才显示) -->
+    <!-- New workspace button (only when workspaces exist) -->
     <button v-if="sessionStore.workspaces.length > 0"
             class="add-ws-btn" type="button" @click="goWorkspaceList">
       ＋ 新建工作空间
@@ -56,6 +45,21 @@
           </div>
           <!-- Children -->
           <div class="tree-children" :class="{ 'children-open': node.expanded, 'children-closed': !node.expanded }">
+            <!-- Inline action buttons for workspace nodes -->
+            <div v-if="node.expanded && node.type === 'workspace'" class="inline-actions">
+              <div class="inline-action" @click="handleNewChatInWs(node.id)">
+                ＋ 新建会话
+              </div>
+              <div class="inline-action" @click="handleImportInWs(node.id)">
+                📄 导入需求文档
+              </div>
+            </div>
+            <!-- Inline new chat for ungrouped -->
+            <div v-if="node.expanded && node.type === 'ungrouped'" class="inline-actions">
+              <div class="inline-action" @click="handleNewChatInWs(null)">
+                ＋ 新建会话
+              </div>
+            </div>
             <div v-for="s in node.sessions"
                  :key="s.session_id"
                  class="session-leaf"
@@ -90,7 +94,7 @@ const sessionStore = useSessionStore()
 const router = useRouter()
 const loading = ref(false)
 
-defineEmits<{ importDoc: [] }>()
+const emit = defineEmits<{ importDoc: [wsId: string] }>()
 
 function formatDate(dateStr: string) {
   if (!dateStr) return ''
@@ -115,16 +119,21 @@ function switchTo(sid: string) {
   router.push(`/chat/${sid}`)
 }
 
-function handleNewChat() {
-  // 如果有展开的 workspace 且不是未分类，新会话关联到它
-  const expandedId = sessionStore.expandedWsId
-  if (expandedId && expandedId !== '__ungrouped__') {
-    sessionStore.setWorkspace(expandedId)
+function handleNewChatInWs(wsId: string | null) {
+  if (wsId) {
+    sessionStore.setWorkspace(wsId)
   } else {
     sessionStore.clearWorkspace()
   }
   const id = sessionStore.newSession(sessionStore.currentWorkspaceId || undefined)
   router.push(`/chat/${id}`)
+}
+
+function handleImportInWs(wsId: string) {
+  if (wsId) {
+    sessionStore.setWorkspace(wsId)
+  }
+  emit('importDoc', wsId)
 }
 
 function goWorkspaceList() {
@@ -189,18 +198,6 @@ onMounted(async () => {
 .ws-mgr-btn {
   font-size: 15px !important;
 }
-
-.sidebar-action {
-  display: flex; align-items: center; gap: 6px;
-  width: 100%; padding: 7px 12px;
-  border-radius: 8px;
-  border: 1px solid #e5e6eb;
-  background: #f7f8fa;
-  cursor: pointer; font-size: 13px; color: #4e5969;
-  margin-bottom: 6px;
-  transition: background 0.15s;
-}
-.sidebar-action:hover { background: #eef0f4; }
 
 .sidebar-search {
   width: 100%; padding: 7px 10px;
@@ -289,6 +286,22 @@ onMounted(async () => {
 .leaf-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .leaf-meta { font-size: 11px; color: #c0c4cc; flex-shrink: 0; white-space: nowrap; }
 .leaf-empty { padding: 8px 8px 8px 26px; font-size: 12px; color: #c0c4cc; }
+
+/* ── Inline action buttons inside workspace nodes ── */
+.inline-actions {
+  padding: 4px 0 4px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.inline-action {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px; border-radius: 6px;
+  font-size: 12px; color: #409eff;
+  cursor: pointer; user-select: none;
+  transition: background 0.12s;
+}
+.inline-action:hover { background: #e8f3ff; }
 
 /* ── Footer ── */
 .sidebar-footer {

@@ -1,6 +1,6 @@
 <template>
   <div class="app-layout">
-    <SideBar @import-doc="showImport = true" />
+    <SideBar @import-doc="handleImport" />
     <ImportDialog v-model:visible="showImport" />
     <div class="main-area">
       <div class="main">
@@ -63,6 +63,13 @@ const showImport = ref(false)
 const referencedFiles = ref<string[]>([])
 
 provide('referencedFiles', referencedFiles)
+
+function handleImport(wsId: string) {
+  if (wsId) {
+    sessionStore.setWorkspace(wsId)
+  }
+  showImport.value = true
+}
 
 function handleFileReference(fp: string) {
   if (!referencedFiles.value.includes(fp))
