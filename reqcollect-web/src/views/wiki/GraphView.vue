@@ -65,7 +65,7 @@ function renderGraph() {
       color: e.dashes ? { color: '#c0c4cc' } : { color: '#c0c4cc', highlight: '#409eff' },
       width: e.width || 1.5,
       dashes: e.dashes || false,
-      arrows: e.dashes ? false : { to: { enabled: true, scaleFactor: 0.6 } },
+      arrows: e.dashes ? { to: { enabled: false } } : { to: { enabled: true, scaleFactor: 0.6 } },
       smooth: { type: 'continuous' },
     })))
 
