@@ -704,16 +704,18 @@ class MySQLDataStore(DataStore):
                     if key in profile:
                         setattr(existing, key, profile[key])
                 existing.updated_at = datetime.now(timezone.utc)
-                # Also update session project_name
+                # Sync profile fields to session row
+                session_updates = {"updated_at": datetime.now(timezone.utc)}
                 if profile.get("project_name"):
-                    await s.execute(
-                        update(Session)
-                        .where(Session.id == session_id)
-                        .values(
-                            project_name=profile["project_name"],
-                            updated_at=datetime.now(timezone.utc),
-                        )
-                    )
+                    session_updates["project_name"] = profile["project_name"]
+                score = profile.get("sufficiency_score", 0.0)
+                if score:
+                    session_updates["sufficiency_score"] = score
+                await s.execute(
+                    update(Session)
+                    .where(Session.id == session_id)
+                    .values(**session_updates)
+                )
                 await s.commit()
                 await s.refresh(existing)
                 return existing.to_dict()
@@ -724,15 +726,17 @@ class MySQLDataStore(DataStore):
                     **{k: v for k, v in profile.items() if hasattr(RequirementProfile, k) and k != "session_id"},
                 )
                 s.add(row)
+                session_updates = {"updated_at": datetime.now(timezone.utc)}
                 if profile.get("project_name"):
-                    await s.execute(
-                        update(Session)
-                        .where(Session.id == session_id)
-                        .values(
-                            project_name=profile["project_name"],
-                            updated_at=datetime.now(timezone.utc),
-                        )
-                    )
+                    session_updates["project_name"] = profile["project_name"]
+                score = profile.get("sufficiency_score", 0.0)
+                if score:
+                    session_updates["sufficiency_score"] = score
+                await s.execute(
+                    update(Session)
+                    .where(Session.id == session_id)
+                    .values(**session_updates)
+                )
                 await s.commit()
                 await s.refresh(row)
                 return row.to_dict()
