@@ -258,7 +258,6 @@ const flatTree = computed<FlatItem[]>(() => {
   function walk(nodes: any[], parentId: string, depth: number) {
     const children = nodes.filter((n: any) => (n.parent_id || '') === parentId)
     for (const n of children) {
-      if (expandedState[n.id] === undefined) expandedState[n.id] = true
       // Get files in this folder
       const folderFiles = files.value.filter((f: any) => f.folder === n.id)
       const subFolders = nodes.filter((f: any) => (f.parent_id || '') === n.id)
@@ -560,6 +559,14 @@ async function loadFoldersData() {
     const treeData = await fetchFolders(props.workspaceId, true)
     rawFolders.value = treeData
     allFolders.value = flattenFolders(treeData)
+    // Initialize expand state for all folders (default: expanded)
+    function initExpand(folders: any[]) {
+      for (const f of folders) {
+        if (expandedState[f.id] === undefined) expandedState[f.id] = true
+        if (f.children) initExpand(f.children)
+      }
+    }
+    initExpand(treeData)
   } catch {
     rawFolders.value = []
     allFolders.value = []
