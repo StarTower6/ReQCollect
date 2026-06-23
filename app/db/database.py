@@ -155,6 +155,37 @@ async def init_db() -> bool:
             except Exception:
                 logger.debug("Migration: wiki_links table already exists")
 
+            # Migration: requirement_proposals table
+            try:
+                await conn.execute(
+                    __import__("sqlalchemy").text(
+                        "CREATE TABLE IF NOT EXISTS requirement_proposals ("
+                        "id VARCHAR(64) PRIMARY KEY, "
+                        "workspace_id VARCHAR(64) NOT NULL DEFAULT '', "
+                        "source_session_id VARCHAR(64) DEFAULT '', "
+                        "submitter_id VARCHAR(64) DEFAULT '', "
+                        "title VARCHAR(500) DEFAULT '', "
+                        "background TEXT, "
+                        "pain_points JSON, "
+                        "desired_outcome TEXT, "
+                        "scope_note TEXT, "
+                        "urgency VARCHAR(10) DEFAULT 'medium', "
+                        "priority VARCHAR(10) DEFAULT 'P2', "
+                        "ai_assessment TEXT, "
+                        "status VARCHAR(20) DEFAULT 'pending_review', "
+                        "tags JSON, "
+                        "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+                        "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, "
+                        "INDEX idx_rp_workspace (workspace_id), "
+                        "INDEX idx_rp_status (status), "
+                        "INDEX idx_rp_submitter (submitter_id)"
+                        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+                    )
+                )
+                logger.info("Applied migration: requirement_proposals table")
+            except Exception:
+                logger.debug("Migration: requirement_proposals table already exists")
+
         _async_session_factory = async_sessionmaker(
             _engine, class_=AsyncSession, expire_on_commit=False
         )

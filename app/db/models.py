@@ -380,3 +380,63 @@ class AuditLog(Base):
         Index("idx_action", "action"),
         Index("idx_created", "created_at"),
     )
+
+# ── Requirement Proposal ──
+
+
+class RequirementProposal(Base):
+    """Submitted requirement proposal for review/prioritization.
+
+    Business users submit proposals from workspace sessions. PM/admin can review,
+    assess, and update status/priority/urgency.
+    """
+
+    __tablename__ = "requirement_proposals"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=_new_id)
+    workspace_id: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    source_session_id: Mapped[str] = mapped_column(String(64), default="")
+    submitter_id: Mapped[str] = mapped_column(String(64), default="")
+
+    title: Mapped[str] = mapped_column(String(500), default="")
+    background: Mapped[str | None] = mapped_column(Text, default="")
+    pain_points: Mapped[list | None] = mapped_column(JSON, default=list)
+    desired_outcome: Mapped[str | None] = mapped_column(Text, default="")
+    scope_note: Mapped[str | None] = mapped_column(Text, default="")
+
+    urgency: Mapped[str] = mapped_column(String(10), default="medium")
+    priority: Mapped[str] = mapped_column(String(10), default="P2")
+    ai_assessment: Mapped[str | None] = mapped_column(Text, default="")
+
+    status: Mapped[str] = mapped_column(String(20), default="pending_review")
+    tags: Mapped[list | None] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow
+    )
+
+    __table_args__ = (
+        Index("idx_rp_workspace", "workspace_id"),
+        Index("idx_rp_status", "status"),
+        Index("idx_rp_submitter", "submitter_id"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "workspace_id": self.workspace_id,
+            "source_session_id": self.source_session_id,
+            "submitter_id": self.submitter_id,
+            "title": self.title or "",
+            "background": self.background or "",
+            "pain_points": self.pain_points if isinstance(self.pain_points, list) else [],
+            "desired_outcome": self.desired_outcome or "",
+            "scope_note": self.scope_note or "",
+            "urgency": self.urgency or "medium",
+            "priority": self.priority or "P2",
+            "ai_assessment": self.ai_assessment or "",
+            "status": self.status or "pending_review",
+            "tags": self.tags if isinstance(self.tags, list) else [],
+            "created_at": self.created_at.isoformat() if self.created_at else "",
+            "updated_at": self.updated_at.isoformat() if self.updated_at else "",
+        }

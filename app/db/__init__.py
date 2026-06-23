@@ -372,6 +372,56 @@ class DataStore(ABC):
     async def health(self) -> dict:
         """Return backend health status."""
 
+    # ── Requirement Proposals ──
+
+    @abstractmethod
+    async def create_proposal(
+        self,
+        workspace_id: str,
+        *,
+        title: str = "",
+        source_session_id: str = "",
+        submitter_id: str = "",
+        background: str = "",
+        pain_points: list | None = None,
+        desired_outcome: str = "",
+        scope_note: str = "",
+        urgency: str = "medium",
+        priority: str = "P2",
+        tags: list | None = None,
+        status: str = "pending_review",
+    ) -> dict:
+        """Create a requirement proposal and return dict."""
+
+    @abstractmethod
+    async def get_proposal(self, proposal_id: str) -> dict | None:
+        """Get a proposal by ID. Returns None if not found."""
+
+    @abstractmethod
+    async def list_proposals(
+        self,
+        workspace_id: str,
+        *,
+        status: str | None = None,
+        urgency: str | None = None,
+        priority: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict]:
+        """List proposals with optional filters, ordered by created_at desc."""
+
+    @abstractmethod
+    async def update_proposal(self, proposal_id: str, **kwargs) -> dict | None:
+        """Update proposal fields. Returns updated proposal or None."""
+
+    @abstractmethod
+    async def delete_proposal(self, proposal_id: str) -> bool:
+        """Delete a proposal. Returns True if deleted."""
+
+    @abstractmethod
+    async def count_proposals(self, workspace_id: str) -> dict:
+        """Return counts grouped by status: {pending_review: N, approved: N, ...}."""
+
 
 def create_datastore(use_mysql: bool) -> DataStore:
     """Factory: returns MySQLDataStore or FileDataStore."""

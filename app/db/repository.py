@@ -17,6 +17,7 @@ from app.db.models import (
     ChatMessage,
     GeneratedPRD,
     RequirementProfile,
+    RequirementProposal,
     Session,
     User,
     WikiLink,
@@ -974,3 +975,126 @@ class MySQLDataStore(DataStore):
 
     async def health(self) -> dict:
         return {"backend": "mysql", "status": "ok"}
+    # ── Requirement Proposals ──
+
+    async def create_proposal(
+        self,
+        workspace_id: str,
+        *,
+        title: str = "",
+        source_session_id: str = "",
+        submitter_id: str = "",
+        background: str = "",
+        pain_points: list | None = None,
+        desired_outcome: str = "",
+        scope_note: str = "",
+        urgency: str = "medium",
+        priority: str = "P2",
+        tags: list | None = None,
+        status: str = "pending_review",
+    ) -> dict:
+        async with await self._get_session() as s:
+            p = RequirementProposal(
+                workspace_id=workspace_id,
+                source_session_id=source_session_id,
+                submitter_id=submitter_id,
+                title=title,
+                background=background,
+                pain_points=pain_points or [],
+                desired_outcome=desired_outcome,
+                scope_note=scope_note,
+                urgency=urgency,
+                priority=priority,
+                status=status,
+                tags=tags or [],
+            )
+            s.add(p)
+            await s.commit()
+            await s.refresh(p)
+            return p.to_dict()
+
+    async def get_proposal(self, proposal_id: str) -> dict | None:
+        async with await self._get_session() as s:
+            stmt = select(RequirementProposal).where(
+                RequirementProposal.id == proposal_id
+            )
+            result = await s.execute(stmt)
+            row = result.scalar_one_or_none()
+            return row.to_dict() if row else None
+
+    async def list_proposals(
+        self,
+        workspace_id: str,
+        *,
+        status: str | None = None,
+        urgency: str | None = None,
+        priority: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict]:
+        async with await self._get_session() as s:
+            stmt = select(RequirementProposal).where(
+                RequirementProposal.workspace_id == workspace_id
+            )
+            if status:
+                stmt = stmt.where(RequirementProposal.status == status)
+            if urgency:
+                stmt = stmt.where(RequirementProposal.urgency == urgency)
+            if priority:
+                stmt = stmt.where(RequirementProposal.priority == priority)
+            stmt = stmt.order_by(RequirementProposal.created_at.desc())
+            stmt = stmt.offset(offset).limit(limit)
+            result = await s.execute(stmt)
+            rows = result.scalars().all()
+            return [r.to_dict() for r in rows]
+
+    async def update_proposal(
+        self, proposal_id: str, **kwargs
+    ) -> dict | None:
+        async with await self._get_session() as s:
+            stmt = select(RequirementProposal).where(
+                RequirementProposal.id == proposal_id
+            )
+            result = await s.execute(stmt)
+            row = result.scalar_one_or_none()
+            if not row:
+                return None
+            for key, value in kwargs.items():
+                if hasattr(row, key):
+                    setattr(row, key, value)
+            row.updated_at = datetime.now(timezone.utc)
+            await s.commit()
+            await s.refresh(row)
+            return row.to_dict()
+
+    async def delete_proposal(self, proposal_id: str) -> bool:
+        async with await self._get_session() as s:
+            stmt = select(RequirementProposal).where(
+                RequirementProposal.id == proposal_id
+            )
+            result = await s.execute(stmt)
+            row = result.scalar_one_or_none()
+            if not row:
+                return False
+            await s.delete(row)
+            await s.commit()
+            return True
+
+    async def count_proposals(self, workspace_id: str) -> dict:
+        async with await self._get_session() as s:
+            stmt = (
+                select(
+                    RequirementProposal.status,
+                    func.count(RequirementProposal.id),
+                )
+                .where(RequirementProposal.workspace_id == workspace_id)
+                .group_by(RequirementProposal.status)
+            )
+            result = await s.execute(stmt)
+            rows = result.all()
+            counts: dict[str, int] = {}
+            for row in rows:
+                key = str(row[0]) if row[0] else "unknown"
+                counts[key] = int(row[1])
+            return counts
+

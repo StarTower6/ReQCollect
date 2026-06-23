@@ -908,3 +908,108 @@ class FileDataStore(DataStore):
 
     async def health(self) -> dict:
         return {"backend": "file", "status": "ok"}
+    # ── Requirement Proposals ──
+
+    @property
+    def _proposals_file(self) -> Path:
+        return self._base / "proposals.json"
+
+    async def create_proposal(
+        self,
+        workspace_id: str,
+        *,
+        title: str = "",
+        source_session_id: str = "",
+        submitter_id: str = "",
+        background: str = "",
+        pain_points: list | None = None,
+        desired_outcome: str = "",
+        scope_note: str = "",
+        urgency: str = "medium",
+        priority: str = "P2",
+        tags: list | None = None,
+        status: str = "pending_review",
+    ) -> dict:
+        proposals = self._load_json(self._proposals_file) or []
+        import uuid
+        now = _now()
+        p = {
+            "id": uuid.uuid4().hex[:16],
+            "workspace_id": workspace_id,
+            "source_session_id": source_session_id,
+            "submitter_id": submitter_id,
+            "title": title,
+            "background": background,
+            "pain_points": pain_points or [],
+            "desired_outcome": desired_outcome,
+            "scope_note": scope_note,
+            "urgency": urgency,
+            "priority": priority,
+            "ai_assessment": "",
+            "status": status,
+            "tags": tags or [],
+            "created_at": now,
+            "updated_at": now,
+        }
+        proposals.append(p)
+        _FileLock.write_json(self._proposals_file, proposals)
+        return dict(p)
+
+    async def get_proposal(self, proposal_id: str) -> dict | None:
+        proposals = self._load_json(self._proposals_file) or []
+        for p in proposals:
+            if p["id"] == proposal_id:
+                return dict(p)
+        return None
+
+    async def list_proposals(
+        self,
+        workspace_id: str,
+        *,
+        status: str | None = None,
+        urgency: str | None = None,
+        priority: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict]:
+        proposals = self._load_json(self._proposals_file) or []
+        filtered = [
+            p for p in proposals
+            if p["workspace_id"] == workspace_id
+            and (status is None or p.get("status") == status)
+            and (urgency is None or p.get("urgency") == urgency)
+            and (priority is None or p.get("priority") == priority)
+        ]
+        filtered.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        return [dict(p) for p in filtered[offset : offset + limit]]
+
+    async def update_proposal(self, proposal_id: str, **kwargs) -> dict | None:
+        proposals = self._load_json(self._proposals_file) or []
+        for i, p in enumerate(proposals):
+            if p["id"] == proposal_id:
+                for key, value in kwargs.items():
+                    p[key] = value
+                p["updated_at"] = _now()
+                proposals[i] = p
+                _FileLock.write_json(self._proposals_file, proposals)
+                return dict(p)
+        return None
+
+    async def delete_proposal(self, proposal_id: str) -> bool:
+        proposals = self._load_json(self._proposals_file) or []
+        for i, p in enumerate(proposals):
+            if p["id"] == proposal_id:
+                del proposals[i]
+                _FileLock.write_json(self._proposals_file, proposals)
+                return True
+        return False
+
+    async def count_proposals(self, workspace_id: str) -> dict:
+        proposals = self._load_json(self._proposals_file) or []
+        counts: dict[str, int] = {}
+        for p in proposals:
+            if p["workspace_id"] == workspace_id:
+                key = p.get("status", "unknown")
+                counts[key] = counts.get(key, 0) + 1
+        return counts
+
