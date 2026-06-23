@@ -8,7 +8,9 @@ export async function listProposals(
   params?: { status?: string; urgency?: string; priority?: string; limit?: number; offset?: number }
 ): Promise<{ proposals: Proposal[]; total: number }> {
   const query = params ? '?' + new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([_, v]) => v != null))
+    Object.fromEntries(
+      Object.entries(params).filter(([_, v]) => v != null).map(([k, v]) => [k, String(v)])
+    )
   ).toString() : ''
   return apiGet(`/workspaces/${workspaceId}/proposals${query}`)
 }
