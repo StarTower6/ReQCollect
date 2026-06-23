@@ -65,7 +65,7 @@ function handleLogout() {
   transition: background 0.2s;
 }
 .user-trigger:hover {
-  background: var(--hover-bg, rgba(0,0,0,0.04));
+  background: var(--sidebar-hover);
 }
 .user-name {
   font-size: 13px;

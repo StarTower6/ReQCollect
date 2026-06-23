@@ -84,7 +84,7 @@ async function handleWikiCreate() {
     })
     ElMessage.success('Wiki 页面创建成功')
     showWikiDialog.value = false
-    router.push(`/workspace/${wikiForm.value.workspaceId}/wiki/${page.id}`)
+    router.push(`/workspaces/${wikiForm.value.workspaceId}/wiki/${page.id}`)
   } catch (e: any) {
     ElMessage.error(e.message || '创建失败')
   } finally {
@@ -120,13 +120,9 @@ const sections = computed(() => {
 const renderedMarkdown = computed(() => {
   if (!prdStore.prd?.markdown) return ''
   const html = marked.parse(prdStore.prd.markdown, { async: false }) as string
-  if (typeof html === 'object') {
-    nextTick(async () => {
-      const h = await marked.parse(prdStore.prd?.markdown || '')
-      const el = document.querySelector('.prd-content')
-      if (el) el.innerHTML = h
-      await afterRender()
-    })
+  // marked v12+: when async=false returns a string; sync parse is used
+  // (string is returned synchronously with async:false since marked v5)
+  if (typeof html !== 'string') {
     return '加载中...'
   }
   nextTick(() => afterRender())
@@ -188,7 +184,7 @@ function downloadMarkdown() {
 }
 
 onMounted(() => {
-  const sid = route.params.sessionId as string
+  const sid = (route.params.sessionId || route.params.id) as string
   if (sid) prdStore.load(sid)
 })
 </script>
