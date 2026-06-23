@@ -49,3 +49,13 @@ class AgentRequest(BaseModel):
         "mode": "one_shot",
         "use_knowledge": True,
     }}}
+
+
+class ExtractProposalRequest(BaseModel):
+    session_id: str = Field(..., description="Session ID")
+    workspace_id: str = Field(..., description="Workspace ID")
+
+    model_config = {"json_schema_extra": {"example": {
+        "session_id": "session-001",
+        "workspace_id": "ws-001",
+    }}}

@@ -439,3 +439,141 @@ async def ws_file_set_folder(
     fm = WorkspaceFileManager(workspace_id)
     fm.set_file_folder(path, body.folder_id)
     return {"success": True}
+
+
+# ── Requirement Proposals ──
+
+
+class ProposalCreate(BaseModel):
+    title: str = ""
+    background: str = ""
+    pain_points: list = []
+    desired_outcome: str = ""
+    scope_note: str = ""
+    urgency: str = "medium"
+    tags: list = []
+    source_session_id: str = ""
+    submitter_id: str = ""
+
+
+class ProposalUpdate(BaseModel):
+    title: str = ""
+    background: str = ""
+    pain_points: list | None = None
+    desired_outcome: str = ""
+    scope_note: str = ""
+    urgency: str = ""
+    priority: str = ""
+    status: str = ""
+    ai_assessment: str = ""
+    tags: list | None = None
+
+
+@router.post("/workspaces/{workspace_id}/proposals")
+async def ws_proposal_create(
+    workspace_id: str,
+    body: ProposalCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    """Create a requirement proposal in a workspace."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    proposal = await ds.create_proposal(
+        workspace_id=workspace_id,
+        title=body.title,
+        background=body.background,
+        pain_points=body.pain_points,
+        desired_outcome=body.desired_outcome,
+        scope_note=body.scope_note,
+        urgency=body.urgency,
+        tags=body.tags,
+        source_session_id=body.source_session_id,
+        submitter_id=body.submitter_id or current_user.get("id", ""),
+    )
+    logger.info(f"Proposal created: {proposal['id']} in workspace {workspace_id}")
+    return {"success": True, "proposal": proposal}
+
+
+@router.get("/workspaces/{workspace_id}/proposals")
+async def ws_proposal_list(
+    workspace_id: str,
+    status: str | None = Query(default=None),
+    urgency: str | None = Query(default=None),
+    priority: str | None = Query(default=None),
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
+    current_user: dict = Depends(get_current_user),
+):
+    """List proposals in a workspace with optional filters."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    proposals = await ds.list_proposals(
+        workspace_id=workspace_id,
+        status=status,
+        urgency=urgency,
+        priority=priority,
+        limit=limit,
+        offset=offset,
+    )
+    return {"success": True, "proposals": proposals, "total": len(proposals)}
+
+
+@router.get("/workspaces/{workspace_id}/proposals/{proposal_id}")
+async def ws_proposal_get(
+    workspace_id: str,
+    proposal_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get a proposal detail."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    proposal = await ds.get_proposal(proposal_id)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    return {"success": True, "proposal": proposal}
+
+
+@router.patch("/workspaces/{workspace_id}/proposals/{proposal_id}")
+async def ws_proposal_update(
+    workspace_id: str,
+    proposal_id: str,
+    body: ProposalUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """Update proposal fields."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    kwargs = body.model_dump(exclude_unset=True)
+    if not kwargs:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    proposal = await ds.update_proposal(proposal_id, **kwargs)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    logger.info(f"Proposal updated: {proposal['id']}")
+    return {"success": True, "proposal": proposal}
+
+
+@router.delete("/workspaces/{workspace_id}/proposals/{proposal_id}")
+async def ws_proposal_delete(
+    workspace_id: str,
+    proposal_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete a proposal."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    deleted = await ds.delete_proposal(proposal_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    logger.info(f"Proposal deleted: {proposal_id}")
+    return {"success": True}

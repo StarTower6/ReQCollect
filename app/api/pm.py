@@ -29,7 +29,7 @@ from loguru import logger
 from sse_starlette.sse import EventSourceResponse
 
 from app.core.auth import get_current_user
-from app.models.pm import AgentRequest, ChatRequest, ContinueRequest, GenerateRequest
+from app.models.pm import AgentRequest, ChatRequest, ContinueRequest, ExtractProposalRequest, GenerateRequest
 # Deferred lazy accessor to avoid circular import:
 # app.main → app.api.pm → (would) → app.main
 def _svc():
@@ -456,3 +456,99 @@ async def pm_version():
         "llm_model": config.llm_model,
         "llm_base_url": config.llm_base_url,
     }
+
+
+# ── Proposal Extraction ──
+
+
+@router.post("/pm/extract-proposal")
+async def pm_extract_proposal(
+    request: ExtractProposalRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Extract a requirement proposal from a session and assess priority (SSE)."""
+    logger.info(f"[extract-proposal] session={request.session_id}, ws={request.workspace_id}")
+
+    # Validate session ownership
+    await _check_session_ownership(current_user, request.session_id)
+
+    async def gen():
+        from app.agent.pm.proposal_extractor import extract_proposal_from_session
+        from app.agent.pm.proposal_priority import assess_priority
+        from app.main import get_datastore
+
+        ds = get_datastore()
+        if ds is None:
+            raise RuntimeError("DataStore not initialized")
+
+        # Step 1: Extract proposal fields from conversation
+        proposal_data = None
+        async for event in extract_proposal_from_session(request.session_id, ds):
+            if event["type"] == "proposal_field":
+                yield {
+                    "event": "message",
+                    "data": json.dumps(event, ensure_ascii=False),
+                }
+            elif event["type"] == "proposal_done":
+                proposal_data = event["data"]
+
+        if proposal_data is None:
+            yield {
+                "event": "message",
+                "data": json.dumps({
+                    "type": "proposal_done",
+                    "data": {"title": "", "background": "", "pain_points": [],
+                             "desired_outcome": "", "scope_note": "", "tags": []},
+                }, ensure_ascii=False),
+            }
+            return
+
+        # Step 2: Assess priority
+        priority, reasoning = await assess_priority(proposal_data)
+        proposal_data["priority"] = priority
+        proposal_data["ai_assessment"] = reasoning
+
+        # Step 3: Persist proposal to workspace
+        try:
+            saved = await ds.create_proposal(
+                workspace_id=request.workspace_id,
+                title=proposal_data.get("title", ""),
+                background=proposal_data.get("background", ""),
+                pain_points=proposal_data.get("pain_points", []),
+                desired_outcome=proposal_data.get("desired_outcome", ""),
+                scope_note=proposal_data.get("scope_note", ""),
+                urgency=priority_to_urgency(priority),
+                priority=priority,
+                tags=proposal_data.get("tags", []),
+                source_session_id=request.session_id,
+                submitter_id=current_user.get("id", ""),
+                status="pending_review",
+            )
+
+            # Emit final event with saved proposal
+            yield {
+                "event": "message",
+                "data": json.dumps({
+                    "type": "proposal_done",
+                    "data": saved,
+                }, ensure_ascii=False),
+            }
+
+            logger.info(f"[extract-proposal] saved proposal={saved['id']} priority={priority}")
+        except Exception as e:
+            logger.error(f"[extract-proposal] save failed: {e}")
+            yield {
+                "event": "message",
+                "data": json.dumps({
+                    "type": "proposal_done",
+                    "data": proposal_data,
+                }, ensure_ascii=False),
+            }
+
+    return EventSourceResponse(gen())
+
+
+def priority_to_urgency(priority: str) -> str:
+    """Map priority level to urgency label."""
+    mapping = {"P0": "critical", "P1": "high", "P2": "medium", "P3": "low"}
+    return mapping.get(priority, "medium")
