@@ -34,21 +34,25 @@ echo "[deploy] ✅ Push done"
 
 # ── 2. 本地部署（非 Docker，本地进程方式）──
 
-# ── 2a. 带后端：先关旧进程 ──
-echo "[deploy] Killing old backend..."
-# 杀掉所有 uvicorn 进程
+# ── 2a. 先关旧进程 ──
+echo "[deploy] Killing old processes..."
+
+# 杀旧后端：用端口方式更可靠
+PORT9900_PID=$(netstat -ano | grep ":9900 " | grep LISTENING | awk '{print $5}' | head -1 2>/dev/null)
+if [ -n "$PORT9900_PID" ] && [ "$PORT9900_PID" != "0" ]; then
+    taskkill //F //PID "$PORT9900_PID" 2>/dev/null
+    echo "[deploy] Killed port 9900 (PID $PORT9900_PID)"
+fi
+# 同时也杀 uvicorn 进程名
 for PID in $(tasklist //NH //FI "IMAGENAME eq python*" 2>/dev/null | grep -i uvicorn | awk '{print $2}' 2>/dev/null); do
     taskkill //F //PID "$PID" 2>/dev/null
 done
-# 也用端口方式杀
-curl -s http://localhost:9900/api/health >/dev/null 2>&1
-if [ $? -eq 0 ]; then
-    # 有端口占用，通过 PID 杀
-    PORT_PID=$(netstat -ano | grep ":9900" | grep LISTENING | awk '{print $5}' | head -1 2>/dev/null)
-    if [ -n "$PORT_PID" ]; then
-        taskkill //F //PID "$PORT_PID" 2>/dev/null
-        echo "[deploy] Killed PID $PORT_PID"
-    fi
+
+# 杀旧前端(端口5173方式，比按进程名可靠)
+PORT5173_PID=$(netstat -ano | grep ":5173 " | grep LISTENING | awk '{print $5}' | head -1 2>/dev/null)
+if [ -n "$PORT5173_PID" ] && [ "$PORT5173_PID" != "0" ]; then
+    taskkill //F //PID "$PORT5173_PID" 2>/dev/null
+    echo "[deploy] Killed port 5173 (PID $PORT5173_PID)"
 fi
 sleep 2
 
@@ -88,14 +92,17 @@ done
 
 # ── 2e. 启动前端 dev server ──
 echo "[deploy] Starting frontend dev server..."
-# 杀掉旧 vite
-for PID in $(tasklist //NH //FI "IMAGENAME eq node*" 2>/dev/null | grep -i vite | awk '{print $2}' 2>/dev/null); do
-    taskkill //F //PID "$PID" 2>/dev/null
-done
-sleep 1
 cd "$PROJECT_DIR/reqcollect-web" || exit 1
-nohup npx vite --port 5173 > /tmp/frontend.log 2>&1 &
-echo "[deploy] Frontend dev server started"
+nohup npx vite --port 5173 --strictPort > /tmp/frontend.log 2>&1 &
+sleep 3
+# 检查是否成功启动在 5173
+if netstat -ano 2>/dev/null | grep ":5173 " | grep LISTENING >/dev/null; then
+    echo "[deploy] ✅ Frontend ready at http://localhost:5173"
+else
+    # 如果 5173 仍被占用，看看 vite fallback 到哪个端口了
+    ACTUAL_PORT=$(grep -oP 'http://localhost:\K\d+' /tmp/frontend.log 2>/dev/null | tail -1)
+    echo "[deploy] ⚠️ Frontend started at http://localhost:${ACTUAL_PORT:-unknown}"
+fi
 
 echo ""
 echo "============================================"
