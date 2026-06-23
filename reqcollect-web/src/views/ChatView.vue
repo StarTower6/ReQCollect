@@ -121,7 +121,7 @@ async function startExtract() {
         if (msgs[field]) extractStatus.value = msgs[field]
       },
       (data) => {
-        createdProposalId = data?.proposal_id || ''
+        createdProposalId = data?.id || data?.proposal_id || ''
         extractStep.value = 5
         extractDone.value = true
         extracting.value = false

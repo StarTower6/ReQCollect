@@ -102,6 +102,7 @@ export const FIELDS_CONFIG: FieldConfig[] = [
 /* ── Proposal ── */
 export interface Proposal {
   proposal_id: string
+  id: string  // alias — backend returns "id"
   workspace_id: string
   source_session_id: string
   submitter_id: string
