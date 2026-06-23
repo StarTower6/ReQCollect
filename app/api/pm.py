@@ -503,7 +503,16 @@ async def pm_extract_proposal(
             }
             return
 
-        # Step 2: Assess priority
+        # Step 2: Assess priority (emit a status event first for UI feedback)
+        yield {
+            "event": "message",
+            "data": json.dumps({
+                "type": "proposal_field",
+                "field": "priority",
+                "display_name": "优先级评估",
+                "content": "评估中...",
+            }, ensure_ascii=False),
+        }
         priority, reasoning = await assess_priority(proposal_data)
         proposal_data["priority"] = priority
         proposal_data["ai_assessment"] = reasoning

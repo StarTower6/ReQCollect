@@ -52,6 +52,7 @@ export async function extractProposalSSE(
   const reader = resp.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let gotDone = false
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
@@ -64,9 +65,13 @@ export async function extractProposalSSE(
       try {
         const event = JSON.parse(dataLine.slice(6))
         if (event.type === 'proposal_field') onField(event.field, event.content)
-        else if (event.type === 'proposal_done') onDone(event.data)
-        else if (event.type === 'error') onError(event.data)
+        else if (event.type === 'proposal_done') { gotDone = true; onDone(event.data) }
+        else if (event.type === 'error') { gotDone = true; onError(event.data) }
       } catch { /* skip malformed frame */ }
     }
+  }
+  // Stream ended without proposal_done/error — this is abnormal
+  if (!gotDone) {
+    onError('服务器未返回完整结果，请重试')
   }
 }

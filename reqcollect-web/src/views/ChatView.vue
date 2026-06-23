@@ -130,6 +130,7 @@ async function startExtract() {
       },
       (err) => {
         extracting.value = false
+        extractDone.value = true
         extractStatus.value = ''
         ElMessage.error(err || '提炼失败，请重试')
       }
@@ -143,7 +144,7 @@ async function startExtract() {
 function goToProposal() {
   showExtract.value = false
   if (createdProposalId) {
-    router.push(`/workspace/${sessionStore.currentWorkspaceId}/proposals/${createdProposalId}`)
+    router.push(`/workspaces/${sessionStore.currentWorkspaceId}/proposals/${createdProposalId}`)
   }
 }
 
