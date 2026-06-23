@@ -167,28 +167,32 @@ defineExpose({ focus })
 
 <style scoped>
 .composer-wrap { position: relative; }
-.composer { border-top: 1px solid var(--line, #e5e6eb); padding: 12px 16px; background: var(--panel, #fff); }
+.composer { border-top: 1px solid var(--line); padding: 12px 16px; background: var(--panel); }
 .ref-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
-.composer-textarea { width: 100%; border: none; outline: none; resize: none; font-size: 14px; font-family: inherit; min-height: 22px; max-height: 180px; line-height: 1.5; color: var(--text, #1d2129); background: transparent; }
-.composer-textarea::placeholder { color: #c0c4cc; }
+.composer-textarea { width: 100%; border: none; outline: none; resize: none; font-size: 14px; font-family: inherit; min-height: 22px; max-height: 180px; line-height: 1.5; color: var(--text); background: transparent; }
+.composer-textarea::placeholder { color: var(--muted-light); }
 .composer-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
 .tool-group { display: flex; gap: 4px; }
-.tool-btn { border: 1px solid var(--line, #e5e6eb); background: #f7f8fa; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: #4e5969; transition: all .12s; }
-.tool-btn:hover { background: #eef0f4; }
-.tool-btn.active { background: #409eff; color: #fff; border-color: #409eff; }
+.tool-btn { border: 1px solid var(--line); background: var(--sidebar); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--muted); transition: all .12s; }
+.tool-btn:hover { background: var(--sidebar-hover); }
+.tool-btn.active { background: var(--brand); color: var(--panel); border-color: var(--brand); }
 .action-group { display: flex; gap: 6px; align-items: center; }
 .upload-btn { font-size: 16px; padding: 2px 6px; }
-.send-btn { width: 32px; height: 32px; border-radius: 8px; border: none; background: #409eff; color: #fff; font-size: 16px; cursor: pointer; transition: background .12s; }
-.send-btn:hover { background: #337ecc; }
-.send-btn:disabled { background: #c0c4cc; cursor: not-allowed; }
+.send-btn { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--brand); color: var(--panel); font-size: 16px; cursor: pointer; transition: background .12s; }
+.send-btn:hover { background: var(--brand-dark); }
+.send-btn:disabled { background: var(--muted-light); cursor: not-allowed; }
+.send-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
 /* @ file picker dropdown */
-.fp-dropdown { position: absolute; bottom: 100%; left: 16px; right: 16px; background: #fff; border: 1px solid #e5e6eb; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.1); z-index: 100; max-height: 300px; display: flex; flex-direction: column; }
-.fp-search { padding: 8px; border-bottom: 1px solid #f0f0f5; }
-.fp-search input { width: 100%; border: 1px solid #e5e6eb; border-radius: 6px; padding: 6px 8px; font-size: 13px; outline: none; }
+.fp-dropdown { position: absolute; bottom: 100%; left: 16px; right: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.1); z-index: 100; max-height: 300px; display: flex; flex-direction: column; }
+.fp-search { padding: 8px; border-bottom: 1px solid var(--line); }
+.fp-search input { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 13px; outline: none; }
 .fp-list { overflow-y: auto; flex: 1; }
 .fp-item { display: flex; align-items: center; gap: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
-.fp-item:hover { background: #f0f3f8; }
+.fp-item:hover { background: var(--sidebar-hover); }
 .fp-fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fp-ftype { font-size: 11px; color: #c0c4cc; }
-.fp-empty { padding: 20px; text-align: center; color: #c0c4cc; font-size: 13px; }
+.fp-ftype { font-size: 11px; color: var(--muted-light); }
+.fp-empty { padding: 20px; text-align: center; color: var(--muted-light); font-size: 13px; }
 </style>

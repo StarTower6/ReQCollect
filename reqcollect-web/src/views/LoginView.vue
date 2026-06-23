@@ -4,7 +4,7 @@
       <div class="login-header">
         <div class="logo">
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-            <rect width="48" height="48" rx="12" fill="#409eff"/>
+            <rect width="48" height="48" rx="12" fill="var(--brand)"/>
             <text x="24" y="32" text-anchor="middle" fill="white" font-size="24" font-weight="bold">R</text>
           </svg>
         </div>
@@ -113,13 +113,13 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f0f5ff 0%, #e8f0fe 100%);
+  background: linear-gradient(135deg, var(--brand-soft) 0%, var(--bg) 100%);
 }
 
 .login-card {
   width: 420px;
   padding: 40px;
-  background: #fff;
+  background: var(--panel);
   border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
 }
@@ -136,13 +136,13 @@ async function handleLogin() {
 .login-title {
   font-size: 24px;
   font-weight: 600;
-  color: #1d2129;
+  color: var(--text);
   margin: 0 0 8px;
 }
 
 .login-subtitle {
   font-size: 14px;
-  color: #86909c;
+  color: var(--muted);
   margin: 0;
 }
 
@@ -162,7 +162,7 @@ async function handleLogin() {
 
 .login-footer {
   text-align: center;
-  color: #86909c;
+  color: var(--muted);
   font-size: 13px;
 }
 </style>

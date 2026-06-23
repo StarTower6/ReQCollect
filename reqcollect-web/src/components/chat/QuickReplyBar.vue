@@ -59,3 +59,12 @@ function clearAll() {
   selectedSet.value = new Set()
 }
 </script>
+
+<style scoped>
+.quick-reply-btn:focus-visible,
+.quick-reply-submit:focus-visible,
+.quick-reply-clear:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+</style>

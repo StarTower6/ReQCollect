@@ -43,6 +43,7 @@ import type { DashboardOverview, TrendPoint } from '@/types'
 const overview = ref<DashboardOverview | null>(null)
 const trendChartRef = ref<HTMLElement | null>(null)
 const statusChartRef = ref<HTMLElement | null>(null)
+const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
 function renderTrendChart(data: TrendPoint[]) {
   if (!trendChartRef.value) return
@@ -56,7 +57,7 @@ function renderTrendChart(data: TrendPoint[]) {
       yAxis: { type: 'value', minInterval: 1 },
       grid: { left: 50, right: 20, top: 40, bottom: 40 },
       series: [
-        { name: '会话数', type: 'bar', data: data.map(d => d.sessions), itemStyle: { color: '#3f7df6' } },
+        { name: '会话数', type: 'bar', data: data.map(d => d.sessions), itemStyle: { color: cssVar('--brand') } },
         { name: 'PRD 数', type: 'line', data: data.map(d => d.prds), smooth: true, itemStyle: { color: '#36b37e' } },
       ],
     })

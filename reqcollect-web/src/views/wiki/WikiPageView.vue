@@ -241,31 +241,31 @@ onMounted(async () => {
 .wiki-title {
   font-size: 28px;
   font-weight: 700;
-  color: #1d2129;
+  color: var(--text);
   margin: 0 0 8px;
 }
 
 .wiki-meta {
   font-size: 13px;
-  color: #86909c;
+  color: var(--muted);
   line-height: 1.6;
 }
 
 .wiki-body {
   line-height: 1.8;
   font-size: 15px;
-  color: #1d2129;
+  color: var(--text);
 }
 
 .wiki-body :deep(.wiki-link) {
-  color: #409eff;
+  color: var(--brand);
   text-decoration: underline;
   cursor: pointer;
 }
 
 .wiki-body :deep(.wiki-link-missing) {
-  color: #c0c4cc;
-  border-bottom: 1px dashed #d9d9d9;
+  color: var(--muted-light);
+  border-bottom: 1px dashed var(--line);
   cursor: default;
 }
 
@@ -280,17 +280,17 @@ onMounted(async () => {
 }
 .wiki-body :deep(table th) {
   font-weight: 600;
-  background: #f5f7fa;
-  border: 1px solid #e4e7ed;
+  background: var(--sidebar);
+  border: 1px solid var(--line);
   padding: 8px 12px;
   text-align: left;
 }
 .wiki-body :deep(table td) {
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--line);
   padding: 8px 12px;
 }
 .wiki-body :deep(table tr:nth-child(2n)) {
-  background: #fafafa;
+  background: var(--sidebar);
 }
 
 /* Backlinks */
@@ -301,7 +301,7 @@ onMounted(async () => {
 .backlinks-title {
   font-size: 15px;
   font-weight: 600;
-  color: #4e5969;
+  color: var(--muted);
   margin: 0 0 12px;
 }
 
@@ -323,7 +323,7 @@ onMounted(async () => {
 }
 
 .backlink-item:hover {
-  background: #f0f3f8;
+  background: var(--sidebar-hover);
 }
 
 .backlink-icon {
@@ -331,7 +331,7 @@ onMounted(async () => {
 }
 
 .backlink-title {
-  color: #409eff;
+  color: var(--brand);
   font-weight: 500;
 }
 </style>

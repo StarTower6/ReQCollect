@@ -69,6 +69,13 @@ function handleLogout() {
 }
 .user-name {
   font-size: 13px;
-  color: var(--text, #1d2129);
+  color: var(--text);
+}
+.tool-btn:focus-visible,
+.user-trigger:focus-visible,
+.status-chip.clickable:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }
 </style>

@@ -101,7 +101,7 @@
 
     <div class="ftp-footer">
       <span v-if="linkedStatus?.linked" class="ftp-ftime">🔄 {{ syncTime }}</span>
-      <span v-else class="ftp-ftime" style="color:#c0c4cc">未关联目录</span>
+      <span v-else class="ftp-ftime" style="color:var(--muted-light)">未关联目录</span>
     </div>
 
     <el-dialog v-model="previewVisible" :title="previewTitle" width="700px" top="5vh" destroy-on-close>
@@ -124,7 +124,7 @@
     </el-dialog>
 
     <el-dialog v-model="showUploadPicker" title="上传到文件夹" width="360px" append-to-body>
-      <p style="font-size:12px;color:#909399;margin-bottom:8px">选择上传文件的存放位置（可选）</p>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">选择上传文件的存放位置（可选）</p>
       <el-select v-model="uploadFolderId" placeholder="根目录（不放入文件夹）" clearable style="width:100%">
         <el-option v-for="f in allFolders" :key="f.id" :label="f.name" :value="f.id" />
       </el-select>
@@ -147,7 +147,7 @@
 
     <el-dialog v-model="showDeleteFileConfirm" title="删除文件" width="360px" append-to-body>
       <p>确定删除文件「{{ deletingFilePath }}」？</p>
-      <p style="font-size:12px;color:#909399">此操作不可恢复。</p>
+      <p style="font-size:12px;color:var(--muted)">此操作不可恢复。</p>
       <template #footer>
         <el-button @click="showDeleteFileConfirm = false">取消</el-button>
         <el-button type="danger" @click="doDeleteFile">删除</el-button>
@@ -156,7 +156,7 @@
 
     <el-dialog v-model="showDeleteConfirm" title="删除文件夹" width="360px" append-to-body>
       <p>确定删除文件夹「{{ deletingFolder?.name }}」？</p>
-      <p style="font-size:12px;color:#909399">文件夹内的文件将移出文件夹（不会删除文件本身）。</p>
+      <p style="font-size:12px;color:var(--muted)">文件夹内的文件将移出文件夹（不会删除文件本身）。</p>
       <template #footer>
         <el-button @click="showDeleteConfirm = false">取消</el-button>
         <el-button type="danger" @click="doDelete">删除</el-button>
@@ -594,47 +594,57 @@ watch(() => props.workspaceId, () => {
 </script>
 
 <style scoped>
-.file-tree-panel { width: 260px; min-width: 260px; border-left: 1px solid var(--line, #e5e6eb); background: var(--panel, #fff); display: flex; flex-direction: column; height: 100vh; font-size: 13px; overflow: hidden; }
-.ftp-header { padding: 10px 12px; border-bottom: 1px solid var(--line, #f0f0f5); display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.file-tree-panel { width: 260px; min-width: 260px; border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; height: 100vh; font-size: 13px; overflow: hidden; }
+.ftp-header { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .ftp-icon { font-size: 16px; }
 .ftp-title { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .ftp-body { flex: 1; overflow-y: auto; padding: 4px 0; }
-.ftp-hint { text-align: center; padding: 40px 16px; color: #c0c4cc; font-size: 13px; }
-.ftp-dir { padding: 4px 8px; display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; color: #666; }
-.ftp-dir:hover { background: #f7f8fa; }
+.ftp-hint { text-align: center; padding: 40px 16px; color: var(--muted-light); font-size: 13px; }
+.ftp-dir { padding: 4px 8px; display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; color: var(--muted); }
+.ftp-dir:hover { background: var(--sidebar); }
 .ftp-arrow { font-size: 10px; transition: transform .15s; width: 10px; }
 .ftp-arrow.open { transform: rotate(90deg); }
 .ftp-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ftp-badge { font-size: 10px; color: #c0c4cc; }
+.ftp-badge { font-size: 10px; color: var(--muted-light); }
 .ftp-file { padding: 3px 8px 3px 24px; display: flex; align-items: center; gap: 4px; border-radius: 4px; cursor: pointer; }
-.ftp-file:hover { background: #f0f3f8; }
-.ftp-file.ftp-referenced { background: #ecf5ff; }
-.ftp-file.ftp-selected { background: #e8f3ff; }
+.ftp-file:hover { background: var(--sidebar-hover); }
+.ftp-file.ftp-referenced { background: var(--brand-soft); }
+.ftp-file.ftp-selected { background: var(--brand-soft); }
 .ftp-root-file { padding-left: 8px; }
 .ftp-ficon { font-size: 14px; flex-shrink: 0; }
 .ftp-fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.ftp-fsize { font-size: 10px; color: #c0c4cc; flex-shrink: 0; }
+.ftp-fsize { font-size: 10px; color: var(--muted-light); flex-shrink: 0; }
 .ftp-ai { font-size: 10px; color: #67c23a; background: #f0f9eb; padding: 0 4px; border-radius: 3px; flex-shrink: 0; }
 .ftp-tags { display: inline-flex; gap: 2px; flex-shrink: 0; }
-.ftp-tag { font-size: 10px; color: #909399; background: #f4f4f5; padding: 0 4px; border-radius: 3px; line-height: 16px; white-space: nowrap; }
-.ftp-ref { font-size: 12px; border: none; background: none; cursor: pointer; color: #409eff; padding: 0 2px; flex-shrink: 0; }
+.ftp-tag { font-size: 10px; color: var(--muted); background: var(--sidebar-hover); padding: 0 4px; border-radius: 3px; line-height: 16px; white-space: nowrap; }
+.ftp-ref { font-size: 12px; border: none; background: none; cursor: pointer; color: var(--brand); padding: 0 2px; flex-shrink: 0; }
 .ftp-folder-actions { display: inline-flex; gap: 2px; flex-shrink: 0; margin-left: 4px; }
 .ftp-file-actions { display: inline-flex; gap: 2px; flex-shrink: 0; }
 .ftp-fa-btn { font-size: 10px; border: none; background: none; cursor: pointer; padding: 0 2px; line-height: 1; opacity: 0.6; }
 .ftp-fa-btn:hover { opacity: 1; }
-.ftp-rename-input { flex: 1; font-size: 12px; padding: 1px 4px; border: 1px solid #409eff; border-radius: 3px; outline: none; min-width: 0; }
-.ftp-references { border-top: 1px solid var(--line, #f0f0f5); padding: 6px 12px; flex-shrink: 0; max-height: 120px; overflow-y: auto; }
-.ftp-reftitle { font-size: 11px; color: #c0c4cc; margin-bottom: 4px; }
-.ftp-reffile { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 12px; color: #409eff; background: #ecf5ff; border-radius: 4px; margin-bottom: 2px; }
+.ftp-rename-input { flex: 1; font-size: 12px; padding: 1px 4px; border: 1px solid var(--brand); border-radius: 3px; outline: none; min-width: 0; }
+.ftp-references { border-top: 1px solid var(--line); padding: 6px 12px; flex-shrink: 0; max-height: 120px; overflow-y: auto; }
+.ftp-reftitle { font-size: 11px; color: var(--muted-light); margin-bottom: 4px; }
+.ftp-reffile { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 12px; color: var(--brand); background: var(--brand-soft); border-radius: 4px; margin-bottom: 2px; }
 .ftp-rfname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ftp-rfdel { border: none; background: none; cursor: pointer; font-size: 11px; color: #c0c4cc; padding: 0; }
-.ftp-footer { border-top: 1px solid var(--line, #f0f0f5); padding: 6px 12px; font-size: 11px; flex-shrink: 0; }
-.ftp-ftime { color: #c0c4cc; }
-.ftp-rel-section { border-top: 1px solid var(--line, #f0f0f5); padding: 6px 12px; flex-shrink: 0; max-height: 120px; overflow-y: auto; }
-.ftp-rel-title { font-size: 11px; color: #c0c4cc; margin-bottom: 4px; }
-.ftp-rel-item { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 12px; color: #606266; border-radius: 4px; margin-bottom: 2px; cursor: pointer; }
-.ftp-rel-item:hover { background: #f0f3f8; }
-.ftp-rel-sim { font-size: 10px; color: #c0c4cc; flex-shrink: 0; }
+.ftp-rfdel { border: none; background: none; cursor: pointer; font-size: 11px; color: var(--muted-light); padding: 0; }
+.ftp-footer { border-top: 1px solid var(--line); padding: 6px 12px; font-size: 11px; flex-shrink: 0; }
+.ftp-ftime { color: var(--muted-light); }
+.ftp-rel-section { border-top: 1px solid var(--line); padding: 6px 12px; flex-shrink: 0; max-height: 120px; overflow-y: auto; }
+.ftp-rel-title { font-size: 11px; color: var(--muted-light); margin-bottom: 4px; }
+.ftp-rel-item { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 12px; color: var(--muted); border-radius: 4px; margin-bottom: 2px; cursor: pointer; }
+.ftp-rel-item:hover { background: var(--sidebar-hover); }
+.ftp-rel-sim { font-size: 10px; color: var(--muted-light); flex-shrink: 0; }
 .ftp-preview-md { padding: 16px; max-height: 65vh; overflow-y: auto; }
 .ftp-preview-text { padding: 16px; max-height: 65vh; overflow-y: auto; white-space: pre-wrap; font-size: 13px; }
+
+/* ── Focus visible ── */
+.ftp-dir:focus-visible,
+.ftp-file:focus-visible,
+.ftp-rename-input:focus-visible,
+.ftp-ref:focus-visible,
+.ftp-fa-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
 </style>

@@ -542,3 +542,56 @@ button { border: 0; cursor: pointer; }
 
 /* ── Element Plus overrides ── */
 .el-drawer { --el-drawer-padding-primary: 16px; }
+
+/* ── Element Plus 主题桥接 ── */
+:root {
+  --el-color-primary: var(--brand);
+  --el-color-primary-dark-2: var(--brand-dark);
+  --el-color-primary-light-3: var(--brand-soft);
+  --el-color-primary-light-5: #d4e2ff;
+  --el-color-primary-light-7: #e8f0ff;
+  --el-color-primary-light-8: var(--brand-soft);
+  --el-color-primary-light-9: #f5f8ff;
+  --el-text-color-primary: var(--text);
+  --el-text-color-regular: var(--muted);
+  --el-text-color-placeholder: var(--muted-light);
+  --el-border-color: var(--line);
+  --el-border-color-light: var(--line);
+  --el-border-color-lighter: var(--line);
+  --el-bg-color: var(--panel);
+  --el-bg-color-overlay: var(--panel);
+  --el-fill-color-light: var(--sidebar);
+  --el-fill-color-lighter: var(--bg);
+  --el-border-radius-base: var(--radius);
+}
+/* ── Focus visible ── */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+button:focus-visible:not(:active) {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+/* ── 动效系统 ── */
+/* 消息入场动画 */
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.msg-row {
+  animation: msgIn 0.35s ease-out both;
+}
+.msg-row:nth-child(1) { animation-delay: 0s; }
+
+/* 按钮微反馈 */
+.send-btn:active, .tool-btn:active, .quick-reply-btn:active {
+  transform: scale(0.96);
+}
+
+/* 面板切换过渡 */
+.main-area, .chat-scroll, .profile-panel-desktop {
+  transition: opacity 0.2s ease;
+}

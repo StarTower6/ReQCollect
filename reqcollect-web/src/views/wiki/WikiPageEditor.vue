@@ -181,7 +181,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 24px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 
@@ -193,7 +193,7 @@ onMounted(async () => {
 
 .editor-mode {
   font-size: 13px;
-  color: #86909c;
+  color: var(--muted);
 }
 
 .editor-body {
@@ -212,7 +212,7 @@ onMounted(async () => {
 
 .editor-divider {
   width: 1px;
-  background: #ebeef5;
+  background: var(--line);
   flex-shrink: 0;
 }
 
@@ -222,7 +222,7 @@ onMounted(async () => {
   flex-direction: column;
   padding: 16px 20px;
   overflow-y: auto;
-  background: #fafafa;
+  background: var(--sidebar);
 }
 
 .title-input {
@@ -237,7 +237,7 @@ onMounted(async () => {
 .editor-textarea {
   flex: 1;
   width: 100%;
-  border: 1px solid #dcdfe6;
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px;
   font-size: 14px;
@@ -250,13 +250,13 @@ onMounted(async () => {
 }
 
 .editor-textarea:focus {
-  border-color: #409eff;
+  border-color: var(--brand);
 }
 
 .preview-header {
   font-size: 13px;
   font-weight: 500;
-  color: #86909c;
+  color: var(--muted);
   margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -280,25 +280,25 @@ onMounted(async () => {
 .preview-body :deep(table th),
 .ai-suggestion-body :deep(table th) {
   font-weight: 600;
-  background: #f5f7fa;
-  border: 1px solid #e4e7ed;
+  background: var(--sidebar);
+  border: 1px solid var(--line);
   padding: 8px 12px;
   text-align: left;
 }
 .preview-body :deep(table td),
 .ai-suggestion-body :deep(table td) {
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--line);
   padding: 8px 12px;
 }
 .preview-body :deep(table tr:nth-child(2n)),
 .ai-suggestion-body :deep(table tr:nth-child(2n)) {
-  background: #fafafa;
+  background: var(--sidebar);
 }
 
 /* AI suggestion panel */
 .ai-suggestion-panel {
-  border: 1px solid #b3d8ff;
-  background: #f0f7ff;
+  border: 1px solid var(--brand-soft);
+  background: var(--brand-soft);
   border-radius: 8px;
   margin: 8px 24px;
   padding: 12px 16px;
@@ -325,7 +325,7 @@ onMounted(async () => {
   max-height: 300px;
   overflow-y: auto;
   padding: 8px 12px;
-  background: #fff;
+  background: var(--panel);
   border-radius: 6px;
 }
 

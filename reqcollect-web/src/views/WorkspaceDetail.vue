@@ -224,8 +224,8 @@ onMounted(load)
 .detail-header-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .detail-header-left h2 { margin: 0; font-size: 20px; font-weight: 600; }
 .detail-header-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.ws-description { color: #86909c; font-size: 14px; margin: 0 0 20px; }
+.ws-description { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
 .ws-tabs { margin-top: 8px; }
 .section-actions { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.section-count { font-size: 13px; color: #86909c; }
+.section-count { font-size: 13px; color: var(--muted); }
 </style>

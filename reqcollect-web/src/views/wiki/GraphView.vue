@@ -18,6 +18,7 @@ const loading = ref(true)
 const graphContainer = ref<HTMLElement | null>(null)
 const graphData = ref<{ nodes: any[]; edges: any[] }>({ nodes: [], edges: [] })
 let network: any = null
+const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
 const hasData = computed(() => graphData.value.nodes.length > 0)
 
@@ -30,7 +31,7 @@ async function loadGraph() {
 }
 
 function nodeColor(type: string): string {
-  return type === 'file' ? '#67c23a' : '#409eff'
+  return type === 'file' ? '#67c23a' : cssVar('--brand')
 }
 
 function renderGraph() {
@@ -62,7 +63,7 @@ function renderGraph() {
       from: e.from,
       to: e.to,
       title: e.title || '引用',
-      color: e.dashes ? { color: '#c0c4cc' } : { color: '#c0c4cc', highlight: '#409eff' },
+      color: e.dashes ? { color: cssVar('--muted-light') } : { color: cssVar('--muted-light'), highlight: cssVar('--brand') },
       width: e.width || 1.5,
       dashes: e.dashes || false,
       arrows: e.dashes ? { to: { enabled: false } } : { to: { enabled: true, scaleFactor: 0.6 } },
@@ -139,8 +140,8 @@ onUnmounted(() => {
 .graph-container {
   width: 100%;
   height: 500px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fafbfc;
+  background: var(--sidebar);
 }
 </style>

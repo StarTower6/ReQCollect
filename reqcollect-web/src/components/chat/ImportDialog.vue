@@ -203,18 +203,18 @@ async function handleImport() {
 
 <style scoped>
 .upload-zone {
-  border: 2px dashed #dcdfe6;
+  border: 2px dashed var(--line-strong);
   border-radius: 8px;
   padding: 32px 16px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s;
-  background: #fafafa;
+  background: var(--bg);
 }
 .upload-zone:hover,
 .upload-zone.drag-over {
-  border-color: #409eff;
-  background: #ecf5ff;
+  border-color: var(--brand);
+  background: var(--brand-soft);
 }
 .upload-icon {
   font-size: 40px;
@@ -223,11 +223,11 @@ async function handleImport() {
 }
 .upload-placeholder p {
   margin: 4px 0;
-  color: #606266;
+  color: var(--muted);
 }
 .upload-hint {
   font-size: 12px;
-  color: #909399;
+  color: var(--muted);
 }
 .upload-preview {
   display: flex;
@@ -245,11 +245,11 @@ async function handleImport() {
 }
 .file-name {
   font-weight: 500;
-  color: #303133;
+  color: var(--text);
 }
 .file-size {
   font-size: 12px;
-  color: #909399;
+  color: var(--muted);
 }
 .import-progress {
   margin-top: 20px;
@@ -257,7 +257,7 @@ async function handleImport() {
 .progress-text {
   text-align: center;
   font-size: 13px;
-  color: #606266;
+  color: var(--muted);
   margin-top: 8px;
 }
 </style>

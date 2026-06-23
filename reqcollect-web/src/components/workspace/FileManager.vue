@@ -228,16 +228,16 @@ function fmtDate(d: string) {
 .file-manager { padding: 0; }
 .fm-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
 .fm-toolbar-left { display: flex; align-items: center; gap: 8px; }
-.fm-count { font-size: 13px; color: #86909c; }
+.fm-count { font-size: 13px; color: var(--muted); }
 .fm-file-cell { display: flex; align-items: center; gap: 6px; }
 .fm-file-icon { font-size: 18px; }
 .fm-file-name { font-size: 14px; }
-.fm-summary { font-size: 12px; color: #86909c; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
-.fm-empty { text-align: center; padding: 60px 20px; color: #86909c; }
+.fm-summary { font-size: 12px; color: var(--muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+.fm-empty { text-align: center; padding: 60px 20px; color: var(--muted); }
 .fm-empty-icon { font-size: 48px; margin-bottom: 12px; }
-.fm-empty-hint { font-size: 12px; color: #c9cdd4; }
-.fm-preview-meta { margin-bottom: 12px; font-size: 12px; color: #86909c; display: flex; gap: 16px; }
-.fm-truncated-warn { color: #fa8c16; }
-.fm-preview-md { padding: 16px; background: #f7f8fa; border-radius: 4px; max-height: 70vh; overflow-y: auto; }
-.fm-preview-text { padding: 16px; background: #f7f8fa; border-radius: 4px; max-height: 70vh; overflow-y: auto; white-space: pre-wrap; font-size: 13px; }
+.fm-empty-hint { font-size: 12px; color: var(--muted-light); }
+.fm-preview-meta { margin-bottom: 12px; font-size: 12px; color: var(--muted); display: flex; gap: 16px; }
+.fm-truncated-warn { color: var(--muted); }
+.fm-preview-md { padding: 16px; background: var(--bg); border-radius: 4px; max-height: 70vh; overflow-y: auto; }
+.fm-preview-text { padding: 16px; background: var(--bg); border-radius: 4px; max-height: 70vh; overflow-y: auto; white-space: pre-wrap; font-size: 13px; }
 </style>

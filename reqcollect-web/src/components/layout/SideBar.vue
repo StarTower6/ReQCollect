@@ -171,8 +171,8 @@ onMounted(async () => {
 .sidebar {
   width: 280px; min-width: 280px;
   display: flex; flex-direction: column;
-  background: var(--panel, #fff);
-  border-right: 1px solid var(--line, #f0f0f5);
+  background: var(--panel);
+  border-right: 1px solid var(--line);
   height: 100vh; overflow: hidden;
 }
 
@@ -188,12 +188,12 @@ onMounted(async () => {
 }
 .brand-mark {
   width: 24px; height: 24px;
-  background: #409eff; border-radius: 6px;
+  background: var(--brand); border-radius: 6px;
   flex-shrink: 0;
 }
 .brand-name {
   flex: 1;
-  font-weight: 600; font-size: 15px; color: #1d2129;
+  font-weight: 600; font-size: 15px; color: var(--text);
 }
 .ws-mgr-btn {
   font-size: 15px !important;
@@ -201,26 +201,26 @@ onMounted(async () => {
 
 .sidebar-search {
   width: 100%; padding: 7px 10px;
-  border-radius: 8px; border: 1px solid #e5e6eb;
-  background: #f7f8fa;
-  font-size: 13px; color: #1d2129;
+  border-radius: 8px; border: 1px solid var(--line);
+  background: var(--sidebar);
+  font-size: 13px; color: var(--text);
   outline: none; transition: border-color 0.2s;
   box-sizing: border-box;
 }
-.sidebar-search:focus { border-color: #409eff; background: #fff; }
-.sidebar-search::placeholder { color: #c0c4cc; }
+.sidebar-search:focus { border-color: var(--brand); background: var(--panel); }
+.sidebar-search::placeholder { color: var(--muted-light); }
 
 /* ── Add workspace button ── */
 .add-ws-btn {
   display: flex; align-items: center; gap: 6px;
   margin: 0 12px 8px; padding: 6px 12px;
   border-radius: 6px;
-  border: 1px dashed #d9d9d9;
-  background: none; font-size: 13px; color: #409eff;
+  border: 1px dashed var(--line);
+  background: none; font-size: 13px; color: var(--brand);
   cursor: pointer; transition: border-color 0.15s;
   flex-shrink: 0;
 }
-.add-ws-btn:hover { border-color: #409eff; background: #f0f7ff; }
+.add-ws-btn:hover { border-color: var(--brand); background: var(--brand-soft); }
 
 /* ── Tree area (scrollable) ── */
 .sidebar-tree {
@@ -230,12 +230,12 @@ onMounted(async () => {
 
 .tree-empty {
   padding: 32px 16px; text-align: center;
-  font-size: 13px; color: #86909c;
+  font-size: 13px; color: var(--muted);
 }
 .tree-loading { padding: 8px; }
 .tree-skeleton {
   height: 32px; margin-bottom: 4px;
-  background: linear-gradient(90deg, #f0f0f5 25%, #e8e8ee 50%, #f0f0f5 75%);
+  background: linear-gradient(90deg, var(--line) 25%, var(--sidebar-hover) 50%, var(--line) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 6px;
@@ -252,18 +252,18 @@ onMounted(async () => {
   transition: background 0.12s;
   user-select: none;
 }
-.tree-header:hover { background: #f0f3f8; }
-.tree-header.tree-expanded { color: #409eff; font-weight: 500; }
+.tree-header:hover { background: var(--sidebar-hover); }
+.tree-header.tree-expanded { color: var(--brand); font-weight: 500; }
 
 .tree-arrow { font-size: 10px; width: 14px; text-align: center;
-  transition: transform 0.15s; color: #c0c4cc; flex-shrink: 0; }
+  transition: transform 0.15s; color: var(--muted-light); flex-shrink: 0; }
 .tree-arrow.arrow-open { transform: rotate(90deg); }
 
 .tree-icon { font-size: 14px; flex-shrink: 0; }
 .tree-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tree-badge {
-  font-size: 11px; color: #4e5969;
-  background: #f0f0f5; padding: 0 6px;
+  font-size: 11px; color: var(--muted);
+  background: var(--line); padding: 0 6px;
   border-radius: 8px; line-height: 18px;
   flex-shrink: 0;
 }
@@ -279,13 +279,13 @@ onMounted(async () => {
   border-radius: 6px; cursor: pointer;
   font-size: 13px; transition: background 0.12s;
 }
-.session-leaf:hover { background: #f0f3f8; }
-.session-leaf.active { background: #e8f3ff; color: #409eff; font-weight: 500; }
+.session-leaf:hover { background: var(--sidebar-hover); }
+.session-leaf.active { background: var(--brand-soft); color: var(--brand); font-weight: 500; }
 
 .leaf-bullet { font-size: 11px; flex-shrink: 0; opacity: 0.6; }
 .leaf-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.leaf-meta { font-size: 11px; color: #c0c4cc; flex-shrink: 0; white-space: nowrap; }
-.leaf-empty { padding: 8px 8px 8px 26px; font-size: 12px; color: #c0c4cc; }
+.leaf-meta { font-size: 11px; color: var(--muted-light); flex-shrink: 0; white-space: nowrap; }
+.leaf-empty { padding: 8px 8px 8px 26px; font-size: 12px; color: var(--muted-light); }
 
 /* ── Inline action buttons inside workspace nodes ── */
 .inline-actions {
@@ -297,22 +297,33 @@ onMounted(async () => {
 .inline-action {
   display: flex; align-items: center; gap: 6px;
   padding: 5px 8px; border-radius: 6px;
-  font-size: 12px; color: #409eff;
+  font-size: 12px; color: var(--brand);
   cursor: pointer; user-select: none;
   transition: background 0.12s;
 }
-.inline-action:hover { background: #e8f3ff; }
+.inline-action:hover { background: var(--brand-soft); }
 
 /* ── Footer ── */
 .sidebar-footer {
-  border-top: 1px solid #f0f0f5;
+  border-top: 1px solid var(--line);
   padding: 8px 12px; flex-shrink: 0;
 }
 .sidebar-link {
   display: block; padding: 6px 8px;
   border-radius: 6px; font-size: 13px;
-  color: #4e5969; text-decoration: none;
+  color: var(--muted); text-decoration: none;
   transition: background 0.12s;
 }
-.sidebar-link:hover { background: #f7f8fa; }
+.sidebar-link:hover { background: var(--sidebar); }
+
+/* ── Focus visible ── */
+.sidebar-search:focus-visible,
+.add-ws-btn:focus-visible,
+.tree-header:focus-visible,
+.session-leaf:focus-visible,
+.inline-action:focus-visible,
+.sidebar-link:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
 </style>

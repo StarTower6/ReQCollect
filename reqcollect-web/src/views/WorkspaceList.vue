@@ -109,20 +109,20 @@ onMounted(load)
 .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
 .page-header h2 { margin: 0; font-size: 20px; font-weight: 600; }
 
-.empty-state { text-align: center; padding: 80px 0; color: #86909c; }
+.empty-state { text-align: center; padding: 80px 0; color: var(--muted); }
 .empty-icon { font-size: 48px; margin-bottom: 16px; }
-.empty-title { font-size: 16px; font-weight: 500; margin: 0 0 8px; color: #4e5969; }
+.empty-title { font-size: 16px; font-weight: 500; margin: 0 0 8px; color: var(--muted); }
 .empty-desc { font-size: 14px; margin: 0; }
 
 .ws-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 .ws-card {
-  padding: 20px; border-radius: 10px; background: #fff;
-  border: 1px solid #ebeef5; cursor: pointer;
+  padding: 20px; border-radius: 10px; background: var(--panel);
+  border: 1px solid var(--line); cursor: pointer;
   transition: box-shadow 0.2s, border-color 0.2s;
 }
-.ws-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-color: #409eff; }
+.ws-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-color: var(--brand); }
 .ws-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.ws-name { font-size: 16px; font-weight: 600; color: #1d2129; }
-.ws-desc { font-size: 13px; color: #86909c; margin: 0 0 12px; line-height: 1.5; }
-.ws-meta { font-size: 12px; color: #c0c4cc; }
+.ws-name { font-size: 16px; font-weight: 600; color: var(--text); }
+.ws-desc { font-size: 13px; color: var(--muted); margin: 0 0 12px; line-height: 1.5; }
+.ws-meta { font-size: 12px; color: var(--muted-light); }
 </style>

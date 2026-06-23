@@ -64,7 +64,7 @@
         @selection-change="onSelectionChange"
         @row-click="onRowClick"
         :row-class-name="rowClassName"
-        :header-cell-style="{ background: '#f5f7fa', color: '#303133' }"
+        :header-cell-style="{ background: cssVar('--sidebar'), color: cssVar('--text') }"
       >
         <el-table-column type="selection" width="36" />
         <el-table-column label="用户" min-width="200">
@@ -251,6 +251,8 @@ import { Search as SearchIcon } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/api/client'
 import AppLayout from '@/components/layout/AppLayout.vue'
+
+const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
 // ── Types ──
 
@@ -511,11 +513,11 @@ onMounted(loadUsers)
   gap: 0;
   padding: 10px 16px;
   margin-bottom: 16px;
-  background: #f9fafb;
+  background: var(--sidebar);
   border-radius: 8px;
-  border: 1px solid #f0f0f5;
+  border: 1px solid var(--line);
   font-size: 13px;
-  color: #4e5969;
+  color: var(--muted);
 }
 
 .stat-item {
@@ -527,14 +529,14 @@ onMounted(loadUsers)
 }
 
 .stat-item strong {
-  color: #1d2129;
+  color: var(--text);
   font-size: 15px;
 }
 
 .stat-divider {
   width: 1px;
   height: 18px;
-  background: #e5e6eb;
+  background: var(--line);
 }
 
 /* ── Filter ── */
@@ -562,14 +564,14 @@ onMounted(loadUsers)
 }
 
 .user-avatar {
-  background: linear-gradient(135deg, #409eff, #337ecc);
-  color: #fff;
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+  color: var(--panel);
   font-weight: 600;
   flex-shrink: 0;
 }
 
 .user-avatar.avatar-inactive {
-  background: #d9d9d9;
+  background: var(--muted-light);
 }
 
 .user-meta {
@@ -585,11 +587,11 @@ onMounted(loadUsers)
 
 .user-account {
   font-size: 12px;
-  color: #86909c;
+  color: var(--muted);
 }
 
 .text-inactive {
-  color: #c0c4cc !important;
+  color: var(--muted-light) !important;
 }
 
 .tag-inactive {
@@ -612,7 +614,7 @@ onMounted(loadUsers)
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #d9d9d9;
+  background: var(--muted-light);
   margin-right: 4px;
   vertical-align: middle;
 }
@@ -625,18 +627,18 @@ onMounted(loadUsers)
 
 .status-inactive {
   font-size: 13px;
-  color: #c0c4cc;
+  color: var(--muted-light);
   vertical-align: middle;
 }
 
 /* ── Row class for inactive users ── */
 
 :deep(.row-inactive) {
-  color: #c0c4cc;
+  color: var(--muted-light);
 }
 
 :deep(.row-inactive td) {
-  color: #c0c4cc;
+  color: var(--muted-light);
 }
 
 /* ── Bottom bar ── */
@@ -651,7 +653,7 @@ onMounted(loadUsers)
 
 .selected-info {
   font-size: 13px;
-  color: #606266;
+  color: var(--muted);
   min-width: 100px;
 }
 
@@ -665,8 +667,8 @@ onMounted(loadUsers)
 }
 
 .drawer-avatar {
-  background: linear-gradient(135deg, #409eff, #337ecc);
-  color: #fff;
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+  color: var(--panel);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -680,7 +682,7 @@ onMounted(loadUsers)
 .drawer-username {
   font-size: 14px;
   font-weight: 500;
-  color: #4e5969;
+  color: var(--muted);
 }
 
 .drawer-actions {
@@ -690,7 +692,7 @@ onMounted(loadUsers)
 }
 
 .disabled-tag {
-  color: #c0c4cc;
+  color: var(--muted-light);
   font-size: 12px;
 }
 
