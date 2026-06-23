@@ -7,5 +7,9 @@
 - [x] 任务4: 前端类型定义 + API客户端 ✅
 - [x] 任务5: 提案列表页 + 详情页 ✅
 - [x] 任务6: 对话页提炼按钮 + SSE对接 ✅
+- [x] model-refactor 任务1: relationship 加固 ✅
+- [x] model-refactor 任务2: GeneratedPRD 加字段 + 迁移 ✅
+- [x] model-refactor 任务3: 业务别名 ✅
+- [x] model-refactor 任务4: proposal_extractor submitter_id 修正 ✅
 - [ ] 任务7: 看板视图（P1）— 延后
 - [ ] 任务8: Evaluate — 回归检查 — 负责人: 全员

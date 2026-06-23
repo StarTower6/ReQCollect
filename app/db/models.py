@@ -117,6 +117,17 @@ class Session(Base):
         order_by="GeneratedPRD.version",
     )
 
+    workspace_ref: Mapped["Workspace | None"] = relationship(
+        "Workspace", back_populates="discussions",
+        primaryjoin="Session.workspace_id == Workspace.id",
+        foreign_keys=lambda: [Session.workspace_id],
+    )
+    proposals: Mapped[list["RequirementProposal"]] = relationship(
+        "RequirementProposal", back_populates="discussion_ref",
+        primaryjoin="Session.id == RequirementProposal.source_session_id",
+        foreign_keys="RequirementProposal.source_session_id",
+    )
+
     def to_dict(self) -> dict:
         return {
             "session_id": self.id,
@@ -248,6 +259,7 @@ class GeneratedPRD(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
     title: Mapped[str] = mapped_column(String(500), default="")
     mode: Mapped[str] = mapped_column(String(20), default="one_shot")
+    source_proposal_ids: Mapped[list | None] = mapped_column(JSON, default=list)
     sections: Mapped[dict | None] = mapped_column(JSON, default=list)
     markdown: Mapped[str | None] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
@@ -266,6 +278,7 @@ class GeneratedPRD(Base):
             "version": self.version,
             "title": self.title or "",
             "mode": self.mode,
+            "source_proposal_ids": self.source_proposal_ids if isinstance(self.source_proposal_ids, list) else [],
             "sections": self.sections if isinstance(self.sections, list) else [],
             "markdown": self.markdown or "",
             "created_at": self.created_at.isoformat() if self.created_at else "",
@@ -286,6 +299,17 @@ class Workspace(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    discussions: Mapped[list["Session"]] = relationship(
+        "Session", back_populates="workspace_ref",
+        primaryjoin="Workspace.id == Session.workspace_id",
+        foreign_keys="Session.workspace_id",
+    )
+    proposals: Mapped[list["RequirementProposal"]] = relationship(
+        "RequirementProposal", back_populates="workspace_ref",
+        primaryjoin="Workspace.id == RequirementProposal.workspace_id",
+        foreign_keys="RequirementProposal.workspace_id",
+    )
 
 
 # ── Wiki Page ──
@@ -421,6 +445,22 @@ class RequirementProposal(Base):
         Index("idx_rp_submitter", "submitter_id"),
     )
 
+    discussion_ref: Mapped["Session | None"] = relationship(
+        "Session", back_populates="proposals",
+        primaryjoin="RequirementProposal.source_session_id == Session.id",
+        foreign_keys=[source_session_id],
+    )
+    workspace_ref: Mapped["Workspace | None"] = relationship(
+        "Workspace", back_populates="proposals",
+        primaryjoin="RequirementProposal.workspace_id == Workspace.id",
+        foreign_keys=[workspace_id],
+    )
+    submitter_ref: Mapped["User | None"] = relationship(
+        "User",
+        primaryjoin="RequirementProposal.submitter_id == User.id",
+        foreign_keys=[submitter_id],
+    )
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -440,3 +480,10 @@ class RequirementProposal(Base):
             "created_at": self.created_at.isoformat() if self.created_at else "",
             "updated_at": self.updated_at.isoformat() if self.updated_at else "",
         }
+
+
+# ── Business Aliases ──
+Discussion = Session
+DiscussionContext = RequirementProfile
+Proposal = RequirementProposal
+PrdDocument = GeneratedPRD

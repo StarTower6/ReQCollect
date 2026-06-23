@@ -508,7 +508,13 @@ async def pm_extract_proposal(
         proposal_data["priority"] = priority
         proposal_data["ai_assessment"] = reasoning
 
-        # Step 3: Persist proposal to workspace
+        # Step 3: Get session info for submitter
+        session_info = await ds.get_session(request.session_id)
+        submitter_id = session_info.get("user_id", "") if session_info else ""
+        if not submitter_id:
+            submitter_id = current_user.get("id", "")
+
+        # Step 4: Persist proposal to workspace
         try:
             saved = await ds.create_proposal(
                 workspace_id=request.workspace_id,
@@ -521,7 +527,7 @@ async def pm_extract_proposal(
                 priority=priority,
                 tags=proposal_data.get("tags", []),
                 source_session_id=request.session_id,
-                submitter_id=current_user.get("id", ""),
+                submitter_id=submitter_id,
                 status="pending_review",
             )
 

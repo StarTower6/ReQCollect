@@ -186,6 +186,17 @@ async def init_db() -> bool:
             except Exception:
                 logger.debug("Migration: requirement_proposals table already exists")
 
+            # Migration: generated_prds.source_proposal_ids
+            try:
+                await conn.execute(
+                    __import__("sqlalchemy").text(
+                        "ALTER TABLE generated_prds ADD COLUMN source_proposal_ids JSON DEFAULT NULL AFTER mode"
+                    )
+                )
+                logger.info("Applied migration: generated_prds.source_proposal_ids")
+            except Exception:
+                logger.debug("Migration: generated_prds.source_proposal_ids already exists")
+
         _async_session_factory = async_sessionmaker(
             _engine, class_=AsyncSession, expire_on_commit=False
         )
