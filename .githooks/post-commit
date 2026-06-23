@@ -111,3 +111,22 @@ echo "  Backend:  http://localhost:9900"
 echo "  Frontend: http://localhost:5173"
 echo "  API docs: http://localhost:9900/docs"
 echo "============================================"
+
+# ── 3. GitNexus 重建索引 ──
+echo ""
+echo "[nexus] 🔄 Rebuilding GitNexus index..."
+cd "$PROJECT_DIR" || exit 1
+
+NEXUS_OUTPUT=$(npx gitnexus analyze 2>&1)
+NEXUS_EXIT=$?
+
+if [ $NEXUS_EXIT -eq 0 ]; then
+    # 提取关键指标
+    NODES=$(echo "$NEXUS_OUTPUT" | grep -oP '\d+,\d+ nodes|\d+ nodes' | tail -1)
+    EDGES=$(echo "$NEXUS_OUTPUT" | grep -oP '\d+,\d+ edges|\d+ edges' | tail -1)
+    FLOWS=$(echo "$NEXUS_OUTPUT" | grep -oP '\d+,\d+ flows|\d+ flows' | tail -1)
+    echo "[nexus] ✅ Index updated — $NODES | $EDGES | $FLOWS"
+else
+    echo "[nexus] ⚠️ GitNexus index failed (code $NEXUS_EXIT)"
+    echo "$NEXUS_OUTPUT" | tail -3
+fi
