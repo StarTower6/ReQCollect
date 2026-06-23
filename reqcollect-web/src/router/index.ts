@@ -1,4 +1,11 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    requiresAuth?: boolean
+  }
+}
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -7,13 +14,28 @@ const router = createRouter({
       path: '/login',
       name: 'Login',
       component: () => import('@/views/LoginView.vue'),
+      meta: { requiresAuth: false },
     },
     {
-      path: '/',
-      redirect: '/workspaces',
+      path: '/chat',
+      name: 'Chat',
+      component: () => import('@/views/ChatView.vue'),
+      meta: { requiresAuth: true },
     },
     {
-      path: '/workspaces',
+      path: '/dashboard',
+      name: 'Dashboard',
+      component: () => import('@/views/DashboardView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/prd/:id',
+      name: 'Prd',
+      component: () => import('@/views/PrdView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/workspace',
       name: 'WorkspaceList',
       component: () => import('@/views/WorkspaceList.vue'),
       meta: { requiresAuth: true },
@@ -25,72 +47,63 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: '/workspace/:id/wiki/new',
-      name: 'WikiNew',
-      component: () => import('@/views/wiki/WikiPageEditor.vue'),
-      meta: { requiresAuth: true },
-    },
-    {
       path: '/workspace/:id/wiki/:pageId',
-      name: 'WikiView',
+      name: 'WikiPageView',
       component: () => import('@/views/wiki/WikiPageView.vue'),
       meta: { requiresAuth: true },
     },
     {
       path: '/workspace/:id/wiki/:pageId/edit',
-      name: 'WikiEdit',
+      name: 'WikiPageEditor',
       component: () => import('@/views/wiki/WikiPageEditor.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/chat',
-      name: 'Chat',
-      component: () => import('@/views/ChatView.vue'),
+      path: '/workspace/:id/proposals',
+      name: 'ProposalList',
+      component: () => import('@/views/proposal/ProposalListView.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/chat/:sessionId',
-      name: 'ChatWithSession',
-      component: () => import('@/views/ChatView.vue'),
+      path: '/workspace/:id/proposals/:pid',
+      name: 'ProposalDetail',
+      component: () => import('@/views/proposal/ProposalDetailView.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/prd/:sessionId',
-      name: 'PrdView',
-      component: () => import('@/views/PrdView.vue'),
+      path: '/workspace/:id/proposals/kanban',
+      name: 'ProposalKanban',
+      component: () => import('@/views/proposal/ProposalKanbanView.vue'),
       meta: { requiresAuth: true },
     },
     {
-      path: '/dashboard',
-      name: 'Dashboard',
-      component: () => import('@/views/DashboardView.vue'),
+      path: '/wiki/:id',
+      name: 'WikiGraph',
+      component: () => import('@/views/wiki/GraphView.vue'),
       meta: { requiresAuth: true },
     },
     {
       path: '/admin/users',
-      name: 'AdminUsers',
+      name: 'Users',
       component: () => import('@/views/admin/UsersView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true },
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/chat',
     },
   ],
 })
 
-// ── Navigation guard ──
 router.beforeEach((to, _from, next) => {
-  const token = localStorage.getItem('reqcollect_token')
-  const isAuthenticated = !!token
-
-  if (to.path === '/login' && isAuthenticated) {
-    next('/workspaces')
-    return
+  const authStore = useAuthStore()
+  if (to.meta.requiresAuth !== false && !authStore.token) {
+    next({ name: 'Login', query: { redirect: to.fullPath } })
+  } else if (to.name === 'Login' && authStore.token) {
+    next({ name: 'Chat' })
+  } else {
+    next()
   }
-
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/login')
-    return
-  }
-
-  next()
 })
 
 export default router

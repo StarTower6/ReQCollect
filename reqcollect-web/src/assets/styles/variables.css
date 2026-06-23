@@ -16,4 +16,27 @@
   --bubble-assistant: #ffffff;
   --radius: 8px;
   --shadow: 0 16px 44px rgba(31, 69, 126, 0.11);
+
+  /* ── 提案系统语义色彩 ── */
+  --success: #36b37e;
+  --success-soft: #ecf9f2;
+  --success-border: #b7e4cf;
+  --warning: #e6a23c;
+  --warning-soft: #fdf6ec;
+  --warning-border: #f5dab1;
+  --info: #00b4d8;
+  --info-soft: #e6f7fb;
+  --info-border: #a4e7f2;
+  --danger: #f56c6c;
+  --danger-soft: #fef0f0;
+  --danger-border: #fbc4c4;
+
+  --priority-p0: #f56c6c;
+  --priority-p1: #e6a23c;
+  --priority-p2: var(--brand);
+  --priority-p3: var(--muted-light);
+
+  --urgency-high: #f56c6c;
+  --urgency-medium: #e6a23c;
+  --urgency-low: #67c23a;
 }

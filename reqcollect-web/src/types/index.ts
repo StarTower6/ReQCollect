@@ -98,3 +98,52 @@ export const FIELDS_CONFIG: FieldConfig[] = [
   { key: 'constraints', label: '约束条件', weight: 5 },
   { key: 'success_criteria', label: '成功标准', weight: 5 },
 ]
+
+/* ── Proposal ── */
+export interface Proposal {
+  proposal_id: string
+  workspace_id: string
+  source_session_id: string
+  submitter_id: string
+
+  title: string
+  background: string
+  pain_points: string[]
+  desired_outcome: string
+  scope_note: string
+
+  urgency: string  // 'high' | 'medium' | 'low'
+  priority: string // 'P0' | 'P1' | 'P2' | 'P3'
+  ai_assessment: string
+
+  status: string  // 'pending_review' | 'approved' | 'in_development' | 'launched' | 'closed'
+  tags: string[]
+
+  created_at: string
+  updated_at: string
+}
+
+export interface ProposalCreate {
+  title?: string
+  background?: string
+  pain_points?: string[]
+  desired_outcome?: string
+  scope_note?: string
+  urgency?: string
+  tags?: string[]
+  source_session_id?: string
+  submitter_id?: string
+}
+
+export interface ProposalUpdate {
+  title?: string
+  background?: string
+  pain_points?: string[]
+  desired_outcome?: string
+  scope_note?: string
+  urgency?: string
+  priority?: string
+  status?: string
+  ai_assessment?: string
+  tags?: string[]
+}
