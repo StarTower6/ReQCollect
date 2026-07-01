@@ -128,14 +128,8 @@ class DataStore(ABC):
 
     @abstractmethod
     async def list_prds_by_workspace(self, workspace_id: str) -> list[dict]:
-        """List all PRDs in a workspace."""
-    @abstractmethod
-    async def get_prd_by_id(self, prd_id: str) -> dict | None:
-        """Get a PRD by its primary key ID."""
+        """List all PRDs in a workspace, ordered by created_at desc."""
 
-    @abstractmethod
-    async def list_prds_by_workspace(self, workspace_id: str) -> list[dict]:
-        """List all PRDs in a workspace."""
 
     # ── Dashboard / Stats ──
 

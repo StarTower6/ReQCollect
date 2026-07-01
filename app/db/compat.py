@@ -1013,3 +1013,36 @@ class FileDataStore(DataStore):
                 counts[key] = counts.get(key, 0) + 1
         return counts
 
+    def _load_all_prds(self) -> list[dict]:
+        """Load all PRDs across all sessions, enriched with workspace_id."""
+        all_prds = []
+        for f in self._prds_dir.glob("*.json"):
+            if not f.exists():
+                continue
+            prds = self._load_json(f)
+            if not prds:
+                continue
+            for p in prds:
+                sid = p.get("session_id", "")
+                if sid:
+                    sess = self._load_json(self._session_path(sid))
+                    if sess:
+                        p["workspace_id"] = sess.get("workspace_id", "")
+                all_prds.append(p)
+        return all_prds
+
+    async def get_prd_by_id(self, prd_id: str) -> dict | None:
+        prds = self._load_all_prds()
+        for p in prds:
+            if p.get("id") == prd_id:
+                return p
+        return None
+
+    async def list_prds_by_workspace(self, workspace_id: str) -> list[dict]:
+        prds = self._load_all_prds()
+        return sorted(
+            [p for p in prds if p.get("workspace_id") == workspace_id],
+            key=lambda x: x.get("created_at", ""),
+            reverse=True,
+        )
+

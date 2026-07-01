@@ -1098,3 +1098,23 @@ class MySQLDataStore(DataStore):
                 counts[key] = int(row[1])
             return counts
 
+    async def get_prd_by_id(self, prd_id: str) -> dict | None:
+        """Get PRD by primary key id."""
+        async with await self._get_session() as s:
+            result = await s.execute(
+                select(GeneratedPRD).where(GeneratedPRD.id == prd_id)
+            )
+            prd = result.scalar_one_or_none()
+            return prd.to_dict() if prd else None
+
+    async def list_prds_by_workspace(self, workspace_id: str) -> list[dict]:
+        """List all PRDs in a workspace, ordered by created_at desc."""
+        async with await self._get_session() as s:
+            result = await s.execute(
+                select(GeneratedPRD)
+                .where(GeneratedPRD.workspace_id == workspace_id)
+                .order_by(GeneratedPRD.created_at.desc())
+            )
+            prds = result.scalars().all()
+            return [p.to_dict() for p in prds]
+
