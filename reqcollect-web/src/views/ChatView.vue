@@ -39,8 +39,8 @@
           <el-step title="分析对话内容" description="AI 正在理解对话上下文" />
           <el-step title="提炼标题与背景" description="提取项目名称和业务背景" />
           <el-step title="整理核心痛点" description="归纳用户反馈的关键问题" />
-          <el-step title="评估优先级" description="分析需求的紧急度和重要度" />
-          <el-step title="生成提案" description="整合信息生成完整提案" />
+          <el-step title="提取期望效果" description="明确预期成果与范围" />
+          <el-step title="评估优先级" description="分析紧急度、重要度和标签" />
         </el-steps>
         <p v-if="extracting && extractStatus" class="extract-status-text">{{ extractStatus }}</p>
         <p v-if="extractDone" class="extract-done-text">✅ 提案生成完成！</p>
@@ -85,12 +85,13 @@ let createdProposalId = ''
 
 const extractFieldMap: Record<string, number> = {
   title: 1,
-  background: 1,
-  pain_points: 2,
-  desired_outcome: 3,
-  scope_note: 3,
-  urgency: 4,
-  priority: 4,
+  background: 2,
+  pain_points: 3,
+  desired_outcome: 4,
+  scope_note: 5,
+  tags: 5,
+  urgency: 5,
+  priority: 5,
 }
 
 async function startExtract() {

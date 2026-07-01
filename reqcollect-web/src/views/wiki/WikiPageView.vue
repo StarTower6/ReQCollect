@@ -123,7 +123,7 @@ function renderWikilinks(html: string): string {
     const text = alias || title
     const pageId = allPageTitles.value[title]
     if (pageId) {
-      return `<a href="#/workspace/${wsId}/wiki/${pageId}" class="wiki-link">${text}</a>`
+      return `<a href="#/workspaces/${wsId}/wiki/${pageId}" class="wiki-link">${text}</a>`
     } else {
       return `<span class="wiki-link-missing">${text}</span>`
     }
@@ -164,15 +164,15 @@ function formatDate(d: string) {
 
 function goBack() {
   const wsId = route.params.id
-  router.push(`/workspace/${wsId}`)
+  router.push(`/workspaces/${wsId}`)
 }
 
 function goEdit() {
-  router.push(`/workspace/${route.params.id}/wiki/${route.params.pageId}/edit`)
+  router.push(`/workspaces/${route.params.id}/wiki/${route.params.pageId}/edit`)
 }
 
 function goToPage(pageId: string) {
-  router.push(`/workspace/${route.params.id}/wiki/${pageId}`)
+  router.push(`/workspaces/${route.params.id}/wiki/${pageId}`)
 }
 
 function onContentClick(e: MouseEvent) {

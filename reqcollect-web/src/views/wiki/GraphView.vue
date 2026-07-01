@@ -100,12 +100,12 @@ function renderGraph() {
       const node = graphData.value.nodes.find((n: any) => n.id === nodeId)
       if (!node) return
       if (node.type === 'wiki') {
-        router.push(`/workspace/${props.workspaceId}/wiki/${nodeId.replace('wiki:', '')}`)
+        router.push(`/workspaces/${props.workspaceId}/wiki/${nodeId.replace('wiki:', '')}`)
       } else if (node.type === 'file') {
         // Extract file path from node id (format: "file:path/to/file.md")
         const filePath = node.title || nodeId.replace('file:', '')
         // Navigate to workspace detail with a file hash for preview
-        router.push(`/workspace/${props.workspaceId}?file=${encodeURIComponent(filePath)}`)
+        router.push(`/workspaces/${props.workspaceId}?file=${encodeURIComponent(filePath)}`)
       }
     })
   }).catch((err) => {

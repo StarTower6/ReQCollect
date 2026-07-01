@@ -137,7 +137,7 @@ watch(activeTab, (tab) => {
     loadWiki()
   }
   if (tab === 'proposals') {
-    router.push(`/workspace/${route.params.id}/proposals`)
+    router.push(`/workspaces/${route.params.id}/proposals`)
   }
 })
 
@@ -206,12 +206,12 @@ async function loadWiki() {
 
 function goNewWiki() {
   const wsId = route.params.id as string
-  router.push(`/workspace/${wsId}/wiki/new`)
+  router.push(`/workspaces/${wsId}/wiki/new`)
 }
 
 function goWikiView(pageId: string) {
   const wsId = route.params.id as string
-  router.push(`/workspace/${wsId}/wiki/${pageId}`)
+  router.push(`/workspaces/${wsId}/wiki/${pageId}`)
 }
 
 function formatDate(d: string) {

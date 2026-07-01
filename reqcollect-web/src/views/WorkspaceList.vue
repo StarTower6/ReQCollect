@@ -76,7 +76,7 @@ function formatDate(d: string) {
 }
 
 function goWorkspace(id: string) {
-  router.push(`/workspace/${id}`)
+  router.push(`/workspaces/${id}`)
 }
 
 async function load() {

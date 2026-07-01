@@ -93,9 +93,9 @@ const aiSuggestionHtml = computed(() => {
 
 function handleCancel() {
   if (isNew.value) {
-    router.push(`/workspace/${workspaceId.value}`)
+    router.push(`/workspaces/${workspaceId.value}`)
   } else {
-    router.push(`/workspace/${workspaceId.value}/wiki/${pageId.value}`)
+    router.push(`/workspaces/${workspaceId.value}/wiki/${pageId.value}`)
   }
 }
 
@@ -113,14 +113,14 @@ async function handleSave() {
         content: form.content,
       })
       ElMessage.success('创建成功')
-      router.push(`/workspace/${workspaceId.value}/wiki/${page.id}`)
+      router.push(`/workspaces/${workspaceId.value}/wiki/${page.id}`)
     } else {
       await updateWikiPage(pageId.value, {
         title: form.title.trim(),
         content: form.content,
       })
       ElMessage.success('已保存')
-      router.push(`/workspace/${workspaceId.value}/wiki/${pageId.value}`)
+      router.push(`/workspaces/${workspaceId.value}/wiki/${pageId.value}`)
     }
   } catch (e: any) {
     ElMessage.error(e.message || '保存失败')

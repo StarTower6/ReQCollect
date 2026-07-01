@@ -140,7 +140,7 @@ function formatDate(d: string): string {
 }
 
 function goBack() {
-  router.push(`/workspace/${wid.value}/proposals`)
+  router.push(`/workspaces/${wid.value}/proposals`)
 }
 
 async function loadProposal() {
