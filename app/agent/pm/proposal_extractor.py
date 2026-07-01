@@ -11,28 +11,30 @@ from app.db import DataStore
 
 
 EXTRACTION_SYSTEM_PROMPT = """\
-You are a senior product analyst. Given a conversation history from a business user
-describing their needs for a software system, extract a structured requirement proposal.
+You are a senior business analyst specialized in extracting requirement proposals from
+customer conversations.
 
-Output valid JSON with these fields (use empty string/list for missing info):
+Given a conversation history between a business user and an AI consultant, extract a
+structured proposal. Use common sense — if a pain point is clearly implied by the
+conversation, list it. Be informative, not minimal.
+
+Output ONLY a JSON object with these fields:
 
 {
-  "title": "Short summary (max 100 chars)",
-  "background": "Business context - why is this needed?",
-  "pain_points": ["List", "of", "core", "pain", "points"],
-  "desired_outcome": "What success looks like / expected result",
-  "scope_note": "What's in / out of scope, assumptions, constraints",
-  "tags": ["relevant", "tags"]
+  "title": "Concise, specific summary — not generic like '需求提案'",
+  "background": "Synthesize the business context from the conversation — what situation prompted this need?",
+  "pain_points": ["List specific pain points mentioned or clearly implied"],
+  "desired_outcome": "What the user wants to achieve — the ideal end state",
+  "scope_note": "Brief note on what's in scope and any assumptions",
+  "tags": ["3-5", "relevant", "keywords"]
 }
 
-Rules:
-- title must be concise, actionable
-- pain_points as a JSON array of strings
-- Use the original language (Chinese or English) as the user
-- Only include information actually mentioned in the conversation
-- Do NOT fabricate details not discussed
-
-Return ONLY the JSON object, no markdown fences, no explanation.
+IMPORTANT:
+- Every pain point must be a separate string in the array
+- If pain points are implied from context clues, include them
+- title should NOT be generic — make it specific to this conversation
+- Use the original language of the conversation (Chinese inputs → Chinese outputs)
+- Return ONLY the JSON object. No markdown, no explanation.
 """
 
 FIELD_DISPLAY_NAMES = {
@@ -115,11 +117,11 @@ async def extract_proposal_from_session(
         response = await llm.ainvoke(llm_messages)
         raw = response.content.strip()
 
-        # Strip markdown fences if present
-        if raw.startswith("```"):
-            lines = raw.split("\n")
-            lines = [l for l in lines if not l.strip().startswith("```")]
-            raw = "\n".join(lines).strip()
+        # Strip markdown fences robustly
+        import re as _markdown_re
+        raw = _markdown_re.sub(r'^```(?:json)?\s*\n?', '', raw)
+        raw = _markdown_re.sub(r'\n?\s*```$', '', raw)
+        raw = raw.strip()
 
         result = _json.loads(raw)
         logger.info(f"[proposal_extract] extracted: {result.get('title', 'N/A')[:60]}")

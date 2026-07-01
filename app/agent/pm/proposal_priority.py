@@ -99,4 +99,11 @@ async def assess_priority(proposal: dict) -> tuple[str, str]:
 
     except Exception as e:
         logger.warning(f"[priority] LLM assessment failed: {e}, defaulting to P2")
-        return "P2", ""
+        pain_count = len(pain_points) if isinstance(pain_points, list) else 0
+        has_outcome = bool(desired_outcome)
+        fallback_reason = (
+            f"自动评估 — "
+            f"需求维度不完整"
+            f"(痛点:{pain_count} 期望:{has_outcome})"
+        )
+        return "P2", fallback_reason
