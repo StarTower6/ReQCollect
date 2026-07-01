@@ -41,6 +41,8 @@ export async function extractProposalSSE(
   onField: (field: string, content: any) => void,
   onDone: (data: any) => void,
   onError: (err: string) => void,
+  onThought?: (text: string) => void,
+  onSectionContent?: (chunk: string) => void,
 ): Promise<void> {
   const token = localStorage.getItem('reqcollect_token')
   const resp = await fetch('/api/pm/extract-proposal', {
@@ -85,6 +87,8 @@ export async function generatePrdFromProposalsSSE(
   onSection: (title: string, index: number, total: number) => void,
   onDone: (data: any) => void,
   onError: (err: string) => void,
+  onThought?: (text: string) => void,
+  onSectionContent?: (content: string) => void,
 ): Promise<void> {
   const token = localStorage.getItem('reqcollect_token')
   const resp = await fetch('/api/pm/generate-from-proposals', {
@@ -112,11 +116,14 @@ export async function generatePrdFromProposalsSSE(
         if (event.type === 'prd_plan') {
           const titles = (event.data.sections || []).map((s: any) => s.title).join(' / ')
           onProgress(`PRD 大纲: ${titles}`)
+        } else if (event.type === 'thought') {
+          onThought?.(event.data?.text || '')
         } else if (event.type === 'section_start') {
           onSection(event.data.title, event.data.index, event.data.total)
         } else if (event.type === 'section_content') {
           // 进度更新 — 内容增量拼接
-          onProgress(`正在生成: ${event.data?.slice(0, 40)}...`)
+          onProgress(`正在生成: ${(event.data || '').slice(0, 40)}...`)
+          onSectionContent?.(event.data || '')
         } else if (event.type === 'prd_complete') {
           gotDone = true; onDone(event.data)
         } else if (event.type === 'error') {

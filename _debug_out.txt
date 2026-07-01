@@ -1,0 +1,18 @@
+import pathlib
+
+# ── Fix proposal.ts signature ──
+pts = pathlib.Path("reqcollect-web/src/api/proposal.ts")
+pts_content = pts.read_text(encoding="utf-8")
+
+old_sig = """  onDone: (data: any) => void,
+  onError: (err: string) => void,
+): Promise<void> {"""
+
+new_sig = """  onDone: (data: any) => void,
+  onError: (err: string) => void,
+  onThought?: (text: string) => void,
+  onSectionContent?: (chunk: string) => void,
+): Promise<void> {"""
+
+pts_content = pts_content.replace(old_sig, new_sig, 1)
+pts.w
