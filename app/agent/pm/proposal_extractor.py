@@ -21,7 +21,7 @@ conversation, list it. Be informative, not minimal.
 Output ONLY a JSON object with these fields:
 
 {
-  "title": "Concise, specific summary — not generic like '需求提案'",
+  "title": "Concise description of the business need — describe what the user wants, not the platform. e.g. '企业报销审批流程优化'",
   "background": "Synthesize the business context from the conversation — what situation prompted this need?",
   "pain_points": ["List specific pain points mentioned or clearly implied"],
   "desired_outcome": "What the user wants to achieve — the ideal end state",
@@ -32,7 +32,9 @@ Output ONLY a JSON object with these fields:
 IMPORTANT:
 - Every pain point must be a separate string in the array
 - If pain points are implied from context clues, include them
-- title should NOT be generic — make it specific to this conversation
+- title should describe the BUSINESS NEED itself — what the user actually wants
+- Do NOT include meta phrases like "基于多轮对话", "基于AI", "需求采集系统" in the title
+- A good title example: "企业报销审批流程优化" not "基于多轮对话的报销系统"
 - Use the original language of the conversation (Chinese inputs → Chinese outputs)
 - Return ONLY the JSON object. No markdown, no explanation.
 """

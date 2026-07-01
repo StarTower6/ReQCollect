@@ -122,7 +122,8 @@ async function loadProposals() {
 }
 
 function goBack() {
-  router.back()
+  const wid = route.params.id as string
+  router.push(`/workspaces/${wid}`)
 }
 
 function goDetail(pid: string) {
