@@ -150,3 +150,37 @@ async def get_current_user(
         )
 
     return user
+
+
+# ── Role-based access control ──
+
+
+def require_role(*allowed_roles: str):
+    """Dependency factory: require the current user's role to be in *allowed_roles*.
+
+    Usage::
+
+        @router.post("...")
+        async def endpoint(
+            current_user: dict = Depends(require_role("analyst", "admin")),
+        ):
+            ...
+
+    Raises 403 if the user's role is not in the allowed set.
+    """
+
+    async def _check(current_user: dict = Depends(get_current_user)) -> dict:
+        if current_user.get("role") not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"需要以下角色权限之一: {', '.join(allowed_roles)}",
+            )
+        return current_user
+
+    return _check
+
+
+# Convenience dependencies (evaluated once at import time)
+require_analyst = require_role("analyst", "admin")
+require_reviewer = require_role("reviewer", "analyst", "admin")
+require_prd_generator = require_role("analyst", "admin")
