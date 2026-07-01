@@ -21,6 +21,7 @@
         <el-tab-pane label="全部" name="" />
         <el-tab-pane label="待评审" name="pending_review" />
         <el-tab-pane label="已采纳" name="approved" />
+        <el-tab-pane label="已拒绝" name="rejected" />
         <el-tab-pane label="开发中" name="in_development" />
         <el-tab-pane label="已上线" name="launched" />
         <el-tab-pane label="已关闭" name="closed" />
@@ -44,6 +45,20 @@
       </div>
     </section>
 
+    <!-- 批量操作栏（有选中时显示） -->
+    <div v-if="canGeneratePrd && selectedIds.length > 0" class="pl-bulk-bar">
+      <el-checkbox :indeterminate="isIndeterminate" v-model="selectAll" @change="toggleAll" style="margin-right:12px">
+        全选
+      </el-checkbox>
+      <span class="pl-bulk-info">已选 {{ selectedIds.length }} 个提案</span>
+      <el-button type="primary" size="small" :disabled="!allApproved" @click="generatePrd">
+        选入 PRD
+      </el-button>
+      <el-tag v-if="!allApproved" size="small" type="warning" effect="plain">
+        仅已采纳的提案可生成 PRD
+      </el-tag>
+    </div>
+
     <!-- 加载态 -->
     <div v-if="loading" class="pl-loading">
       <el-skeleton :rows="3" animated />
@@ -63,7 +78,17 @@
         @click="goDetail(p.id || p.proposal_id)"
       >
         <div class="pl-card-top">
-          <h3 class="pl-card-title">{{ p.title || '未命名提案' }}</h3>
+          <div class="pl-card-title-row">
+            <!-- 选入 PRD 多选（仅 analyst/admin 可见） — wrapper 阻止冒泡到卡片点击 -->
+            <span v-if="canGeneratePrd" class="pl-card-check-wrap" @click.stop>
+              <el-checkbox
+                v-model="selectedIds"
+                :value="p.id || p.proposal_id"
+                class="pl-card-check"
+              />
+            </span>
+            <h3 class="pl-card-title">{{ p.title || '未命名提案' }}</h3>
+          </div>
           <div class="pl-card-tags">
             <el-tag :type="statusTagType(p.status)" size="small" effect="plain">
               {{ statusLabel(p.status) }}
@@ -83,18 +108,46 @@
         </div>
       </article>
     </section>
+
+    <!-- PRD 生成进度对话框 -->
+    <el-dialog v-model="showPrdDialog" title="生成 PRD" width="480px" :close-on-click-modal="false" :close-on-press-escape="false">
+      <div class="prd-gen-content">
+        <div v-if="prdGenerating" class="prd-gen-progress">
+          <el-progress :percentage="prdSectionTotal > 0 ? Math.round(prdSectionIndex / prdSectionTotal * 100) : 0" :stroke-width="8" />
+          <p class="prd-gen-status">{{ prdProgress }}</p>
+          <div v-if="prdSection" class="prd-gen-section">
+            <span class="prd-gen-section-label">当前章节:</span>
+            <span class="prd-gen-section-title">{{ prdSection }}</span>
+          </div>
+        </div>
+        <div v-else-if="prdProgress.includes('完成')" class="prd-gen-done">
+          <el-result icon="success" title="PRD 生成完成" sub-title="点击下方按钮查看生成的 PRD 文档" />
+        </div>
+        <div v-else class="prd-gen-error">
+          <el-result icon="error" title="生成失败" :sub-title="prdProgress || '请重试'" />
+        </div>
+      </div>
+      <template #footer>
+        <el-button v-if="!prdGenerating" @click="showPrdDialog = false">关闭</el-button>
+        <el-button v-if="createdPrdId" type="primary" @click="goToPrd">查看 PRD</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { ArrowLeft, Plus, Search } from '@element-plus/icons-vue'
 import { listProposals } from '@/api/proposal'
+import { generatePrdFromProposalsSSE } from '@/api/proposal'
+import { useAuthStore } from '@/stores/auth'
 import type { Proposal } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 
 const proposals = ref<Proposal[]>([])
 const loading = ref(false)
@@ -102,9 +155,38 @@ const statusFilter = ref('')
 const urgencyFilter = ref('')
 const priorityFilter = ref('')
 const searchQuery = ref('')
+const selectedIds = ref<string[]>([])
+const selectAll = ref(false)
+
+const canGeneratePrd = computed(() => ['analyst', 'admin'].includes(authStore.user?.role || ''))
+
+const isIndeterminate = computed(() =>
+  selectedIds.value.length > 0 && selectedIds.value.length < proposals.value.length
+)
+
+const allApproved = computed(() =>
+  selectedIds.value.length > 0 &&
+  selectedIds.value.every(id =>
+    proposals.value.find(p => (p.id || p.proposal_id) === id)?.status === 'approved'
+  )
+)
+
+const showPrdDialog = ref(false)
+const prdGenerating = ref(false)
+const prdProgress = ref('')
+const prdSection = ref('')
+const prdSectionTotal = ref(0)
+const prdSectionIndex = ref(0)
+let createdPrdId = ''
+
+function toggleAll(checked: boolean) {
+  selectedIds.value = checked ? proposals.value.map(p => p.id || p.proposal_id) : []
+}
 
 async function loadProposals() {
   loading.value = true
+  selectedIds.value = []
+  selectAll.value = false
   try {
     const wid = route.params.id as string
     const res = await listProposals(wid, {
@@ -135,9 +217,50 @@ function handleNew() {
   // TODO: 新建提案弹窗/页面
 }
 
+async function generatePrd() {
+  const wid = route.params.id as string
+  showPrdDialog.value = true
+  prdGenerating.value = true
+  prdProgress.value = '正在准备 PRD 生成...'
+  prdSection.value = ''
+  prdSectionTotal.value = 0
+  prdSectionIndex.value = 0
+  createdPrdId = ''
+
+  await generatePrdFromProposalsSSE(
+    wid,
+    selectedIds.value,
+    (msg) => { prdProgress.value = msg },
+    (title, index, total) => {
+      prdSection.value = title
+      prdSectionIndex.value = index
+      prdSectionTotal.value = total
+      prdProgress.value = `正在撰写第 ${index}/${total} 章: ${title}`
+    },
+    (data) => {
+      createdPrdId = data?.prd_id || ''
+      prdGenerating.value = false
+      prdProgress.value = '✅ PRD 生成完成！'
+      ElMessage.success('PRD 生成完成')
+    },
+    (err) => {
+      prdGenerating.value = false
+      prdProgress.value = ''
+      ElMessage.error(err || 'PRD 生成失败')
+    },
+  )
+}
+
+function goToPrd() {
+  showPrdDialog.value = false
+  if (createdPrdId) {
+    router.push(`/prd/${createdPrdId}`)
+  }
+}
+
 function statusLabel(s: string): string {
   const m: Record<string, string> = {
-    pending_review: '待评审', approved: '已采纳',
+    pending_review: '待评审', approved: '已采纳', rejected: '已拒绝',
     in_development: '开发中', launched: '已上线', closed: '已关闭',
   }
   return m[s] || s
@@ -145,7 +268,7 @@ function statusLabel(s: string): string {
 
 function statusTagType(s: string): 'warning' | 'success' | 'primary' | 'info' | 'danger' {
   const m: Record<string, any> = {
-    pending_review: 'warning', approved: 'success',
+    pending_review: 'warning', approved: 'success', rejected: 'danger',
     in_development: 'primary', launched: '', closed: 'info',
   }
   return m[s] || 'info'
@@ -202,6 +325,23 @@ onMounted(loadProposals)
   flex-shrink: 0;
 }
 
+/* ── Bulk bar ── */
+.pl-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+.pl-bulk-info {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+
 /* ── Loading ── */
 .pl-loading { padding: 24px; }
 
@@ -235,6 +375,14 @@ onMounted(loadProposals)
   gap: 12px;
   margin-bottom: 8px;
 }
+.pl-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.pl-card-check { flex-shrink: 0; }
 .pl-card-title {
   font-size: 15px;
   font-weight: 600;
@@ -280,4 +428,13 @@ onMounted(loadProposals)
   font-size: 12px;
   color: var(--muted-light);
 }
+
+/* ── PRD 生成对话框 ── */
+.prd-gen-content { min-height: 120px; display: flex; align-items: center; justify-content: center; }
+.prd-gen-progress { width: 100%; padding: 16px 0; }
+.prd-gen-status { text-align: center; font-size: 14px; color: var(--text); margin: 16px 0 8px; }
+.prd-gen-section { text-align: center; font-size: 13px; color: var(--muted); }
+.prd-gen-section-label { margin-right: 4px; }
+.prd-gen-section-title { font-weight: 500; color: var(--brand); }
+.prd-gen-done, .prd-gen-error { width: 100%; }
 </style>

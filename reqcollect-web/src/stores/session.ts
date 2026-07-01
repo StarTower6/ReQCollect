@@ -41,8 +41,7 @@ export const useSessionStore = defineStore('session', () => {
     // 1. Workspace nodes
     for (const ws of workspaces.value) {
       const wsSessions = sessions.value.filter(s => s.workspace_id === ws.id)
-      if (!isSearching && wsSessions.length === 0) continue
-
+      // 工作空间始终显示（即使无 session），让用户能看到并进入
       const match = isSearching ? wsSessions.filter(s => matchesSearch(s, q)).length > 0 : true
       if (isSearching && !match && !(ws.name || '').toLowerCase().includes(q)) continue
 
