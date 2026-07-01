@@ -58,9 +58,9 @@
     <section v-else class="pl-cards">
       <article
         v-for="p in proposals"
-        :key="p.proposal_id"
+        :key="p.id || p.proposal_id"
         class="pl-card"
-        @click="goDetail(p.proposal_id)"
+        @click="goDetail(p.id || p.proposal_id)"
       >
         <div class="pl-card-top">
           <h3 class="pl-card-title">{{ p.title || '未命名提案' }}</h3>
@@ -127,7 +127,7 @@ function goBack() {
 
 function goDetail(pid: string) {
   const wid = route.params.id as string
-  router.push(`/workspace/${wid}/proposals/${pid}`)
+  router.push(`/workspaces/${wid}/proposals/${pid}`)
 }
 
 function handleNew() {
