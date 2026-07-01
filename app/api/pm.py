@@ -28,8 +28,8 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from sse_starlette.sse import EventSourceResponse
 
-from app.core.auth import get_current_user
-from app.models.pm import AgentRequest, ChatRequest, ContinueRequest, ExtractProposalRequest, GenerateRequest
+from app.core.auth import get_current_user, require_prd_generator
+from app.models.pm import AgentRequest, ChatRequest, ContinueRequest, ExtractProposalRequest, GenerateFromProposalsRequest, GenerateRequest
 # Deferred lazy accessor to avoid circular import:
 # app.main → app.api.pm → (would) → app.main
 def _svc():
@@ -201,7 +201,7 @@ async def pm_chat(
 @router.post("/pm/generate")
 async def pm_generate(
     request: GenerateRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_prd_generator),
 ):
     """Phase 2: Trigger PRD generation (SSE)."""
     logger.info(f"[{request.session_id}] Generate PRD, mode={request.mode}")
@@ -217,7 +217,7 @@ async def pm_generate(
 @router.post("/pm/continue")
 async def pm_continue(
     request: ContinueRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_prd_generator),
 ):
     """Phase 2: Continue incremental generation (SSE)."""
     logger.info(f"[{request.session_id}] Continue generation")
@@ -567,3 +567,167 @@ def priority_to_urgency(priority: str) -> str:
     """Map priority level to urgency label."""
     mapping = {"P0": "critical", "P1": "high", "P2": "medium", "P3": "low"}
     return mapping.get(priority, "medium")
+
+
+# ── Generate from Proposals ──
+
+
+@router.post("/pm/generate-from-proposals")
+async def pm_generate_from_proposals(
+    request: GenerateFromProposalsRequest,
+    current_user: dict = Depends(require_prd_generator),
+):
+    """Generate a PRD from approved proposals (SSE streaming)."""
+    logger.info(
+        f"[gen-from-proposals] ws={request.workspace_id}, "
+        f"proposals={request.proposal_ids}"
+    )
+
+    if not request.proposal_ids:
+        raise HTTPException(status_code=400, detail="No proposal IDs provided")
+
+    async def gen():
+        from app.main import get_datastore
+        from app.agent.pm.phase2.planner import prd_planner
+        from app.agent.pm.phase2.assembler import prd_assembler
+
+        ds = get_datastore()
+        if ds is None:
+            yield {
+                "event": "error",
+                "data": json.dumps({"detail": "DataStore not initialized"}, ensure_ascii=False),
+            }
+            return
+
+        # 1. Fetch and validate proposals
+        proposals = []
+        for pid in request.proposal_ids:
+            p = await ds.get_proposal(pid)
+            if p is None:
+                yield {
+                    "event": "error",
+                    "data": json.dumps({"detail": f"Proposal not found: {pid}"}, ensure_ascii=False),
+                }
+                return
+            if p.get("status") != "approved":
+                yield {
+                    "event": "error",
+                    "data": json.dumps(
+                        {"detail": f"Proposal {pid} is not approved (status: {p.get('status')})"},
+                        ensure_ascii=False,
+                    ),
+                }
+                return
+            proposals.append(p)
+
+        # 2. Merge proposals into a profile-like dict
+        titles = [p.get("title", "") for p in proposals if p.get("title")]
+        backgrounds = [p.get("background", "") for p in proposals if p.get("background")]
+        pain_points = []
+        for p in proposals:
+            pts = p.get("pain_points", [])
+            if isinstance(pts, list):
+                pain_points.extend(pts)
+
+        outcomes = [p.get("desired_outcome", "") for p in proposals if p.get("desired_outcome")]
+        scope_notes = [p.get("scope_note", "") for p in proposals if p.get("scope_note")]
+
+        project_name = titles[0][:80] if titles else "Combined Proposals PRD"
+        elevator_pitch = " / ".join(titles[:3]) if titles else ""
+
+        merged_profile = {
+            "project_name": project_name,
+            "elevator_pitch": elevator_pitch,
+            "background": "\n\n".join(backgrounds),
+            "pain_points": "\n".join(f"- {pt}" for pt in pain_points),
+            "desired_outcome": "\n".join(outcomes),
+            "scope_note": "\n".join(scope_notes),
+            "business_type": "",
+            "target_users": "项目干系人",
+            "user_count": 0,
+            "user_scale": "department",
+            "urgency": "medium",
+            "constraints": "",
+            "custom_prompts": [],
+            "source_proposal_ids": request.proposal_ids,
+        }
+
+        # 3. Plan sections
+        sections = prd_planner.plan(merged_profile, mode="one_shot")
+        yield {
+            "event": "message",
+            "data": json.dumps({
+                "type": "prd_plan",
+                "data": {
+                    "sections": [{"key": s["key"], "title": s["title"]} for s in sections],
+                    "mode": "one_shot",
+                    "source": "proposals",
+                },
+            }, ensure_ascii=False),
+        }
+
+        # 4. Assemble PRD via assembler
+        thread_id = request.session_id or f"proposals-{request.proposal_ids[0][:8]}"
+        full_markdown = ""
+
+        async for event in prd_assembler.assemble(sections, merged_profile, mode="one_shot"):
+            if event.get("type") == "prd_complete":
+                markdown = event["data"]["markdown"]
+                full_markdown = markdown
+
+                # 5. Save PRD
+                try:
+                    prd_data = {
+                        "project_name": project_name,
+                        "mode": "one_shot",
+                        "sections": [
+                            {"key": s["key"], "title": s["title"],
+                             "status": s.get("status", "done")}
+                            for s in sections
+                        ],
+                        "markdown": markdown,
+                    }
+                    await ds.save_prd(
+                        thread_id,
+                        project_name=project_name,
+                        mode="one_shot",
+                        sections=prd_data["sections"],
+                        markdown=markdown,
+                    )
+
+                    # NOTE: source_proposal_ids will be set when save_prd
+                    # is enhanced to accept the field (DataStore update upcoming)
+
+                    full_markdown = markdown
+                    logger.info(
+                        f"[gen-from-proposals] PRD saved: {project_name[:60]}, "
+                        f"sources={request.proposal_ids}"
+                    )
+
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({
+                            "type": "prd_complete",
+                            "data": {
+                                "markdown": markdown,
+                                "project_name": project_name,
+                                "source_proposal_ids": request.proposal_ids,
+                            },
+                        }, ensure_ascii=False),
+                    }
+                except Exception as e:
+                    logger.error(f"[gen-from-proposals] Save failed: {e}")
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({
+                            "type": "prd_complete",
+                            "data": {"markdown": markdown, "project_name": project_name},
+                        }, ensure_ascii=False),
+                    }
+            else:
+                yield {
+                    "event": "message",
+                    "data": json.dumps(event, ensure_ascii=False),
+                }
+
+    return EventSourceResponse(gen())

@@ -12,7 +12,7 @@ Routes:
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from loguru import logger
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, require_reviewer
 from app.core.file_handler import FileValidationError
 from app.core.workspace_analyzer import _fire
 
@@ -546,7 +546,21 @@ async def ws_proposal_update(
     body: ProposalUpdate,
     current_user: dict = Depends(get_current_user),
 ):
-    """Update proposal fields."""
+    """Update proposal fields.
+
+    Normal fields (title, background, tags, etc.) can be changed by any
+    workspace member. Changing the *status* field requires reviewer or
+    higher role.
+    """
+    # If caller tries to change status, enforce reviewer permission
+    if hasattr(body, "status") and body.status is not None and body.status != "":
+        allowed = ("reviewer", "analyst", "admin")
+        if current_user.get("role") not in allowed:
+            raise HTTPException(
+                status_code=403,
+                detail="修改提案状态需要 reviewer/analyst/admin 权限",
+            )
+
     ds = _ds()
     ws = await ds.get_workspace(workspace_id)
     if ws is None:
@@ -577,3 +591,69 @@ async def ws_proposal_delete(
         raise HTTPException(status_code=404, detail="Proposal not found")
     logger.info(f"Proposal deleted: {proposal_id}")
     return {"success": True}
+
+
+# ── Proposal Review ──
+
+
+class ProposalReviewBody(BaseModel):
+    action: str  # "approve" | "reject" | "reopen"
+    comment: str = ""
+
+
+@router.post("/workspaces/{workspace_id}/proposals/{proposal_id}/review")
+async def ws_proposal_review(
+    workspace_id: str,
+    proposal_id: str,
+    body: ProposalReviewBody,
+    current_user: dict = Depends(require_reviewer),
+):
+    """Review a proposal: approve, reject, or reopen.
+
+    Status transitions:
+      approve  -> approved
+      reject   -> rejected
+      reopen   -> pending_review
+    """
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    status_map = {
+        "approve": "approved",
+        "reject": "rejected",
+        "reopen": "pending_review",
+    }
+    new_status = status_map.get(body.action)
+    if not new_status:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid review action: {body.action}. Use approve/reject/reopen",
+        )
+
+    existing = await ds.get_proposal(proposal_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+
+    updated = await ds.update_proposal(proposal_id, status=new_status)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+
+    # Append reviewer note to ai_assessment
+    reviewer_note = ""
+    if body.comment:
+        reviewer_name = current_user.get("username", current_user.get("id", "unknown"))
+        reviewer_note = f"\n[Review by {reviewer_name}] {body.comment}"
+
+    if reviewer_note:
+        existing_ai = existing.get("ai_assessment", "") or ""
+        new_ai = existing_ai + reviewer_note
+        await ds.update_proposal(proposal_id, ai_assessment=new_ai)
+        updated["ai_assessment"] = new_ai
+
+    logger.info(
+        f"Proposal {proposal_id} reviewed: {new_status} "
+        f"by {current_user.get('username', '?')}"
+    )
+    return {"success": True, "proposal": updated}

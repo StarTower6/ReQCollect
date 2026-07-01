@@ -59,3 +59,15 @@ class ExtractProposalRequest(BaseModel):
         "session_id": "session-001",
         "workspace_id": "ws-001",
     }}}
+
+
+class GenerateFromProposalsRequest(BaseModel):
+    workspace_id: str = Field(..., description="Workspace ID")
+    proposal_ids: list[str] = Field(..., description="Approved proposal IDs")
+    session_id: str = Field(default="", description="Optional session ID for PRD association")
+
+    model_config = {"json_schema_extra": {"example": {
+        "workspace_id": "ws-001",
+        "proposal_ids": ["prop-001", "prop-002"],
+        "session_id": "session-001",
+    }}}
