@@ -73,8 +73,11 @@ async def pm_list_sessions(
     """
     if all and current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="仅管理员可查看所有会话")
+    role = current_user.get("role")
     if all:
         uid = None  # no filter
+    elif role in ("analyst", "admin"):
+        uid = None  # analyst/admin 看所有会话（工作空间共享）
     elif user_id:
         uid = user_id
     else:
