@@ -141,6 +141,11 @@ class DynamicPlanner:
         logger.info(f"PRD plan created: {len(sections)} sections, scene={scene_label}, mode={mode}")
         return sections
 
+    def get_scene_label(self, profile: dict) -> str:
+        scene = self.recognizer.recognize(profile)
+        config = SCENE_SECTION_MAP.get(scene, SCENE_SECTION_MAP[SceneType.NEW_SYSTEM])
+        return config.get("label", scene.value)
+
     @staticmethod
     def _format_profile(profile: dict) -> str:
         return json.dumps(profile, ensure_ascii=False, indent=2)

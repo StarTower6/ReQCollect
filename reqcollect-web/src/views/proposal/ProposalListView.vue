@@ -437,4 +437,13 @@ onMounted(loadProposals)
 .prd-gen-section-label { margin-right: 4px; }
 .prd-gen-section-title { font-weight: 500; color: var(--brand); }
 .prd-gen-done, .prd-gen-error { width: 100%; }
+
+.prd-gen-dialog { display: flex; gap: 16px; min-height: 400px; }
+.prd-gen-left { flex: 0 0 280px; display: flex; flex-direction: column; gap: 12px; }
+.prd-gen-right { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 16px; overflow-y: auto; max-height: 60vh; background: var(--bg); }
+.prd-gen-thoughts { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.thought-item { font-size: 13px; color: var(--brand); padding: 4px 8px; background: color-mix(in srgb, var(--brand) 8%, transparent); border-radius: 6px; }
+.prd-gen-status { font-size: 14px; color: var(--text); margin: 0; }
+.prd-gen-empty { text-align: center; color: var(--muted); padding-top: 40px; }
+
 </style>

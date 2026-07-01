@@ -260,6 +260,7 @@ class GeneratedPRD(Base):
     title: Mapped[str] = mapped_column(String(500), default="")
     mode: Mapped[str] = mapped_column(String(20), default="one_shot")
     source_proposal_ids: Mapped[list | None] = mapped_column(JSON, default=list)
+    workspace_id: Mapped[str] = mapped_column(String(64), default="")
     sections: Mapped[dict | None] = mapped_column(JSON, default=list)
     markdown: Mapped[str | None] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
@@ -278,6 +279,8 @@ class GeneratedPRD(Base):
             "version": self.version,
             "title": self.title or "",
             "mode": self.mode,
+            "workspace_id": self.workspace_id or "",
+            "workspace_id": self.workspace_id or "",
             "source_proposal_ids": self.source_proposal_ids if isinstance(self.source_proposal_ids, list) else [],
             "sections": self.sections if isinstance(self.sections, list) else [],
             "markdown": self.markdown or "",

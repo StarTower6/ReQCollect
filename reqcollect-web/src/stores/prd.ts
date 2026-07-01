@@ -10,9 +10,14 @@ export const usePrdStore = defineStore('prd', () => {
     prd.value = await fetchPrd(sessionId)
   }
 
+  async function loadById(prdId: string) {
+    const { fetchPrdById } = await import('@/api/prd')
+    prd.value = await fetchPrdById(prdId)
+  }
+
   function clear() {
     prd.value = null
   }
 
-  return { prd, load, clear }
+  return { prd, load, loadById, clear }
 })

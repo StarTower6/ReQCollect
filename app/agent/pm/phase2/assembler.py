@@ -25,6 +25,35 @@ class PRDAssembler:
             SSE events: prd_plan, section_start, section_content,
             section_complete, awaiting_approval, prd_complete
         """
+        # Thought event 1: scene recognition
+        scene_label = profile.get("_scene_label", "")
+        if not scene_label:
+            from app.agent.pm.phase2.planner import prd_planner
+            scene_label = prd_planner.get_scene_label(profile)
+        yield {
+            "type": "thought",
+            "data": {
+                "phase": "planning",
+                "text": (
+                    f"已识别项目场景为「{scene_label}」"
+                    f"，将根据场景特点调整章节重点"
+                ),
+            },
+        }
+
+        # Thought event 2: section strategy
+        mode_label = "一次性生成" if mode == "one_shot" else "逐章生成"
+        yield {
+            "type": "thought",
+            "data": {
+                "phase": "planning",
+                "text": (
+                    f"本次 PRD 共 {len(sections)} 个章节"
+                    f"，采用「{mode_label}」模式"
+                ),
+            },
+        }
+
         # Emit the plan
         plan_summary = [{"key": s["key"], "title": s["title"]} for s in sections]
         yield {
@@ -42,6 +71,18 @@ class PRDAssembler:
         full_markdown = title
 
         for i, section in enumerate(sections):
+            # Thought event 3: per-section generation
+            yield {
+                "type": "thought",
+                "data": {
+                    "phase": "section_start",
+                    "text": (
+                        f"正在撰写「{section['title']}」"
+                        f"（第 {i+1}/{len(sections)} 章）"
+                    ),
+                },
+            }
+
             yield {
                 "type": "section_start",
                 "data": {

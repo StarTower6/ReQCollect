@@ -9,3 +9,12 @@ export async function fetchPrd(sessionId: string): Promise<PrdRecord | null> {
     return null
   }
 }
+
+export async function fetchPrdById(prdId: string): Promise<PrdRecord | null> {
+  try {
+    const data = await apiGet<{ success: boolean; prd: PrdRecord }>(`/pm/prd/by-id/${encodeURIComponent(prdId)}`)
+    return data.prd
+  } catch {
+    return null
+  }
+}

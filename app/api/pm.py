@@ -458,6 +458,25 @@ async def pm_version():
     }
 
 
+# ── PRD by ID ──
+
+
+@router.get("/pm/prd/by-id/{prd_id}")
+async def pm_get_prd_by_id(
+    prd_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get a PRD by its primary key ID."""
+    from app.main import get_datastore
+    ds = get_datastore()
+    if ds is None:
+        raise HTTPException(status_code=500, detail="DataStore not initialized")
+    prd = await ds.get_prd_by_id(prd_id)
+    if prd is None:
+        raise HTTPException(status_code=404, detail="PRD not found")
+    return {"success": True, "prd": prd}
+
+
 # ── Proposal Extraction ──
 
 

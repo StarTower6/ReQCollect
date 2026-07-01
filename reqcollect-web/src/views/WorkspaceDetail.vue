@@ -78,6 +78,7 @@
           <GraphView v-else-if="activeTab === 'graph'" :workspace-id="route.params.id as string" />
         </el-tab-pane>
         <el-tab-pane label="📋 提案" name="proposals" />
+        <el-tab-pane label="📄 PRD文档" name="prds" />
       </el-tabs>
 
       <!-- Edit dialog -->
@@ -135,6 +136,9 @@ const loadingWiki = ref(false)
 watch(activeTab, (tab) => {
   if (tab === 'wiki' && wikiPages.value.length === 0) {
     loadWiki()
+  }
+  if (tab === 'prds') {
+    router.push(`/workspaces/${route.params.id}/prds`)
   }
   if (tab === 'proposals') {
     router.push(`/workspaces/${route.params.id}/proposals`)

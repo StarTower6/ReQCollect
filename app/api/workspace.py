@@ -129,6 +129,23 @@ async def ws_delete(
     return {"success": True}
 
 
+# ── Workspace PRDs ──
+
+
+@router.get("/workspaces/{workspace_id}/prds")
+async def ws_prds_list(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """List all PRDs in a workspace."""
+    ds = _ds()
+    ws_obj = await ds.get_workspace(workspace_id)
+    if ws_obj is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    prds = await ds.list_prds_by_workspace(workspace_id)
+    return {"success": True, "prds": prds, "total": len(prds)}
+
+
 @router.get("/workspaces/{workspace_id}/sessions")
 async def ws_sessions(
     workspace_id: str,

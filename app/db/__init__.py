@@ -107,6 +107,7 @@ class DataStore(ABC):
         mode: str = "one_shot",
         sections: list | None = None,
         markdown: str = "",
+        workspace_id: str = "",
     ) -> dict:
         """Save a generated PRD (auto-increment version). Returns the PRD dict."""
 
@@ -119,6 +120,22 @@ class DataStore(ABC):
     @abstractmethod
     async def list_prds(self, session_id: str) -> list[dict]:
         """List all PRD versions for a session."""
+
+
+    @abstractmethod
+    async def get_prd_by_id(self, prd_id: str) -> dict | None:
+        """Get a PRD by its primary key ID."""
+
+    @abstractmethod
+    async def list_prds_by_workspace(self, workspace_id: str) -> list[dict]:
+        """List all PRDs in a workspace."""
+    @abstractmethod
+    async def get_prd_by_id(self, prd_id: str) -> dict | None:
+        """Get a PRD by its primary key ID."""
+
+    @abstractmethod
+    async def list_prds_by_workspace(self, workspace_id: str) -> list[dict]:
+        """List all PRDs in a workspace."""
 
     # ── Dashboard / Stats ──
 
