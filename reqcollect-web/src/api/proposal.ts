@@ -76,3 +76,54 @@ export async function extractProposalSSE(
     onError('服务器未返回完整结果，请重试')
   }
 }
+
+/* ── SSE 选入 PRD 生成 ── */
+export async function generatePrdFromProposalsSSE(
+  workspaceId: string,
+  proposalIds: string[],
+  onProgress: (msg: string) => void,
+  onSection: (title: string, index: number, total: number) => void,
+  onDone: (data: any) => void,
+  onError: (err: string) => void,
+): Promise<void> {
+  const token = localStorage.getItem('reqcollect_token')
+  const resp = await fetch('/api/pm/generate-from-proposals', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ workspace_id: workspaceId, proposal_ids: proposalIds, session_id: '' }),
+  })
+  if (!resp.ok || !resp.body) { onError(`HTTP ${resp.status}`); return }
+  const reader = resp.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let gotDone = false
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    buffer = buffer.replace(/\r\n/g, '\n')
+    const frames = buffer.split('\n\n')
+    buffer = frames.pop() || ''
+    for (const frame of frames) {
+      const dataLine = frame.split('\n').find(l => l.startsWith('data: '))
+      if (!dataLine) continue
+      try {
+        const event = JSON.parse(dataLine.slice(6))
+        if (event.type === 'prd_plan') {
+          const titles = (event.data.sections || []).map((s: any) => s.title).join(' / ')
+          onProgress(`PRD 大纲: ${titles}`)
+        } else if (event.type === 'section_start') {
+          onSection(event.data.title, event.data.index, event.data.total)
+        } else if (event.type === 'section_content') {
+          // 进度更新 — 内容增量拼接
+          onProgress(`正在生成: ${event.data?.slice(0, 40)}...`)
+        } else if (event.type === 'prd_complete') {
+          gotDone = true; onDone(event.data)
+        } else if (event.type === 'error') {
+          gotDone = true; onError(event.data)
+        }
+      } catch { /* skip malformed frame */ }
+    }
+  }
+  if (!gotDone) onError('服务器未返回完整结果，请重试')
+}

@@ -101,15 +101,26 @@ const router = createRouter({
   ],
 })
 
+const ROLE_ROUTES: Record<string, string[]> = {
+  Users: ['admin'],
+}
+
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
   if (to.meta.requiresAuth !== false && !authStore.token) {
     next({ name: 'Login', query: { redirect: to.fullPath } })
-  } else if (to.name === 'Login' && authStore.token) {
-    next({ name: 'Chat' })
-  } else {
-    next()
+    return
   }
+  if (to.name === 'Login' && authStore.token) {
+    next({ name: 'Chat' })
+    return
+  }
+  const allowedRoles = ROLE_ROUTES[to.name as string]
+  if (allowedRoles && authStore.user && !allowedRoles.includes(authStore.user.role)) {
+    next({ name: 'Chat' })
+    return
+  }
+  next()
 })
 
 export default router

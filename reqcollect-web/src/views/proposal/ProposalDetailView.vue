@@ -11,6 +11,14 @@
       <div class="pd-header-actions">
         <el-button size="small" @click="handleEdit">编辑</el-button>
         <el-button size="small" type="danger" plain @click="handleDelete">删除</el-button>
+        <!-- 审核按钮（仅 reviewer/analyst/admin，且状态为 pending_review） -->
+        <template v-if="canReview && proposal.status === 'pending_review'">
+          <el-button size="small" type="success" @click="review('approve')">通过</el-button>
+          <el-button size="small" type="danger" @click="review('reject')">拒绝</el-button>
+        </template>
+        <!-- 重新打开（状态非 pending_review 时可重新评审） -->
+        <el-button v-if="canReview && proposal.status !== 'pending_review'"
+                   size="small" @click="review('reopen')">重新评审</el-button>
       </div>
     </header>
 
@@ -101,12 +109,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
+import { apiPost } from '@/api/client'
 import { getProposal, deleteProposal } from '@/api/proposal'
+import { useAuthStore } from '@/stores/auth'
 import type { Proposal } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 
 const proposal = ref<Proposal | null>(null)
 const loading = ref(false)
@@ -114,9 +126,12 @@ const loading = ref(false)
 const wid = computed(() => route.params.id as string)
 const pid = computed(() => route.params.pid as string)
 
+const canReview = computed(() => ['reviewer', 'analyst', 'admin'].includes(authStore.user?.role || ''))
+const canGeneratePrd = computed(() => ['analyst', 'admin'].includes(authStore.user?.role || ''))
+
 const pdStatusLabel = computed(() => {
   const m: Record<string, string> = {
-    pending_review: '待评审', approved: '已采纳',
+    pending_review: '待评审', approved: '已采纳', rejected: '已拒绝',
     in_development: '开发中', launched: '已上线', closed: '已关闭',
   }
   return m[proposal.value?.status || ''] || proposal.value?.status || ''
@@ -124,7 +139,7 @@ const pdStatusLabel = computed(() => {
 
 const pdStatusTagType = computed(() => {
   const m: Record<string, any> = {
-    pending_review: 'warning', approved: 'success',
+    pending_review: 'warning', approved: 'success', rejected: 'danger',
     in_development: 'primary', launched: '', closed: 'info',
   }
   return m[proposal.value?.status || ''] || 'info'
@@ -151,6 +166,18 @@ async function loadProposal() {
     proposal.value = null
   } finally {
     loading.value = false
+  }
+}
+
+async function review(action: 'approve' | 'reject' | 'reopen') {
+  const comment = action === 'approve' ? '审核通过'
+    : action === 'reject' ? '需求不清晰，需补充' : ''
+  try {
+    await apiPost(`/workspaces/${wid.value}/proposals/${pid.value}/review`, { action, comment })
+    ElMessage.success('审核操作完成')
+    await loadProposal()
+  } catch (e: any) {
+    ElMessage.error(e.message || '审核失败')
   }
 }
 
