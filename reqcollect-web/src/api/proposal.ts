@@ -57,6 +57,7 @@ export async function extractProposalSSE(
     const { done, value } = await reader.read()
     if (done) break
     buffer += decoder.decode(value, { stream: true })
+    buffer = buffer.replace(/\r\n/g, '\n')
     const frames = buffer.split('\n\n')
     buffer = frames.pop() || ''
     for (const frame of frames) {
@@ -64,7 +65,7 @@ export async function extractProposalSSE(
       if (!dataLine) continue
       try {
         const event = JSON.parse(dataLine.slice(6))
-        if (event.type === 'proposal_field') onField(event.field, event.content)
+        if (event.type === 'proposal_field') { onField(event.field, event.content); await new Promise(r => setTimeout(r, 80)) }
         else if (event.type === 'proposal_done') { gotDone = true; onDone(event.data) }
         else if (event.type === 'error') { gotDone = true; onError(event.data) }
       } catch { /* skip malformed frame */ }
