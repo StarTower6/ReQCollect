@@ -709,7 +709,26 @@ async def pm_generate_from_proposals(
         }
 
         # 4. Assemble PRD via assembler
-        thread_id = request.session_id or f"proposals-{request.proposal_ids[0][:8]}"
+        # 用第一个提案的 source_session_id 作为 PRD 的 session_id（满足外键约束）
+        # 否则用 request.session_id，兜底用 proposals-xxx（但会导致外键失败，已废弃）
+        thread_id = request.session_id
+        if not thread_id:
+            for p in proposals:
+                sid = p.get("source_session_id", "")
+                if sid:
+                    thread_id = sid
+                    break
+        if not thread_id:
+            # 兜底：用 workspace 下第一个 session
+            ws_sessions = await ds.list_sessions(workspace_id=request.workspace_id, limit=1)
+            if ws_sessions:
+                thread_id = ws_sessions[0].get("session_id", "")
+        if not thread_id:
+            yield {
+                "event": "error",
+                "data": json.dumps({"detail": "无法确定 PRD 关联的会话，请先创建会话"}, ensure_ascii=False),
+            }
+            return
         full_markdown = ""
 
         async for event in prd_assembler.assemble(sections, merged_profile, mode="one_shot"):
