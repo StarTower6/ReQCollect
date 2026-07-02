@@ -278,6 +278,7 @@ class FileDataStore(DataStore):
         mode: str = "one_shot",
         sections: list | None = None,
         markdown: str = "",
+        workspace_id: str = "",
     ) -> dict:
         path = self._prds_path(session_id)
         prds = self._load_json(path) or []
@@ -285,6 +286,7 @@ class FileDataStore(DataStore):
         prd = {
             "id": f"prd_{session_id[-8:]}_v{next_version}" if len(session_id) > 8 else f"prd_v{next_version}",
             "session_id": session_id,
+            "workspace_id": workspace_id,
             "version": next_version,
             "title": project_name,
             "mode": mode,

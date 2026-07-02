@@ -735,6 +735,7 @@ async def pm_generate_from_proposals(
                         mode="one_shot",
                         sections=prd_data["sections"],
                         markdown=markdown,
+                        workspace_id=request.workspace_id,
                     )
                     prd_id = saved.get("id", "") if isinstance(saved, dict) else ""
 

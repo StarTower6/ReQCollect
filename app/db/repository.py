@@ -776,6 +776,7 @@ class MySQLDataStore(DataStore):
         mode: str = "one_shot",
         sections: list | None = None,
         markdown: str = "",
+        workspace_id: str = "",
     ) -> dict:
         async with await self._get_session() as s:
             # Get next version number
@@ -789,6 +790,7 @@ class MySQLDataStore(DataStore):
 
             prd = GeneratedPRD(
                 session_id=session_id,
+                workspace_id=workspace_id,
                 version=next_version,
                 title=project_name,
                 mode=mode,
