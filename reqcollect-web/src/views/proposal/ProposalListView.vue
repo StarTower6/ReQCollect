@@ -109,19 +109,26 @@
       </article>
     </section>
 
-    <!-- PRD 生成对话框（三阶段：生成中/完成/失败） -->
+    <!-- PRD 生成对话框（双栏内容始终保留，完成后不切换到成功图标） -->
     <el-dialog v-model="showPrdDialog" title="生成 PRD" width="900px" :close-on-click-modal="false" :close-on-press-escape="false">
-      <!-- 阶段1: 生成中 -->
-      <div v-if="prdGenStatus === 'loading'" class="prd-gen-loading">
+      <!-- 失败态：单独显示错误结果 -->
+      <div v-if="prdGenStatus === 'error'" class="prd-gen-error">
+        <el-result icon="error" title="生成失败" :sub-title="prdProgress || '请重试'" />
+      </div>
+
+      <!-- 生成中 / 完成：状态条 + 双栏内容始终保留 -->
+      <div v-else class="prd-gen-content">
+        <!-- 状态条（始终显示） -->
         <div class="prd-gen-status-bar">
-          <el-progress :percentage="prdSectionTotal > 0 ? Math.round(prdSectionIndex / prdSectionTotal * 100) : 0" :stroke-width="8" />
+          <el-progress :percentage="prdSectionTotal > 0 ? Math.round(prdSectionIndex / prdSectionTotal * 100) : (prdGenStatus === 'done' ? 100 : 0)" :stroke-width="8" :status="prdGenStatus === 'done' ? 'success' : undefined" />
           <p class="prd-gen-status">{{ prdProgress }}</p>
           <div v-if="prdSection" class="prd-gen-section">
             <span class="prd-gen-section-label">当前章节:</span>
             <span class="prd-gen-section-title">{{ prdSection }}</span>
           </div>
         </div>
-        <div class="prd-gen-dual">
+        <!-- 双栏（始终显示，生成中和完成后都保留） -->
+        <div class="prd-gen-dual" v-if="thoughts.length || previewMarkdown">
           <div class="prd-gen-left">
             <div class="prd-gen-side-title">💭 思考过程</div>
             <div class="prd-gen-thoughts" ref="thoughtsBox">
@@ -135,20 +142,10 @@
         </div>
       </div>
 
-      <!-- 阶段2: 完成 -->
-      <div v-else-if="prdGenStatus === 'done'" class="prd-gen-done">
-        <el-result icon="success" title="PRD 生成完成" sub-title="点击下方按钮查看生成的 PRD 文档" />
-      </div>
-
-      <!-- 阶段3: 失败 -->
-      <div v-else-if="prdGenStatus === 'error'" class="prd-gen-error">
-        <el-result icon="error" title="生成失败" :sub-title="prdProgress || '请重试'" />
-      </div>
-
       <template #footer>
-        <el-button v-if="prdGenStatus !== 'loading'" @click="showPrdDialog = false">关闭</el-button>
-        <el-button v-if="prdGenStatus === 'done' && createdPrdId" type="primary" @click="goToPrd">查看 PRD →</el-button>
-        <el-button v-if="prdGenStatus === 'error'" type="primary" @click="generatePrd">重试</el-button>
+        <el-button v-if="!prdGenerating" @click="showPrdDialog = false">关闭</el-button>
+        <el-button v-if="!prdGenerating && prdGenStatus === 'error'" type="primary" @click="generatePrd">重试</el-button>
+        <el-button v-if="!prdGenerating && createdPrdId" type="primary" @click="goToPrd">查看详情 →</el-button>
       </template>
     </el-dialog>
   </div>
@@ -273,7 +270,9 @@ async function generatePrd() {
       prdProgress.value = `正在撰写第 ${index}/${total} 章: ${title}`
     },
     (data) => {
+      console.log('[PRD gen] prd_complete data:', data)
       createdPrdId.value = data?.prd_id || data?.id || data?.prd?.id || ''
+      console.log('[PRD gen] createdPrdId:', createdPrdId.value)
       prdGenerating.value = false
       prdGenStatus.value = 'done'
       prdProgress.value = '✅ PRD 生成完成！'
@@ -486,28 +485,24 @@ onMounted(loadProposals)
 }
 
 /* ── PRD 生成对话框 ── */
-.prd-gen-content { min-height: 120px; display: flex; align-items: center; justify-content: center; }
-.prd-gen-progress { width: 100%; padding: 16px 0; }
-.prd-gen-status { text-align: center; font-size: 14px; color: var(--text); margin: 16px 0 8px; }
+.prd-gen-content { display: flex; flex-direction: column; gap: 16px; }
+.prd-gen-status-bar { width: 100%; }
+.prd-gen-status { text-align: center; font-size: 14px; color: var(--text); margin: 12px 0 8px; }
 .prd-gen-section { text-align: center; font-size: 13px; color: var(--muted); }
 .prd-gen-section-label { margin-right: 4px; }
 .prd-gen-section-title { font-weight: 500; color: var(--brand); }
 .prd-gen-done, .prd-gen-error { width: 100%; }
 
-.prd-gen-dialog { display: flex; gap: 16px; min-height: 400px; }
-.prd-gen-body { display: flex; gap: 16px; margin-top: 16px; min-height: 300px; }
+.prd-gen-dual { display: flex; gap: 16px; min-height: 300px; }
 .prd-gen-left { flex: 0 0 280px; display: flex; flex-direction: column; gap: 8px; }
-.prd-gen-right { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 16px; overflow-y: auto; max-height: 60vh; background: var(--bg); }
-.prd-gen-thoughts-title { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
-.prd-gen-preview-title { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }
-.prd-gen-thoughts { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.prd-gen-side-title { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.prd-gen-thoughts { flex: 1; max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
 .thought-item { font-size: 12px; color: var(--brand); padding: 6px 8px; background: var(--brand-soft); border-radius: 6px; line-height: 1.5; }
+.prd-gen-right { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 16px; overflow-y: auto; max-height: 50vh; background: var(--bg); }
 .prd-gen-preview { font-size: 13px; line-height: 1.7; color: var(--text); }
 .prd-gen-preview :deep(h1), .prd-gen-preview :deep(h2) { margin: 12px 0 8px; }
 .prd-gen-preview :deep(h2) { font-size: 16px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
 .prd-gen-preview :deep(p) { margin: 6px 0; }
 .prd-gen-preview :deep(ul), .prd-gen-preview :deep(ol) { padding-left: 20px; }
-.prd-gen-status { font-size: 14px; color: var(--text); margin: 0; }
-.prd-gen-empty { text-align: center; color: var(--muted); padding-top: 40px; }
 
 </style>
