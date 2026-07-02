@@ -235,9 +235,15 @@ async function saveEdit() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   const sid = (route.params.sessionId || route.params.id) as string
-  if (sid) prdStore.load(sid)
+  if (!sid) return
+  // 优先按 prd_id 查（从需求池生成的 PRD 只有 id，没对应 session 上下文）
+  await prdStore.loadById(sid)
+  // fallback: 如果 by-id 查不到，再按 session_id 查
+  if (!prdStore.prd) {
+    await prdStore.load(sid)
+  }
 })
 </script>
 
