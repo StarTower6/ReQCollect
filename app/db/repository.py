@@ -23,6 +23,7 @@ from app.db.models import (
     WikiLink,
     WikiPage,
     Workspace,
+    WorkspaceMember,
 )
 
 
@@ -242,6 +243,12 @@ class MySQLDataStore(DataStore):
                 description=description, created_by=created_by,
             )
             s.add(ws)
+            await s.flush()
+            # Auto-add creator as owner member
+            member = WorkspaceMember(
+                workspace_id=ws.id, user_id=created_by, role_in_workspace="owner",
+            )
+            s.add(member)
             await s.commit()
             await s.refresh(ws)
             return {
@@ -268,10 +275,15 @@ class MySQLDataStore(DataStore):
 
     async def list_workspaces(self, user_id: str | None = None) -> list[dict]:
         async with await self._get_session() as s:
-            r = await s.execute(
-                select(Workspace).where(Workspace.is_active == True)
-                .order_by(Workspace.updated_at.desc())
-            )
+            stmt = select(Workspace).where(Workspace.is_active == True)
+            if user_id:
+                # Only workspaces where the user is a member
+                member_ws_ids = select(WorkspaceMember.workspace_id).where(
+                    WorkspaceMember.user_id == user_id
+                ).scalar_subquery()
+                stmt = stmt.where(Workspace.id.in_(member_ws_ids))
+            stmt = stmt.order_by(Workspace.updated_at.desc())
+            r = await s.execute(stmt)
             wss = r.scalars().all()
             return [{
                 "id": ws.id, "name": ws.name, "code": ws.code or "",
@@ -315,6 +327,95 @@ class MySQLDataStore(DataStore):
             )
             await s.commit()
             return True
+
+    # ── Workspace Members ──
+
+    async def add_workspace_member(
+        self, workspace_id: str, user_id: str, role: str = "business"
+    ) -> dict:
+        async with await self._get_session() as s:
+            # Upsert: if already a member, update role
+            existing = await s.execute(
+                select(WorkspaceMember).where(
+                    WorkspaceMember.workspace_id == workspace_id,
+                    WorkspaceMember.user_id == user_id,
+                )
+            )
+            member = existing.scalar_one_or_none()
+            if member is None:
+                member = WorkspaceMember(
+                    workspace_id=workspace_id,
+                    user_id=user_id,
+                    role_in_workspace=role,
+                )
+                s.add(member)
+            else:
+                member.role_in_workspace = role
+            await s.commit()
+            await s.refresh(member)
+            return member.to_dict()
+
+    async def remove_workspace_member(
+        self, workspace_id: str, user_id: str
+    ) -> bool:
+        async with await self._get_session() as s:
+            r = await s.execute(
+                select(WorkspaceMember).where(
+                    WorkspaceMember.workspace_id == workspace_id,
+                    WorkspaceMember.user_id == user_id,
+                )
+            )
+            member = r.scalar_one_or_none()
+            if member is None:
+                return False
+            await s.delete(member)
+            await s.commit()
+            return True
+
+    async def list_workspace_members(
+        self, workspace_id: str
+    ) -> list[dict]:
+        async with await self._get_session() as s:
+            r = await s.execute(
+                select(WorkspaceMember).where(
+                    WorkspaceMember.workspace_id == workspace_id
+                ).order_by(WorkspaceMember.joined_at.asc())
+            )
+            members = r.scalars().all()
+            result = []
+            for m in members:
+                d = m.to_dict()
+                # Enrich with username
+                user_r = await s.execute(select(User).where(User.id == m.user_id))
+                u = user_r.scalar_one_or_none()
+                d["username"] = u.username if u else ""
+                d["display_name"] = u.display_name if u else ""
+                result.append(d)
+            return result
+
+    async def is_workspace_member(
+        self, workspace_id: str, user_id: str
+    ) -> bool:
+        async with await self._get_session() as s:
+            r = await s.execute(
+                select(WorkspaceMember.id).where(
+                    WorkspaceMember.workspace_id == workspace_id,
+                    WorkspaceMember.user_id == user_id,
+                )
+            )
+            return r.scalar_one_or_none() is not None
+
+    async def get_workspace_member_role(
+        self, workspace_id: str, user_id: str
+    ) -> str | None:
+        async with await self._get_session() as s:
+            r = await s.execute(
+                select(WorkspaceMember.role_in_workspace).where(
+                    WorkspaceMember.workspace_id == workspace_id,
+                    WorkspaceMember.user_id == user_id,
+                )
+            )
+            return r.scalar_one_or_none()
 
     # ── Workspace Files ──
 

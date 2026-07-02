@@ -208,6 +208,70 @@ async def init_db() -> bool:
             except Exception:
                 logger.debug("Migration: generated_prds.workspace_id already exists")
 
+            # Migration: workspace_members table
+            try:
+                await conn.execute(
+                    __import__("sqlalchemy").text(
+                        "CREATE TABLE IF NOT EXISTS workspace_members ("
+                        "id VARCHAR(64) PRIMARY KEY, "
+                        "workspace_id VARCHAR(64) NOT NULL, "
+                        "user_id VARCHAR(64) NOT NULL, "
+                        "role_in_workspace VARCHAR(20) DEFAULT 'business', "
+                        "joined_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+                        "INDEX idx_wm_workspace (workspace_id), "
+                        "INDEX idx_wm_user (user_id), "
+                        "UNIQUE KEY uq_ws_user (workspace_id, user_id), "
+                        "CONSTRAINT fk_wm_workspace FOREIGN KEY (workspace_id) "
+                        "REFERENCES workspaces(id) ON DELETE CASCADE, "
+                        "CONSTRAINT fk_wm_user FOREIGN KEY (user_id) "
+                        "REFERENCES users(id) ON DELETE CASCADE"
+                        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+                    )
+                )
+                logger.info("Applied migration: workspace_members table")
+            except Exception as e:
+                logger.debug(f"Migration: workspace_members table skipped ({e})")
+
+            # Migration: backfill existing workspaces' created_by as owner members
+            try:
+                ws_rows = await conn.execute(
+                    __import__("sqlalchemy").text(
+                        "SELECT id, created_by FROM workspaces"
+                    )
+                )
+                for ws_id, created_by in ws_rows.fetchall():
+                    if not created_by:
+                        continue
+                    # Skip if user doesn't exist (FK constraint would fail)
+                    user_exists = await conn.execute(
+                        __import__("sqlalchemy").text(
+                            "SELECT 1 FROM users WHERE id = :u"
+                        ),
+                        {"u": created_by},
+                    )
+                    if not user_exists.fetchone():
+                        continue
+                    existing = await conn.execute(
+                        __import__("sqlalchemy").text(
+                            "SELECT 1 FROM workspace_members "
+                            "WHERE workspace_id = :ws AND user_id = :u"
+                        ),
+                        {"ws": ws_id, "u": created_by},
+                    )
+                    if existing.fetchone():
+                        continue
+                    import uuid as _uuid
+                    await conn.execute(
+                        __import__("sqlalchemy").text(
+                            "INSERT INTO workspace_members (id, workspace_id, user_id, role_in_workspace) "
+                            "VALUES (:id, :ws, :u, 'owner')"
+                        ),
+                        {"id": _uuid.uuid4().hex[:16], "ws": ws_id, "u": created_by},
+                    )
+                logger.info("Applied migration: backfill workspace owners as members")
+            except Exception as e:
+                logger.debug(f"Migration: backfill workspace members skipped ({e})")
+
         _async_session_factory = async_sessionmaker(
             _engine, class_=AsyncSession, expire_on_commit=False
         )

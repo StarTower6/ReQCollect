@@ -549,8 +549,9 @@ class FileDataStore(DataStore):
     ) -> dict:
         import uuid
         now = _now()
+        ws_id = uuid.uuid4().hex[:16]
         ws = {
-            "id": uuid.uuid4().hex[:16],
+            "id": ws_id,
             "name": name,
             "code": code,
             "description": description,
@@ -558,6 +559,15 @@ class FileDataStore(DataStore):
             "is_active": True,
             "created_at": now,
             "updated_at": now,
+            "members": [
+                {
+                    "id": uuid.uuid4().hex[:16],
+                    "workspace_id": ws_id,
+                    "user_id": created_by,
+                    "role_in_workspace": "owner",
+                    "joined_at": now,
+                }
+            ],
         }
         _FileLock.write_json(self._workspace_file(ws["id"]), ws)
         # Update index
@@ -575,8 +585,15 @@ class FileDataStore(DataStore):
             if f.name == "_index.json":
                 continue
             data = self._load_json(f)
-            if data and data.get("is_active", True):
-                workspaces.append(data)
+            if not data or not data.get("is_active", True):
+                continue
+            if user_id:
+                members = data.get("members") or []
+                # Backfill: if no members record but user is creator, include
+                if not any(m.get("user_id") == user_id for m in members):
+                    if data.get("created_by") != user_id:
+                        continue
+            workspaces.append(data)
         workspaces.sort(key=lambda w: w.get("updated_at", ""), reverse=True)
         return workspaces
 
@@ -608,6 +625,113 @@ class FileDataStore(DataStore):
                 data["updated_at"] = _now()
                 _FileLock.write_json(f, data)
         return True
+
+    # ── Workspace Members ──
+
+    def _ensure_members(self, ws: dict) -> list[dict]:
+        """Get ws.members, backfilling creator as owner if empty."""
+        members = ws.get("members")
+        if not members:
+            members = []
+            if ws.get("created_by"):
+                members.append({
+                    "id": uuid.uuid4().hex[:16],
+                    "workspace_id": ws["id"],
+                    "user_id": ws["created_by"],
+                    "role_in_workspace": "owner",
+                    "joined_at": ws.get("created_at") or _now(),
+                })
+                ws["members"] = members
+        return members
+
+    async def add_workspace_member(
+        self, workspace_id: str, user_id: str, role: str = "business"
+    ) -> dict:
+        ws = await self.get_workspace(workspace_id)
+        if ws is None:
+            return {}
+        members = self._ensure_members(ws)
+        # Upsert
+        for m in members:
+            if m.get("user_id") == user_id:
+                m["role_in_workspace"] = role
+                _FileLock.write_json(self._workspace_file(workspace_id), ws)
+                return dict(m)
+        member = {
+            "id": uuid.uuid4().hex[:16],
+            "workspace_id": workspace_id,
+            "user_id": user_id,
+            "role_in_workspace": role,
+            "joined_at": _now(),
+        }
+        members.append(member)
+        ws["members"] = members
+        _FileLock.write_json(self._workspace_file(workspace_id), ws)
+        # Enrich with username for consistency with MySQL backend
+        user = await self.get_user_by_id(user_id)
+        member["username"] = user.get("username", "") if user else ""
+        member["display_name"] = user.get("display_name", "") if user else ""
+        return dict(member)
+
+    async def remove_workspace_member(
+        self, workspace_id: str, user_id: str
+    ) -> bool:
+        ws = await self.get_workspace(workspace_id)
+        if ws is None:
+            return False
+        members = ws.get("members") or []
+        new_members = [m for m in members if m.get("user_id") != user_id]
+        if len(new_members) == len(members):
+            return False
+        ws["members"] = new_members
+        _FileLock.write_json(self._workspace_file(workspace_id), ws)
+        return True
+
+    async def list_workspace_members(
+        self, workspace_id: str
+    ) -> list[dict]:
+        ws = await self.get_workspace(workspace_id)
+        if ws is None:
+            return []
+        members = self._ensure_members(ws)
+        # Persist backfill if it added members
+        if len(members) != len(ws.get("members", [])):
+            ws["members"] = members
+            _FileLock.write_json(self._workspace_file(workspace_id), ws)
+        result = []
+        for m in members:
+            d = dict(m)
+            user = await self.get_user_by_id(m.get("user_id", ""))
+            d["username"] = user.get("username", "") if user else ""
+            d["display_name"] = user.get("display_name", "") if user else ""
+            result.append(d)
+        return result
+
+    async def is_workspace_member(
+        self, workspace_id: str, user_id: str
+    ) -> bool:
+        ws = await self.get_workspace(workspace_id)
+        if ws is None:
+            return False
+        members = self._ensure_members(ws)
+        if any(m.get("user_id") == user_id for m in members):
+            return True
+        # Backfill fallback: creator counts as member
+        return ws.get("created_by") == user_id
+
+    async def get_workspace_member_role(
+        self, workspace_id: str, user_id: str
+    ) -> str | None:
+        ws = await self.get_workspace(workspace_id)
+        if ws is None:
+            return None
+        members = self._ensure_members(ws)
+        for m in members:
+            if m.get("user_id") == user_id:
+                return m.get("role_in_workspace", "business")
+        if ws.get("created_by") == user_id:
+            return "owner"
+        return None
 
     # ── Workspace Files ──
 

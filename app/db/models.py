@@ -19,6 +19,7 @@ from sqlalchemy import (
     LargeBinary,
     String,
     Text,
+    UniqueConstraint,
     JSON,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -313,6 +314,51 @@ class Workspace(Base):
         primaryjoin="Workspace.id == RequirementProposal.workspace_id",
         foreign_keys="RequirementProposal.workspace_id",
     )
+    members: Mapped[list["WorkspaceMember"]] = relationship(
+        "WorkspaceMember", back_populates="workspace",
+        cascade="all, delete-orphan",
+    )
+
+
+# ── Workspace Member ──
+
+
+class WorkspaceMember(Base):
+    """Membership relation between users and workspaces.
+
+    role_in_workspace: "owner" | "analyst" | "reviewer" | "business"
+    """
+
+    __tablename__ = "workspace_members"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=_new_id)
+    workspace_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    role_in_workspace: Mapped[str] = mapped_column(
+        String(20), default="business"
+    )
+    joined_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+    __table_args__ = (
+        Index("idx_wm_workspace", "workspace_id"),
+        Index("idx_wm_user", "user_id"),
+        UniqueConstraint("workspace_id", "user_id", name="uq_ws_user"),
+    )
+
+    workspace: Mapped["Workspace"] = relationship("Workspace", back_populates="members")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "workspace_id": self.workspace_id,
+            "user_id": self.user_id,
+            "role_in_workspace": self.role_in_workspace or "business",
+            "joined_at": self.joined_at.isoformat() if self.joined_at else "",
+        }
 
 
 # ── Wiki Page ──

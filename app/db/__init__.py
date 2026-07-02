@@ -229,6 +229,38 @@ class DataStore(ABC):
     async def delete_workspace(self, workspace_id: str) -> bool:
         """Delete workspace and all related data."""
 
+    # ── Workspace Members ──
+
+    @abstractmethod
+    async def add_workspace_member(
+        self, workspace_id: str, user_id: str, role: str = "business"
+    ) -> dict:
+        """Add a user as a member of a workspace. Returns the member dict."""
+
+    @abstractmethod
+    async def remove_workspace_member(
+        self, workspace_id: str, user_id: str
+    ) -> bool:
+        """Remove a member from a workspace. Returns True if removed."""
+
+    @abstractmethod
+    async def list_workspace_members(
+        self, workspace_id: str
+    ) -> list[dict]:
+        """List all members of a workspace."""
+
+    @abstractmethod
+    async def is_workspace_member(
+        self, workspace_id: str, user_id: str
+    ) -> bool:
+        """Return True if user is a member of the workspace."""
+
+    @abstractmethod
+    async def get_workspace_member_role(
+        self, workspace_id: str, user_id: str
+    ) -> str | None:
+        """Return the user's role_in_workspace, or None if not a member."""
+
     # ── Wiki Pages ──
 
     @abstractmethod
