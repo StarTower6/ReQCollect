@@ -2,7 +2,14 @@
   <AppLayout>
     <!-- 提炼提案按钮 -->
     <div class="cv-actions" v-if="sessionStore.currentId">
-      <el-button size="small" @click="showExtract = true">
+      <!-- refine 会话提示 + 应用到提案 -->
+      <template v-if="isRefineSession">
+        <span class="cv-refine-hint">📝 正在完善提案</span>
+        <el-button size="small" type="success" :loading="applying" @click="applyToProposal">
+          ✅ 应用到提案
+        </el-button>
+      </template>
+      <el-button v-else size="small" @click="showExtract = true">
         <template #icon><span style="font-size:15px">📋</span></template>
         提炼提案
       </el-button>
@@ -61,8 +68,9 @@ import { ElMessage } from 'element-plus'
 import { useSessionStore } from '@/stores/session'
 import { useChatStore } from '@/stores/chat'
 import { useProfileStore } from '@/stores/profile'
-import { readSSEStream } from '@/api/client'
+import { readSSEStream, apiPost } from '@/api/client'
 import { extractProposalSSE } from '@/api/proposal'
+import { fetchHistory } from '@/api/session'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ChatArea from '@/components/chat/ChatArea.vue'
 
@@ -74,6 +82,46 @@ const profileStore = useProfileStore()
 
 const mode = ref<'one_shot' | 'incremental'>('one_shot')
 const referencedFiles = inject<Ref<string[]>>('referencedFiles', ref([]))
+
+/* ── refine 会话检测 ── */
+const isRefineSession = ref(false)
+const refineProposalId = ref('')
+const applying = ref(false)
+
+async function checkRefineSession(sid: string) {
+  isRefineSession.value = false
+  refineProposalId.value = ''
+  try {
+    const msgs = await fetchHistory(sid)
+    for (const m of msgs) {
+      if (m.event_type === 'context' && m.meta?.refine_proposal_id) {
+        isRefineSession.value = true
+        refineProposalId.value = m.meta.refine_proposal_id
+        break
+      }
+    }
+  } catch { /* ignore */ }
+}
+
+async function applyToProposal() {
+  const sid = sessionStore.currentId
+  if (!sid) return
+  applying.value = true
+  try {
+    const res: any = await apiPost(`/pm/sessions/${sid}/apply-to-proposal`, {})
+    ElMessage.success('提案已更新，状态改为待评审')
+    if (res?.proposal?.id) {
+      const wid = sessionStore.currentWorkspaceId
+      if (wid) {
+        router.push(`/workspaces/${wid}/proposals/${res.proposal.id}`)
+      }
+    }
+  } catch (e: any) {
+    ElMessage.error(e.message || '应用到提案失败')
+  } finally {
+    applying.value = false
+  }
+}
 
 /* ── 提炼提案 ── */
 const showExtract = ref(false)
@@ -164,6 +212,7 @@ watch(() => route.params.sessionId, (sid: any) => {
     sessionStore.setCurrent(sid)
     chatStore.loadHistory(sid)
     profileStore.load(sid)
+    checkRefineSession(sid)
   }
 }, { immediate: true })
 
@@ -272,6 +321,13 @@ async function handleSend(text: string) {
   padding: 8px 16px 0;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+.cv-refine-hint {
+  font-size: 13px;
+  color: var(--brand);
+  font-weight: 500;
 }
 .extract-start { padding: 8px 0; }
 .extract-progress { padding: 8px 0; }

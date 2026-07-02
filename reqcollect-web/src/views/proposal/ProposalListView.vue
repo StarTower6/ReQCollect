@@ -20,6 +20,7 @@
       <el-tabs v-model="statusFilter" class="pl-status-tabs" @tab-change="loadProposals">
         <el-tab-pane label="全部" name="" />
         <el-tab-pane label="待评审" name="pending_review" />
+        <el-tab-pane label="已完善待评审" name="ready_review" />
         <el-tab-pane label="已采纳" name="approved" />
         <el-tab-pane label="已拒绝" name="rejected" />
         <el-tab-pane label="开发中" name="in_development" />
@@ -315,16 +316,16 @@ watch(renderedPreview, async () => {
 
 function statusLabel(s: string): string {
   const m: Record<string, string> = {
-    pending_review: '待评审', approved: '已采纳', rejected: '已拒绝',
-    in_development: '开发中', launched: '已上线', closed: '已关闭',
+    pending_review: '待评审', ready_review: '已完善待评审', approved: '已采纳',
+    rejected: '已拒绝', in_development: '开发中', launched: '已上线', closed: '已关闭',
   }
   return m[s] || s
 }
 
 function statusTagType(s: string): 'warning' | 'success' | 'primary' | 'info' | 'danger' {
   const m: Record<string, any> = {
-    pending_review: 'warning', approved: 'success', rejected: 'danger',
-    in_development: 'primary', launched: '', closed: 'info',
+    pending_review: 'warning', ready_review: 'primary', approved: 'success',
+    rejected: 'danger', in_development: 'primary', launched: '', closed: 'info',
   }
   return m[s] || 'info'
 }

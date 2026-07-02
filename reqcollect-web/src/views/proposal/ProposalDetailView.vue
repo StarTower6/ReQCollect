@@ -9,21 +9,50 @@
         </el-button>
       </div>
       <div class="pd-header-actions">
-        <el-button size="small" @click="handleEdit">编辑</el-button>
-        <el-button size="small" type="danger" plain @click="handleDelete">删除</el-button>
-        <!-- 审核按钮（仅 reviewer/analyst/admin，且状态为 pending_review） -->
-        <template v-if="canReview && proposal.status === 'pending_review'">
+        <el-button v-if="canEdit && !editing" size="small" @click="startEdit">✏️ 编辑</el-button>
+        <el-button v-if="canEdit && !editing && proposal.status === 'pending_review'" type="primary" size="small" @click="refineWithAI">🤖 与 AI 完善</el-button>
+        <el-button v-if="canDelete" size="small" type="danger" plain @click="handleDelete">删除</el-button>
+        <!-- 审核按钮（仅 reviewer/analyst/admin，且状态为 pending_review 或 ready_review） -->
+        <template v-if="canReview && (proposal.status === 'pending_review' || proposal.status === 'ready_review')">
           <el-button size="small" type="success" @click="review('approve')">通过</el-button>
           <el-button size="small" type="danger" @click="review('reject')">拒绝</el-button>
         </template>
-        <!-- 重新打开（状态非 pending_review 时可重新评审） -->
-        <el-button v-if="canReview && proposal.status !== 'pending_review'"
+        <!-- 重新打开（状态非 pending_review/ready_review 时可重新评审） -->
+        <el-button v-if="canReview && proposal.status !== 'pending_review' && proposal.status !== 'ready_review'"
                    size="small" @click="review('reopen')">重新评审</el-button>
       </div>
     </header>
 
+    <!-- 编辑模式表单 -->
+    <div v-if="editing" class="pd-edit-form">
+      <el-form :model="editForm" label-width="80px">
+        <el-form-item label="标题">
+          <el-input v-model="editForm.title" />
+        </el-form-item>
+        <el-form-item label="背景">
+          <el-input v-model="editForm.background" type="textarea" :rows="3" />
+        </el-form-item>
+        <el-form-item label="痛点">
+          <el-input v-model="editForm.painPointsText" type="textarea" :rows="3" placeholder="每行一个" />
+        </el-form-item>
+        <el-form-item label="期望效果">
+          <el-input v-model="editForm.desired_outcome" type="textarea" :rows="3" />
+        </el-form-item>
+        <el-form-item label="范围说明">
+          <el-input v-model="editForm.scope_note" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item>
+          <el-checkbox v-model="markReady">标记为已完善（进入待评审）</el-checkbox>
+        </el-form-item>
+      </el-form>
+      <div class="pd-edit-actions">
+        <el-button @click="cancelEdit">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="saveEdit">保存</el-button>
+      </div>
+    </div>
+
     <!-- 标题 + 标签 -->
-    <div class="pd-top">
+    <div v-if="!editing" class="pd-top">
       <div class="pd-top-left">
         <h1 class="pd-title">{{ proposal.title || '未命名提案' }}</h1>
         <div class="pd-tags">
@@ -44,7 +73,7 @@
     </div>
 
     <!-- 主体：左 1fr + 右 368px -->
-    <div class="pd-body">
+    <div v-if="!editing" class="pd-body">
       <!-- 左侧内容 -->
       <div class="pd-main">
         <section class="pd-section">
@@ -107,12 +136,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { apiPost } from '@/api/client'
-import { getProposal, deleteProposal } from '@/api/proposal'
+import { getProposal, deleteProposal, updateProposal } from '@/api/proposal'
 import { useAuthStore } from '@/stores/auth'
 import type { Proposal } from '@/types'
 
@@ -128,19 +157,33 @@ const pid = computed(() => route.params.pid as string)
 
 const canReview = computed(() => ['reviewer', 'analyst', 'admin'].includes(authStore.user?.role || ''))
 const canGeneratePrd = computed(() => ['analyst', 'admin'].includes(authStore.user?.role || ''))
+const canEdit = computed(() => ['analyst', 'admin'].includes(authStore.user?.role || ''))
+const canDelete = computed(() => ['analyst', 'admin'].includes(authStore.user?.role || ''))
+
+// Edit mode
+const editing = ref(false)
+const saving = ref(false)
+const markReady = ref(false)
+const editForm = reactive({
+  title: '',
+  background: '',
+  painPointsText: '',
+  desired_outcome: '',
+  scope_note: '',
+})
 
 const pdStatusLabel = computed(() => {
   const m: Record<string, string> = {
-    pending_review: '待评审', approved: '已采纳', rejected: '已拒绝',
-    in_development: '开发中', launched: '已上线', closed: '已关闭',
+    pending_review: '待评审', ready_review: '已完善待评审', approved: '已采纳',
+    rejected: '已拒绝', in_development: '开发中', launched: '已上线', closed: '已关闭',
   }
   return m[proposal.value?.status || ''] || proposal.value?.status || ''
 })
 
 const pdStatusTagType = computed(() => {
   const m: Record<string, any> = {
-    pending_review: 'warning', approved: 'success', rejected: 'danger',
-    in_development: 'primary', launched: '', closed: 'info',
+    pending_review: 'warning', ready_review: 'primary', approved: 'success',
+    rejected: 'danger', in_development: 'primary', launched: '', closed: 'info',
   }
   return m[proposal.value?.status || ''] || 'info'
 })
@@ -181,12 +224,61 @@ async function review(action: 'approve' | 'reject' | 'reopen') {
   }
 }
 
-function handleEdit() {
-  // TODO: 编辑弹窗
+function startEdit() {
+  if (!proposal.value) return
+  editForm.title = proposal.value.title || ''
+  editForm.background = proposal.value.background || ''
+  editForm.painPointsText = (proposal.value.pain_points || []).join('\n')
+  editForm.desired_outcome = proposal.value.desired_outcome || ''
+  editForm.scope_note = proposal.value.scope_note || ''
+  markReady.value = false
+  editing.value = true
+}
+
+function cancelEdit() {
+  editing.value = false
+}
+
+async function saveEdit() {
+  saving.value = true
+  try {
+    const body: any = {
+      title: editForm.title,
+      background: editForm.background,
+      pain_points: editForm.painPointsText.split('\n').map((s) => s.trim()).filter(Boolean),
+      desired_outcome: editForm.desired_outcome,
+      scope_note: editForm.scope_note,
+    }
+    if (markReady.value) body.status = 'ready_review'
+    await updateProposal(wid.value, pid.value, body)
+    ElMessage.success(markReady.value ? '已保存并标记为已完善' : '已保存')
+    editing.value = false
+    await loadProposal()
+  } catch (e: any) {
+    ElMessage.error(e.message || '保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function refineWithAI() {
+  try {
+    const data: any = await apiPost(`/workspaces/${wid.value}/proposals/${pid.value}/refine`, {})
+    ElMessage.success('已创建完善会话，跳转对话...')
+    router.push(`/chat/${data.session_id}`)
+  } catch (e: any) {
+    ElMessage.error(e.message || '创建完善会话失败')
+  }
 }
 
 async function handleDelete() {
-  // TODO: 确认弹窗
+  try {
+    await deleteProposal(wid.value, pid.value)
+    ElMessage.success('已删除')
+    router.push(`/workspaces/${wid.value}/proposals`)
+  } catch (e: any) {
+    ElMessage.error(e.message || '删除失败')
+  }
 }
 
 onMounted(loadProposal)
@@ -331,4 +423,19 @@ onMounted(loadProposal)
 /* ── Loading / Empty ── */
 .pd-loading { padding: 40px 24px; }
 .pd-empty { flex: 1; display: flex; align-items: center; justify-content: center; }
+
+/* ── Edit form ── */
+.pd-edit-form {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.pd-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
 </style>
