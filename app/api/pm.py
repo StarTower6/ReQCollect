@@ -25,6 +25,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, File, UploadFile
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from loguru import logger
 from sse_starlette.sse import EventSourceResponse
 
@@ -463,6 +464,10 @@ async def pm_version():
 
 # ── PRD by ID ──
 
+
+class PrdUpdateBody(BaseModel):
+    markdown: str
+    title: str | None = None
 
 
 @router.patch("/pm/prd/by-id/{prd_id}")
