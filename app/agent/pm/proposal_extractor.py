@@ -1,6 +1,7 @@
 """Extract requirement proposals from session conversations via LLM."""
 
 from collections.abc import AsyncGenerator
+import asyncio
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from loguru import logger
@@ -163,6 +164,7 @@ async def extract_proposal_from_session(
             "display_name": FIELD_DISPLAY_NAMES.get(field, field),
             "content": value,
         }
+        await asyncio.sleep(0.3)
 
     # Final event with complete data
     data = {
