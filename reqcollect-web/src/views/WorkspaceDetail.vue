@@ -9,8 +9,8 @@
           <el-tag v-if="workspace?.code" size="small" type="info">{{ workspace.code }}</el-tag>
         </div>
         <div class="detail-header-actions">
-          <el-button size="small" @click="showEdit = true">编辑</el-button>
-          <el-popconfirm title="确定删除此工作空间？" @confirm="handleDelete">
+          <el-button v-if="canManageWorkspace" size="small" @click="showEdit = true">编辑</el-button>
+          <el-popconfirm v-if="canManageWorkspace" title="确定删除此工作空间？" @confirm="handleDelete">
             <template #reference>
               <el-button size="small" type="danger">删除</el-button>
             </template>
@@ -85,7 +85,69 @@
           <div v-if="!workspace" v-loading="true" style="height:200px" />
           <PrdListView v-else-if="activeTab === 'prds'" :workspace-id="route.params.id as string" :embedded="true" />
         </el-tab-pane>
+        <el-tab-pane label="👥 成员" name="members">
+          <div v-if="!workspace" v-loading="true" style="height:200px" />
+          <div v-else class="member-section">
+            <div class="section-actions">
+              <span class="section-count">共 {{ members.length }} 个成员</span>
+              <el-button v-if="canManageMembers" size="small" type="primary" @click="showAddMember = true">+ 添加成员</el-button>
+            </div>
+            <el-table :data="members" v-loading="loadingMembers" stripe style="width:100%" empty-text="暂无成员">
+              <el-table-column label="用户" min-width="180">
+                <template #default="{ row }">
+                  <span>{{ row.display_name || row.username || row.user_id }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="角色" width="140">
+                <template #default="{ row }">
+                  <el-tag :type="memberRoleTagType(row.role_in_workspace)" size="small">
+                    {{ memberRoleLabel(row.role_in_workspace) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="加入时间" width="180">
+                <template #default="{ row }">
+                  <span>{{ formatDate(row.joined_at) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column v-if="canManageMembers" label="操作" width="100">
+                <template #default="{ row }">
+                  <el-button
+                    v-if="row.user_id !== currentUserId"
+                    size="small"
+                    text
+                    type="danger"
+                    @click="handleRemoveMember(row)"
+                  >
+                    移除
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
       </el-tabs>
+
+      <!-- Add member dialog -->
+      <el-dialog v-model="showAddMember" title="添加成员" width="480px">
+        <el-form :model="addMemberForm" label-width="80px">
+          <el-form-item label="用户ID">
+            <el-input v-model="addMemberForm.userId" placeholder="输入用户ID" />
+          </el-form-item>
+          <el-form-item label="角色">
+            <el-select v-model="addMemberForm.role" style="width:100%">
+              <el-option label="业务人员" value="business" />
+              <el-option label="评审人" value="reviewer" />
+              <el-option label="需求分析师" value="analyst" />
+              <el-option label="所有者" value="owner" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showAddMember = false">取消</el-button>
+          <el-button type="primary" :loading="addingMember" @click="handleAddMember">添加</el-button>
+        </template>
+      </el-dialog>
 
       <!-- Edit dialog -->
       <el-dialog v-model="showEdit" title="编辑工作空间" width="480px">
@@ -110,10 +172,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { fetchWorkspace, updateWorkspace, deleteWorkspace, fetchWorkspaceSessions } from '@/api/workspace'
+import {
+  fetchWorkspace, updateWorkspace, deleteWorkspace, fetchWorkspaceSessions,
+  listWorkspaceMembers, addWorkspaceMember, removeWorkspaceMember,
+} from '@/api/workspace'
 import { fetchWikiPages } from '@/api/wiki'
 import type { WikiPage } from '@/api/wiki'
 import GraphView from '@/views/wiki/GraphView.vue'
@@ -123,6 +188,7 @@ import PrdListView from '@/views/PrdListView.vue'
 import { useSessionStore } from '@/stores/session'
 import { useChatStore } from '@/stores/chat'
 import { useProfileStore } from '@/stores/profile'
+import { useAuthStore } from '@/stores/auth'
 import AppLayout from '@/components/layout/AppLayout.vue'
 
 const route = useRoute()
@@ -130,6 +196,7 @@ const router = useRouter()
 const sessionStore = useSessionStore()
 const chatStore = useChatStore()
 const profileStore = useProfileStore()
+const authStore = useAuthStore()
 
 const workspace = ref<any>(null)
 const sessions = ref<any[]>([])
@@ -141,9 +208,28 @@ const editForm = reactive({ name: '', code: '', description: '' })
 const wikiPages = ref<WikiPage[]>([])
 const loadingWiki = ref(false)
 
+// Members
+const members = ref<any[]>([])
+const loadingMembers = ref(false)
+const showAddMember = ref(false)
+const addingMember = ref(false)
+const addMemberForm = reactive({ userId: '', role: 'business' })
+
+const currentUserId = computed(() => authStore.user?.id || '')
+const currentRole = computed(() => authStore.user?.role || '')
+const canManageWorkspace = computed(() => ['admin'].includes(currentRole.value))
+const canManageMembers = computed(
+  () => currentRole.value === 'admin' || members.value.some(
+    (m) => m.user_id === currentUserId.value && m.role_in_workspace === 'owner',
+  ),
+)
+
 watch(activeTab, (tab) => {
   if (tab === 'wiki' && wikiPages.value.length === 0) {
     loadWiki()
+  }
+  if (tab === 'members') {
+    loadMembers()
   }
 })
 
@@ -180,6 +266,9 @@ async function load() {
     sessions.value = await fetchWorkspaceSessions(id)
   } catch {}
   finally { loadingSessions.value = false }
+
+  // Preload members so canManageMembers/canManageWorkspace resolve immediately
+  await loadMembers()
 }
 
 async function handleEdit() {
@@ -208,6 +297,49 @@ async function loadWiki() {
     wikiPages.value = await fetchWikiPages(id)
   } catch {}
   finally { loadingWiki.value = false }
+}
+
+async function loadMembers() {
+  const id = route.params.id as string
+  loadingMembers.value = true
+  try {
+    members.value = await listWorkspaceMembers(id)
+  } catch (e: any) {
+    // Non-members get 403; silently clear the list
+    members.value = []
+  } finally { loadingMembers.value = false }
+}
+
+async function handleAddMember() {
+  if (!addMemberForm.userId.trim()) {
+    ElMessage.warning('请输入用户ID')
+    return
+  }
+  addingMember.value = true
+  try {
+    await addWorkspaceMember(route.params.id as string, addMemberForm.userId.trim(), addMemberForm.role)
+    ElMessage.success('成员已添加')
+    showAddMember.value = false
+    addMemberForm.userId = ''
+    addMemberForm.role = 'business'
+    await loadMembers()
+  } catch (e: any) { ElMessage.error(e.message || '添加失败') }
+  finally { addingMember.value = false }
+}
+
+async function handleRemoveMember(row: any) {
+  try {
+    await removeWorkspaceMember(route.params.id as string, row.user_id)
+    ElMessage.success('成员已移除')
+    await loadMembers()
+  } catch (e: any) { ElMessage.error(e.message || '移除失败') }
+}
+
+function memberRoleLabel(r: string): string {
+  return { owner: '所有者', analyst: '需求分析师', reviewer: '评审人', business: '业务人员' }[r] || r
+}
+function memberRoleTagType(r: string): 'primary' | 'success' | 'warning' | 'info' {
+  return ({ owner: 'primary', analyst: 'success', reviewer: 'warning', business: 'info' } as const)[r] || 'info'
 }
 
 function goNewWiki() {

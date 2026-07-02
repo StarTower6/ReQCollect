@@ -30,3 +30,23 @@ export async function fetchWorkspaceSessions(id: string): Promise<any[]> {
   const res: any = await apiGet(`/workspaces/${id}/sessions`)
   return res.sessions
 }
+
+/* ── Workspace Members ── */
+
+export async function listWorkspaceMembers(wsId: string): Promise<any[]> {
+  const res: any = await apiGet(`/workspaces/${wsId}/members`)
+  return res.members
+}
+
+export async function addWorkspaceMember(
+  wsId: string,
+  userId: string,
+  role: string = 'business',
+): Promise<any> {
+  const res: any = await apiPost(`/workspaces/${wsId}/members`, { user_id: userId, role })
+  return res.member
+}
+
+export async function removeWorkspaceMember(wsId: string, userId: string): Promise<void> {
+  await apiDelete(`/workspaces/${wsId}/members/${userId}`)
+}

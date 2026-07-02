@@ -3,7 +3,7 @@
     <div class="ws-list-page">
       <div class="page-header">
         <h2>工作空间</h2>
-        <el-button type="primary" size="default" @click="showCreate = true">+ 新建项目</el-button>
+        <el-button v-if="canCreateWorkspace" type="primary" size="default" @click="showCreate = true">+ 新建项目</el-button>
       </div>
 
       <div v-if="loading" v-loading="loading" style="height:200px" />
@@ -55,13 +55,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { fetchWorkspaces, createWorkspace } from '@/api/workspace'
+import { useAuthStore } from '@/stores/auth'
 import AppLayout from '@/components/layout/AppLayout.vue'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const workspaces = ref<any[]>([])
 const loading = ref(true)
 const showCreate = ref(false)
@@ -69,6 +71,8 @@ const creating = ref(false)
 const formRef = ref()
 const form = reactive({ name: '', code: '', description: '' })
 const rules = { name: [{ required: true, message: '请输入项目名称', trigger: 'blur' }] }
+
+const canCreateWorkspace = computed(() => ['analyst', 'admin'].includes(authStore.user?.role || ''))
 
 function formatDate(d: string) {
   if (!d) return ''
