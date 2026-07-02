@@ -131,6 +131,11 @@ class DataStore(ABC):
         """List all PRDs in a workspace, ordered by created_at desc."""
 
 
+
+    @abstractmethod
+    async def update_prd(self, prd_id: str, **kwargs) -> dict | None:
+        """Update PRD fields (markdown, title, etc). Returns updated PRD or None."""
+
     # ── Dashboard / Stats ──
 
     @abstractmethod

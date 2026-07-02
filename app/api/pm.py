@@ -464,6 +464,20 @@ async def pm_version():
 # ── PRD by ID ──
 
 
+
+@router.patch("/pm/prd/by-id/{prd_id}")
+async def pm_update_prd(
+    prd_id: str,
+    body: PrdUpdateBody,
+    current_user: dict = Depends(require_prd_generator),
+):
+    """Update PRD markdown (edit mode save)."""
+    ds = get_datastore()
+    updated = await ds.update_prd(prd_id, markdown=body.markdown, title=body.title)
+    if not updated:
+        raise HTTPException(404, "PRD not found")
+    return {"success": True, "prd": updated}
+
 @router.get("/pm/prd/by-id/{prd_id}")
 async def pm_get_prd_by_id(
     prd_id: str,

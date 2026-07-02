@@ -77,8 +77,14 @@
           <div v-if="!workspace" v-loading="true" style="height:400px" />
           <GraphView v-else-if="activeTab === 'graph'" :workspace-id="route.params.id as string" />
         </el-tab-pane>
-        <el-tab-pane label="📋 提案" name="proposals" />
-        <el-tab-pane label="📄 PRD文档" name="prds" />
+        <el-tab-pane label="📋 提案" name="proposals">
+          <div v-if="!workspace" v-loading="true" style="height:200px" />
+          <ProposalListView v-else-if="activeTab === 'proposals'" :workspace-id="route.params.id as string" :embedded="true" />
+        </el-tab-pane>
+        <el-tab-pane label="📄 PRD文档" name="prds">
+          <div v-if="!workspace" v-loading="true" style="height:200px" />
+          <PrdListView v-else-if="activeTab === 'prds'" :workspace-id="route.params.id as string" :embedded="true" />
+        </el-tab-pane>
       </el-tabs>
 
       <!-- Edit dialog -->
@@ -112,6 +118,8 @@ import { fetchWikiPages } from '@/api/wiki'
 import type { WikiPage } from '@/api/wiki'
 import GraphView from '@/views/wiki/GraphView.vue'
 import FileManager from '@/components/workspace/FileManager.vue'
+import ProposalListView from '@/views/proposal/ProposalListView.vue'
+import PrdListView from '@/views/PrdListView.vue'
 import { useSessionStore } from '@/stores/session'
 import { useChatStore } from '@/stores/chat'
 import { useProfileStore } from '@/stores/profile'
@@ -136,12 +144,6 @@ const loadingWiki = ref(false)
 watch(activeTab, (tab) => {
   if (tab === 'wiki' && wikiPages.value.length === 0) {
     loadWiki()
-  }
-  if (tab === 'prds') {
-    router.push(`/workspaces/${route.params.id}/prds`)
-  }
-  if (tab === 'proposals') {
-    router.push(`/workspaces/${route.params.id}/proposals`)
   }
 })
 

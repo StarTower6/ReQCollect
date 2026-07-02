@@ -1,12 +1,17 @@
 <template>
   <div class="prd-view">
     <div class="prd-actions" v-if="prdStore.prd">
-      <el-button size="small" :loading="wikiLoading" @click="showWikiDialog = true">
-        📄 加入 Wiki
-      </el-button>
+      <template v-if="!editing">
+        <el-button size="small" @click="startEdit">✏️ 编辑</el-button>
+        <el-button size="small" :loading="wikiLoading" @click="showWikiDialog = true">📄 加入 Wiki</el-button>
+      </template>
+      <template v-else>
+        <el-button size="small" @click="cancelEdit">取消</el-button>
+        <el-button size="small" type="primary" :loading="saving" @click="saveEdit">保存</el-button>
+      </template>
     </div>
     <PrdToc
-      v-if="prdStore.prd"
+      v-if="prdStore.prd && !editing"
       :sections="sections"
       :active-index="activeIndex"
       @scroll-to="scrollToSection"
@@ -14,7 +19,17 @@
     />
     <div class="prd-content-wrap" ref="contentRef">
       <div v-if="!prdStore.prd" style="padding:40px;text-align:center;color:var(--muted)">正在加载 PRD...</div>
-      <div v-else ref="prdContentRef" class="prd-content" v-html="renderedMarkdown"></div>
+      <!-- 查看模式 -->
+      <div v-else-if="!editing" ref="prdContentRef" class="prd-content" v-html="renderedMarkdown"></div>
+      <!-- 编辑模式：左编辑器 + 右预览 -->
+      <div v-else class="prd-edit-dual">
+        <div class="prd-edit-left">
+          <textarea v-model="editMarkdown" class="prd-edit-textarea" placeholder="在此编辑 Markdown..."></textarea>
+        </div>
+        <div class="prd-edit-right">
+          <div class="prd-content" v-html="editRenderedPreview"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Wiki dialog -->
@@ -48,6 +63,7 @@ import mermaid from 'mermaid'
 import PrdToc from '@/components/prd/PrdToc.vue'
 import { aiCreateWikiFromPrd } from '@/api/wiki'
 import { fetchWorkspaces } from '@/api/workspace'
+import { updatePrd } from '@/api/prd'
 
 mermaid.initialize({
   startOnLoad: false,
@@ -183,6 +199,42 @@ function downloadMarkdown() {
   URL.revokeObjectURL(url)
 }
 
+/* ── 编辑模式 ── */
+const editing = ref(false)
+const saving = ref(false)
+const editMarkdown = ref('')
+const editRenderedPreview = computed(() => {
+  if (!editMarkdown.value) return ''
+  const html = marked.parse(editMarkdown.value, { async: false }) as string
+  return typeof html === 'string' ? html : ''
+})
+
+function startEdit() {
+  editing.value = true
+  editMarkdown.value = prdStore.prd?.markdown || ''
+}
+
+function cancelEdit() {
+  editing.value = false
+  editMarkdown.value = ''
+}
+
+async function saveEdit() {
+  if (!prdStore.prd) return
+  saving.value = true
+  try {
+    const prdId = (route.params.sessionId || route.params.id) as string
+    const updated = await updatePrd(prdId, { markdown: editMarkdown.value })
+    prdStore.prd = { ...prdStore.prd, markdown: editMarkdown.value }
+    editing.value = false
+    ElMessage.success('保存成功')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
 onMounted(() => {
   const sid = (route.params.sessionId || route.params.id) as string
   if (sid) prdStore.load(sid)
@@ -195,5 +247,45 @@ onMounted(() => {
   top: 12px;
   right: 16px;
   z-index: 10;
+  display: flex;
+  gap: 8px;
+}
+
+/* ── 编辑模式 ── */
+.prd-edit-dual {
+  display: flex;
+  gap: 16px;
+  height: calc(100vh - 120px);
+  min-height: 400px;
+}
+.prd-edit-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.prd-edit-right {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.prd-edit-textarea {
+  flex: 1;
+  width: 100%;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  resize: none;
+  outline: none;
+  background: var(--panel);
+  color: var(--text);
+}
+.prd-edit-textarea:focus {
+  border-color: var(--brand);
 }
 </style>

@@ -1,0 +1,9 @@
+ AGENTS.md            |   2 +-
+ CLAUDE.md            |   2 +-
+ _debug_out.txt       |  18 -----
+ _debug_out2.txt      | 205 ---------------------------------------------------
+ _fix_task7.py        | 205 ---------------------------------------------------
+ app/db/__init__.py   |   8 +-
+ app/db/compat.py     |  33 +++++++++
+ app/db/repository.py |  20 +++++
+ 8 files changed, 56 insertions(+), 437 deletions(-)

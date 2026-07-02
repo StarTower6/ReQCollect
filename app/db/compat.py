@@ -1046,3 +1046,29 @@ class FileDataStore(DataStore):
             reverse=True,
         )
 
+    async def update_prd(self, prd_id: str, **kwargs) -> dict | None:
+        """Update PRD fields. Returns updated PRD or None."""
+        # Find and update in-memory, then persist
+        all_prds = self._load_all_prds()
+        updated = None
+        for p in all_prds:
+            if p.get("id") == prd_id:
+                for key, val in kwargs.items():
+                    if val is not None:
+                        p[key] = val
+                updated = p
+                break
+        if updated is None:
+            return None
+        # Persist back to the session's PRD file
+        sid = updated.get("session_id", "")
+        if sid:
+            path = self._prds_path(sid)
+            existing = self._load_json(path) or []
+            for i, ep in enumerate(existing):
+                if ep.get("id") == prd_id:
+                    existing[i] = updated
+                    break
+            _FileLock.write_json(path, existing)
+        return updated
+

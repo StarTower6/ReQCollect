@@ -1,7 +1,7 @@
 <template>
-  <AppLayout>
-    <div class="prd-list-page">
-      <div class="page-header">
+  <component :is="props.embedded ? 'div' : AppLayout">
+    <div class="prd-list-page" :class="{ embedded: props.embedded }">
+      <div v-if="!props.embedded" class="page-header">
         <el-button text size="small" @click="goBack">← 工作空间</el-button>
         <h2>PRD 文档</h2>
       </div>
@@ -18,7 +18,7 @@
             class="prd-card"
             @click="goPrd(prd.id)"
           >
-            <h3>{{ prd.project_name || '未命名 PRD' }}</h3>
+            <h3>{{ prd.title || prd.project_name || '未命名 PRD' }}</h3>
             <div class="prd-meta">
               <el-tag size="small" type="info">{{ prd.mode === 'one_shot' ? '一次性生成' : '逐章生成' }}</el-tag>
               <span v-if="prd.source_proposal_ids?.length" class="source-tag">从提案池</span>
@@ -29,30 +29,37 @@
         </div>
       </div>
     </div>
-  </AppLayout>
+  </component>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiGet } from '@/api/client'
 import AppLayout from '@/components/layout/AppLayout.vue'
+
+const props = defineProps<{
+  workspaceId?: string
+  embedded?: boolean
+}>()
 
 const route = useRoute()
 const router = useRouter()
 const prds = ref<any[]>([])
 const loading = ref(true)
 
+const wsId = computed(() => props.workspaceId || (route.params.id as string))
+
 onMounted(async () => {
-  const wsId = route.params.id as string
+  if (!wsId.value) { loading.value = false; return }
   try {
-    const data = await apiGet<{ prds: any[] }>(`/workspaces/${wsId}/prds`)
+    const data = await apiGet<{ prds: any[] }>(`/workspaces/${wsId.value}/prds`)
     prds.value = data.prds || []
   } catch { /* */ }
   loading.value = false
 })
 
-function goBack() { router.push(`/workspaces/${route.params.id}`) }
+function goBack() { router.push(`/workspaces/${wsId.value}`) }
 function goPrd(prdId: string) { router.push(`/prd/${prdId}`) }
 function formatDate(d: string) {
   if (!d) return ''

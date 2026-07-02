@@ -3,7 +3,7 @@
     <!-- 顶部 -->
     <header class="pl-header">
       <div class="pl-header-left">
-        <el-button text @click="goBack" class="pl-back-btn">
+        <el-button v-if="!props.embedded" text @click="goBack" class="pl-back-btn">
           <el-icon><ArrowLeft /></el-icon>
           返回
         </el-button>
@@ -109,10 +109,11 @@
       </article>
     </section>
 
-    <!-- PRD 生成进度对话框（双栏：思考过程 + 实时预览） -->
+    <!-- PRD 生成对话框（三阶段：生成中/完成/失败） -->
     <el-dialog v-model="showPrdDialog" title="生成 PRD" width="900px" :close-on-click-modal="false" :close-on-press-escape="false">
-      <div class="prd-gen-content">
-        <div v-if="prdGenerating || prdProgress.includes('完成')" class="prd-gen-progress">
+      <!-- 阶段1: 生成中 -->
+      <div v-if="prdGenStatus === 'loading'" class="prd-gen-loading">
+        <div class="prd-gen-status-bar">
           <el-progress :percentage="prdSectionTotal > 0 ? Math.round(prdSectionIndex / prdSectionTotal * 100) : 0" :stroke-width="8" />
           <p class="prd-gen-status">{{ prdProgress }}</p>
           <div v-if="prdSection" class="prd-gen-section">
@@ -120,36 +121,41 @@
             <span class="prd-gen-section-title">{{ prdSection }}</span>
           </div>
         </div>
-        <div v-if="prdProgress.includes('完成')" class="prd-gen-done">
-          <el-result icon="success" title="PRD 生成完成" sub-title="点击下方按钮查看生成的 PRD 文档" />
-        </div>
-        <div v-else-if="!prdGenerating && !prdProgress.includes('完成')" class="prd-gen-error">
-          <el-result icon="error" title="生成失败" :sub-title="prdProgress || '请重试'" />
-        </div>
-        <!-- 双栏：思考 + 实时预览 -->
-        <div class="prd-gen-body" v-if="prdGenerating || previewMarkdown">
+        <div class="prd-gen-dual">
           <div class="prd-gen-left">
-            <div class="prd-gen-thoughts-title">💭 思考过程</div>
-            <div class="prd-gen-thoughts">
+            <div class="prd-gen-side-title">💭 思考过程</div>
+            <div class="prd-gen-thoughts" ref="thoughtsBox">
               <div v-for="(t, i) in thoughts" :key="i" class="thought-item">{{ t }}</div>
             </div>
           </div>
           <div class="prd-gen-right">
-            <div class="prd-gen-preview-title">📄 实时预览</div>
-            <div class="prd-gen-preview" v-html="renderedPreview"></div>
+            <div class="prd-gen-side-title">📄 实时预览</div>
+            <div class="prd-gen-preview" ref="previewBox" v-html="renderedPreview"></div>
           </div>
         </div>
       </div>
+
+      <!-- 阶段2: 完成 -->
+      <div v-else-if="prdGenStatus === 'done'" class="prd-gen-done">
+        <el-result icon="success" title="PRD 生成完成" sub-title="点击下方按钮查看生成的 PRD 文档" />
+      </div>
+
+      <!-- 阶段3: 失败 -->
+      <div v-else-if="prdGenStatus === 'error'" class="prd-gen-error">
+        <el-result icon="error" title="生成失败" :sub-title="prdProgress || '请重试'" />
+      </div>
+
       <template #footer>
-        <el-button v-if="!prdGenerating" @click="showPrdDialog = false">关闭</el-button>
-        <el-button v-if="createdPrdId" type="primary" @click="goToPrd">查看 PRD</el-button>
+        <el-button v-if="prdGenStatus !== 'loading'" @click="showPrdDialog = false">关闭</el-button>
+        <el-button v-if="prdGenStatus === 'done' && createdPrdId" type="primary" @click="goToPrd">查看 PRD →</el-button>
+        <el-button v-if="prdGenStatus === 'error'" type="primary" @click="generatePrd">重试</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Plus, Search } from '@element-plus/icons-vue'
@@ -162,6 +168,11 @@ import type { Proposal } from '@/types'
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+
+const props = defineProps<{
+  workspaceId?: string
+  embedded?: boolean
+}>()
 
 const proposals = ref<Proposal[]>([])
 const loading = ref(false)
@@ -187,6 +198,7 @@ const allApproved = computed(() =>
 
 const showPrdDialog = ref(false)
 const prdGenerating = ref(false)
+const prdGenStatus = ref<'idle'|'loading'|'done'|'error'>('idle')
 const prdProgress = ref('')
 const prdSection = ref('')
 const prdSectionTotal = ref(0)
@@ -195,6 +207,8 @@ let createdPrdId = ''
 const thoughts = ref<string[]>([])
 const previewMarkdown = ref('')
 const renderedPreview = ref('')
+const thoughtsBox = ref<HTMLElement | null>(null)
+const previewBox = ref<HTMLElement | null>(null)
 
 function toggleAll(checked: boolean) {
   selectedIds.value = checked ? proposals.value.map(p => p.id || p.proposal_id) : []
@@ -205,7 +219,7 @@ async function loadProposals() {
   selectedIds.value = []
   selectAll.value = false
   try {
-    const wid = route.params.id as string
+    const wid = props.workspaceId || (route.params.id as string)
     const res = await listProposals(wid, {
       status: statusFilter.value || undefined,
       urgency: urgencyFilter.value || undefined,
@@ -221,12 +235,12 @@ async function loadProposals() {
 }
 
 function goBack() {
-  const wid = route.params.id as string
+  const wid = props.workspaceId || (route.params.id as string)
   router.push(`/workspaces/${wid}`)
 }
 
 function goDetail(pid: string) {
-  const wid = route.params.id as string
+  const wid = props.workspaceId || (route.params.id as string)
   router.push(`/workspaces/${wid}/proposals/${pid}`)
 }
 
@@ -235,9 +249,10 @@ function handleNew() {
 }
 
 async function generatePrd() {
-  const wid = route.params.id as string
+  const wid = props.workspaceId || (route.params.id as string)
   showPrdDialog.value = true
   prdGenerating.value = true
+  prdGenStatus.value = 'loading'
   prdProgress.value = '正在准备 PRD 生成...'
   prdSection.value = ''
   prdSectionTotal.value = 0
@@ -258,14 +273,16 @@ async function generatePrd() {
       prdProgress.value = `正在撰写第 ${index}/${total} 章: ${title}`
     },
     (data) => {
-      createdPrdId = data?.prd_id || data?.id || ''
+      createdPrdId = data?.prd_id || data?.id || data?.prd?.id || ''
       prdGenerating.value = false
+      prdGenStatus.value = 'done'
       prdProgress.value = '✅ PRD 生成完成！'
       ElMessage.success('PRD 生成完成')
     },
     (err) => {
       prdGenerating.value = false
-      prdProgress.value = ''
+      prdGenStatus.value = 'error'
+      prdProgress.value = err || 'PRD 生成失败'
       ElMessage.error(err || 'PRD 生成失败')
     },
     (thoughtText) => {  // onThought
@@ -285,6 +302,17 @@ function goToPrd() {
     router.push(`/prd/${createdPrdId}`)
   }
 }
+
+/* ── 自动滚动到底 ── */
+watch(thoughts, async () => {
+  await nextTick()
+  if (thoughtsBox.value) thoughtsBox.value.scrollTop = thoughtsBox.value.scrollHeight
+}, { deep: true })
+
+watch(renderedPreview, async () => {
+  await nextTick()
+  if (previewBox.value) previewBox.value.scrollTop = previewBox.value.scrollHeight
+})
 
 function statusLabel(s: string): string {
   const m: Record<string, string> = {

@@ -1,4 +1,4 @@
-import { apiGet } from './client'
+import { apiGet, apiPatch } from './client'
 import type { PrdRecord } from '@/types'
 
 export async function fetchPrd(sessionId: string): Promise<PrdRecord | null> {
@@ -17,4 +17,11 @@ export async function fetchPrdById(prdId: string): Promise<PrdRecord | null> {
   } catch {
     return null
   }
+}
+
+
+/** Update PRD markdown (edit mode save) */
+export async function updatePrd(prdId: string, body: { markdown: string; title?: string }): Promise<PrdRecord> {
+  const data = await apiPatch<{ success: boolean; prd: PrdRecord }>(`/pm/prd/by-id/${encodeURIComponent(prdId)}`, body)
+  return data.prd
 }

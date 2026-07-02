@@ -840,6 +840,22 @@ class MySQLDataStore(DataStore):
             prds = result.scalars().all()
             return [p.to_dict() for p in prds]
 
+    async def update_prd(self, prd_id: str, **kwargs) -> dict | None:
+        """Update PRD fields. Returns updated PRD or None."""
+        async with await self._get_session() as s:
+            result = await s.execute(
+                select(GeneratedPRD).where(GeneratedPRD.id == prd_id)
+            )
+            prd = result.scalar_one_or_none()
+            if not prd:
+                return None
+            for key, val in kwargs.items():
+                if val is not None and hasattr(prd, key):
+                    setattr(prd, key, val)
+            await s.commit()
+            await s.refresh(prd)
+            return prd.to_dict()
+
     # ── Dashboard ──
 
     async def get_dashboard_overview(self) -> dict:
@@ -1117,4 +1133,20 @@ class MySQLDataStore(DataStore):
             )
             prds = result.scalars().all()
             return [p.to_dict() for p in prds]
+
+    async def update_prd(self, prd_id: str, **kwargs) -> dict | None:
+        """Update PRD fields. Returns updated PRD or None."""
+        async with await self._get_session() as s:
+            result = await s.execute(
+                select(GeneratedPRD).where(GeneratedPRD.id == prd_id)
+            )
+            prd = result.scalar_one_or_none()
+            if not prd:
+                return None
+            for key, val in kwargs.items():
+                if val is not None and hasattr(prd, key):
+                    setattr(prd, key, val)
+            await s.commit()
+            await s.refresh(prd)
+            return prd.to_dict()
 
