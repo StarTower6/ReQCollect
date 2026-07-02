@@ -203,7 +203,7 @@ const prdProgress = ref('')
 const prdSection = ref('')
 const prdSectionTotal = ref(0)
 const prdSectionIndex = ref(0)
-let createdPrdId = ''
+const createdPrdId = ref('')
 const thoughts = ref<string[]>([])
 const previewMarkdown = ref('')
 const renderedPreview = ref('')
@@ -257,7 +257,7 @@ async function generatePrd() {
   prdSection.value = ''
   prdSectionTotal.value = 0
   prdSectionIndex.value = 0
-  createdPrdId = ''
+  createdPrdId.value = ''
   thoughts.value = []
   previewMarkdown.value = ''
   renderedPreview.value = ''
@@ -273,7 +273,7 @@ async function generatePrd() {
       prdProgress.value = `正在撰写第 ${index}/${total} 章: ${title}`
     },
     (data) => {
-      createdPrdId = data?.prd_id || data?.id || data?.prd?.id || ''
+      createdPrdId.value = data?.prd_id || data?.id || data?.prd?.id || ''
       prdGenerating.value = false
       prdGenStatus.value = 'done'
       prdProgress.value = '✅ PRD 生成完成！'
@@ -298,8 +298,8 @@ async function generatePrd() {
 
 function goToPrd() {
   showPrdDialog.value = false
-  if (createdPrdId) {
-    router.push(`/prd/${createdPrdId}`)
+  if (createdPrdId.value) {
+    router.push(`/prd/${createdPrdId.value}`)
   }
 }
 

@@ -224,7 +224,7 @@ async function saveEdit() {
   saving.value = true
   try {
     const prdId = (route.params.sessionId || route.params.id) as string
-    const updated = await updatePrd(prdId, { markdown: editMarkdown.value })
+    await updatePrd(prdId, { markdown: editMarkdown.value })
     prdStore.prd = { ...prdStore.prd, markdown: editMarkdown.value }
     editing.value = false
     ElMessage.success('保存成功')

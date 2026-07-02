@@ -130,8 +130,6 @@ class DataStore(ABC):
     async def list_prds_by_workspace(self, workspace_id: str) -> list[dict]:
         """List all PRDs in a workspace, ordered by created_at desc."""
 
-
-
     @abstractmethod
     async def update_prd(self, prd_id: str, **kwargs) -> dict | None:
         """Update PRD fields (markdown, title, etc). Returns updated PRD or None."""

@@ -477,6 +477,7 @@ async def pm_update_prd(
     current_user: dict = Depends(require_prd_generator),
 ):
     """Update PRD markdown (edit mode save)."""
+    from app.main import get_datastore
     ds = get_datastore()
     updated = await ds.update_prd(prd_id, markdown=body.markdown, title=body.title)
     if not updated:
