@@ -729,21 +729,19 @@ async def pm_generate_from_proposals(
                         ],
                         "markdown": markdown,
                     }
-                    await ds.save_prd(
+                    saved = await ds.save_prd(
                         thread_id,
                         project_name=project_name,
                         mode="one_shot",
                         sections=prd_data["sections"],
                         markdown=markdown,
                     )
-
-                    # NOTE: source_proposal_ids will be set when save_prd
-                    # is enhanced to accept the field (DataStore update upcoming)
+                    prd_id = saved.get("id", "") if isinstance(saved, dict) else ""
 
                     full_markdown = markdown
                     logger.info(
-                        f"[gen-from-proposals] PRD saved: {project_name[:60]}, "
-                        f"sources={request.proposal_ids}"
+                        f"[gen-from-proposals] PRD saved: id={prd_id}, "
+                        f"name={project_name[:60]}, sources={request.proposal_ids}"
                     )
 
                     yield {
@@ -751,6 +749,8 @@ async def pm_generate_from_proposals(
                         "data": json.dumps({
                             "type": "prd_complete",
                             "data": {
+                                "id": prd_id,
+                                "prd_id": prd_id,
                                 "markdown": markdown,
                                 "project_name": project_name,
                                 "source_proposal_ids": request.proposal_ids,
@@ -763,7 +763,11 @@ async def pm_generate_from_proposals(
                         "event": "message",
                         "data": json.dumps({
                             "type": "prd_complete",
-                            "data": {"markdown": markdown, "project_name": project_name},
+                            "data": {
+                                "markdown": markdown,
+                                "project_name": project_name,
+                                "source_proposal_ids": request.proposal_ids,
+                            },
                         }, ensure_ascii=False),
                     }
             else:
