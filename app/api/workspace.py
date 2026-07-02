@@ -12,7 +12,7 @@ Routes:
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from loguru import logger
 
-from app.core.auth import get_current_user, require_reviewer
+from app.core.auth import get_current_user, require_role, require_reviewer
 from app.core.file_handler import FileValidationError
 from app.core.workspace_analyzer import _fire
 
@@ -34,6 +34,25 @@ def _ds():
 
 
 router = APIRouter()
+
+
+async def _require_workspace_member(workspace_id: str, current_user: dict) -> None:
+    """Raise 403 if the user is not a member of the workspace (admin always ok)."""
+    if current_user.get("role") == "admin":
+        return
+    ds = _ds()
+    if not await ds.is_workspace_member(workspace_id, current_user["id"]):
+        raise HTTPException(status_code=403, detail="无权访问此工作空间")
+
+
+async def _require_workspace_owner_or_admin(workspace_id: str, current_user: dict) -> None:
+    """Raise 403 unless the user is the workspace owner or admin."""
+    if current_user.get("role") == "admin":
+        return
+    ds = _ds()
+    role = await ds.get_workspace_member_role(workspace_id, current_user["id"])
+    if role != "owner":
+        raise HTTPException(status_code=403, detail="仅工作空间所有者或管理员可执行此操作")
 
 
 # ── Models ──
@@ -59,9 +78,9 @@ class WorkspaceUpdate(BaseModel):
 @router.post("/workspaces")
 async def ws_create(
     body: WorkspaceCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_role("analyst", "admin")),
 ):
-    """Create a new workspace."""
+    """Create a new workspace. Only analyst/admin can create."""
     ds = _ds()
     ws = await ds.create_workspace(
         name=body.name,
@@ -77,9 +96,11 @@ async def ws_create(
 async def ws_list(
     current_user: dict = Depends(get_current_user),
 ):
-    """List all workspaces accessible by the current user."""
+    """List workspaces accessible by the current user (membership-filtered)."""
     ds = _ds()
-    workspaces = await ds.list_workspaces()
+    # admin sees all; others see only workspaces they're a member of
+    uid = None if current_user.get("role") == "admin" else current_user["id"]
+    workspaces = await ds.list_workspaces(user_id=uid)
     return {"success": True, "workspaces": workspaces}
 
 
@@ -88,11 +109,12 @@ async def ws_get(
     workspace_id: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Get workspace detail."""
+    """Get workspace detail (members only)."""
     ds = _ds()
     ws = await ds.get_workspace(workspace_id)
     if ws is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
+    await _require_workspace_member(workspace_id, current_user)
     return {"success": True, "workspace": ws}
 
 
@@ -102,8 +124,12 @@ async def ws_update(
     body: WorkspaceUpdate,
     current_user: dict = Depends(get_current_user),
 ):
-    """Update workspace fields."""
+    """Update workspace fields (owner/admin only)."""
     ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    await _require_workspace_owner_or_admin(workspace_id, current_user)
     kwargs = body.model_dump(exclude_unset=True)
     if not kwargs:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -119,11 +145,12 @@ async def ws_delete(
     workspace_id: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Delete a workspace."""
+    """Delete a workspace (owner/admin only)."""
     ds = _ds()
     ws = await ds.get_workspace(workspace_id)
     if ws is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
+    await _require_workspace_owner_or_admin(workspace_id, current_user)
     await ds.delete_workspace(workspace_id)
     logger.info(f"Workspace deleted: {ws.get('name', workspace_id)}")
     return {"success": True}
@@ -151,13 +178,17 @@ async def ws_sessions(
     workspace_id: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """List sessions in a workspace."""
+    """List sessions in a workspace (members only)."""
     ds = _ds()
     ws = await ds.get_workspace(workspace_id)
     if ws is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
+    await _require_workspace_member(workspace_id, current_user)
 
     sessions = await ds.list_sessions(workspace_id=workspace_id, limit=10000)
+    # business only sees their own sessions within the workspace
+    if current_user.get("role") == "business":
+        sessions = [s for s in sessions if s.get("user_id") == current_user["id"]]
     return {"success": True, "sessions": sessions, "total": len(sessions)}
 
 
@@ -523,11 +554,15 @@ async def ws_proposal_list(
     offset: int = Query(default=0, ge=0),
     current_user: dict = Depends(get_current_user),
 ):
-    """List proposals in a workspace with optional filters."""
+    """List proposals in a workspace with optional filters (members only).
+
+    business role only sees proposals they submitted.
+    """
     ds = _ds()
     ws = await ds.get_workspace(workspace_id)
     if ws is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
+    await _require_workspace_member(workspace_id, current_user)
     proposals = await ds.list_proposals(
         workspace_id=workspace_id,
         status=status,
@@ -536,6 +571,8 @@ async def ws_proposal_list(
         limit=limit,
         offset=offset,
     )
+    if current_user.get("role") == "business":
+        proposals = [p for p in proposals if p.get("submitter_id") == current_user["id"]]
     return {"success": True, "proposals": proposals, "total": len(proposals)}
 
 
@@ -674,3 +711,79 @@ async def ws_proposal_review(
         f"by {current_user.get('username', '?')}"
     )
     return {"success": True, "proposal": updated}
+
+
+# ── Workspace Members ──
+
+
+class AddMemberBody(BaseModel):
+    user_id: str
+    role: str = "business"  # owner/analyst/reviewer/business
+
+
+@router.post("/workspaces/{workspace_id}/members")
+async def ws_add_member(
+    workspace_id: str,
+    body: AddMemberBody,
+    current_user: dict = Depends(get_current_user),
+):
+    """Add a member to the workspace (owner/admin only)."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    await _require_workspace_owner_or_admin(workspace_id, current_user)
+    # Validate user exists
+    target = await ds.get_user_by_id(body.user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if body.role not in ("owner", "analyst", "reviewer", "business"):
+        raise HTTPException(status_code=400, detail="无效的角色")
+    member = await ds.add_workspace_member(workspace_id, body.user_id, body.role)
+    logger.info(
+        f"Member added: {body.user_id} -> {workspace_id} ({body.role}) "
+        f"by {current_user.get('username', '?')}"
+    )
+    return {"success": True, "member": member}
+
+
+@router.delete("/workspaces/{workspace_id}/members/{user_id}")
+async def ws_remove_member(
+    workspace_id: str,
+    user_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Remove a member from the workspace (owner/admin only)."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    await _require_workspace_owner_or_admin(workspace_id, current_user)
+    # Don't allow removing the last owner
+    members = await ds.list_workspace_members(workspace_id)
+    owners = [m for m in members if m.get("role_in_workspace") == "owner"]
+    if user_id in [m.get("user_id") for m in owners] and len(owners) <= 1:
+        raise HTTPException(status_code=400, detail="不能移除最后一个所有者")
+    removed = await ds.remove_workspace_member(workspace_id, user_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="成员不存在")
+    logger.info(
+        f"Member removed: {user_id} <- {workspace_id} "
+        f"by {current_user.get('username', '?')}"
+    )
+    return {"success": True}
+
+
+@router.get("/workspaces/{workspace_id}/members")
+async def ws_list_members(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """List members of a workspace (members only)."""
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    await _require_workspace_member(workspace_id, current_user)
+    members = await ds.list_workspace_members(workspace_id)
+    return {"success": True, "members": members, "total": len(members)}

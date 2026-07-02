@@ -40,17 +40,44 @@ def _svc():
         raise RuntimeError("PM Agent service not initialized (server still starting)")
     return s
 
+
+def _ds():
+    """Lazy accessor for the DataStore."""
+    from app.main import get_datastore
+    d = get_datastore()
+    if d is None:
+        raise RuntimeError("DataStore not initialized")
+    return d
+
+
 router = APIRouter()
 
 
 async def _check_session_ownership(
     current_user: dict, session_id: str
 ) -> dict:
-    """Check if current user owns the session (admin can access any)."""
+    """Check if current user can access the session.
+
+    - admin: any session
+    - reviewer: denied (403)
+    - analyst: must be a member of the session's workspace
+    - business: must own the session
+    """
     session = await _svc().get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    if current_user.get("role") != "admin" and session.get("user_id") != current_user["id"]:
+    role = current_user.get("role")
+    if role == "admin":
+        return session
+    if role == "reviewer":
+        raise HTTPException(status_code=403, detail="评审人无权访问会话")
+    if role == "analyst":
+        ws_id = session.get("workspace_id") or ""
+        if ws_id and await _ds().is_workspace_member(ws_id, current_user["id"]):
+            return session
+        raise HTTPException(status_code=403, detail="无权访问此会话")
+    # business: must own the session
+    if session.get("user_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="无权访问此会话")
     return session
 
@@ -64,30 +91,46 @@ async def pm_list_sessions(
     all: bool = Query(default=False),
     user_id: str | None = Query(default=None),
     status: str | None = Query(default=None),
+    workspace_id: str | None = Query(default=None),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
 ):
     """List sessions with optional filters, ordered by updated_at desc.
 
-    Regular users see only their own sessions.  Admin can use ?all=true
-    to see all sessions, or pass a specific user_id.
+    Role-based visibility:
+      - admin: all sessions (or filtered by ?user_id/?workspace_id)
+      - reviewer: denied (403)
+      - analyst: sessions in workspaces they're a member of
+      - business: only their own sessions
     """
-    if all and current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="仅管理员可查看所有会话")
     role = current_user.get("role")
-    if all:
-        uid = None  # no filter
-    elif role in ("analyst", "admin"):
-        uid = None  # analyst/admin 看所有会话（工作空间共享）
-    elif user_id:
-        uid = user_id
-    else:
-        uid = current_user["id"]
+    if role == "reviewer":
+        raise HTTPException(status_code=403, detail="评审人无权访问会话列表")
+    if all and role != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可查看所有会话")
+
+    if role == "admin":
+        uid = None if all else (user_id or current_user["id"])
+    elif role == "analyst":
+        uid = None  # filter by workspace membership below
+    else:  # business
+        uid = user_id or current_user["id"]
 
     sessions = await _svc().list_sessions()
     # Client-side filtering for file-fallback compat
     if uid:
         sessions = [s for s in sessions if s.get("user_id") == uid]
+    if workspace_id:
+        sessions = [s for s in sessions if s.get("workspace_id") == workspace_id]
+    # analyst: restrict to workspaces they're a member of
+    if role == "analyst":
+        ds = _ds()
+        kept = []
+        for s in sessions:
+            ws_id = s.get("workspace_id") or ""
+            if ws_id and await ds.is_workspace_member(ws_id, current_user["id"]):
+                kept.append(s)
+        sessions = kept
     if status:
         sessions = [s for s in sessions if s.get("status") == status]
     return {"success": True, "sessions": sessions[offset : offset + limit], "total": len(sessions)}
