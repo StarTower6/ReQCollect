@@ -1,3 +1,0 @@
-5b8a803 fix: backend abstract method impls + frontend dual-panel dialog complete
-76a6398 fix: add missing get_prd_by_id / list_prds_by_workspace to MySQLDataStore & FileDataStore
-2eaaec3 chore: cleanup temp debug files
