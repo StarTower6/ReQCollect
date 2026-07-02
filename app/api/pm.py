@@ -840,3 +840,66 @@ async def pm_generate_from_proposals(
                 }
 
     return EventSourceResponse(gen())
+
+
+@router.post("/pm/sessions/{session_id}/apply-to-proposal")
+async def pm_apply_to_proposal(
+    session_id: str,
+    current_user: dict = Depends(require_prd_generator),
+):
+    """Apply a refine session's conversation back to its source proposal.
+
+    Reads the session's messages, finds the refine_proposal_id from the
+    system context message's meta, re-extracts proposal fields via LLM,
+    updates the proposal, and marks it as ready_review.
+    """
+    from app.agent.pm.proposal_extractor import extract_proposal_from_session
+
+    ds = _ds()
+    # Validate session access
+    await _check_session_ownership(current_user, session_id)
+
+    messages = await ds.get_message_history(session_id)
+    pid = None
+    for m in messages:
+        if m.get("event_type") == "context":
+            meta = m.get("meta") or {}
+            if meta.get("refine_proposal_id"):
+                pid = meta["refine_proposal_id"]
+                break
+    if not pid:
+        raise HTTPException(
+            status_code=400,
+            detail="此会话不是完善提案会话（未找到 refine_proposal_id）",
+        )
+
+    proposal = await ds.get_proposal(pid)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="关联提案不存在")
+
+    # Re-extract proposal fields from the refined conversation
+    proposal_data = None
+    async for event in extract_proposal_from_session(session_id, ds):
+        if event["type"] == "proposal_done":
+            proposal_data = event["data"]
+
+    if proposal_data is None:
+        raise HTTPException(status_code=500, detail="提案提炼失败")
+
+    updated = await ds.update_proposal(
+        pid,
+        title=proposal_data.get("title", "") or proposal.get("title", ""),
+        background=proposal_data.get("background", ""),
+        pain_points=proposal_data.get("pain_points", []),
+        desired_outcome=proposal_data.get("desired_outcome", ""),
+        scope_note=proposal_data.get("scope_note", ""),
+        status="ready_review",
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="提案更新失败")
+
+    logger.info(
+        f"[apply-to-proposal] session={session_id} -> proposal={pid} "
+        f"marked ready_review by {current_user.get('username', '?')}"
+    )
+    return {"success": True, "proposal": updated}

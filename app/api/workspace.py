@@ -602,24 +602,35 @@ async def ws_proposal_update(
 ):
     """Update proposal fields.
 
-    Normal fields (title, background, tags, etc.) can be changed by any
-    workspace member. Changing the *status* field requires reviewer or
-    higher role.
+    Content fields (title, background, pain_points, etc.) require analyst/admin.
+    The *status* field requires reviewer/analyst/admin.
+    business can only view, not edit.
     """
-    # If caller tries to change status, enforce reviewer permission
-    if hasattr(body, "status") and body.status is not None and body.status != "":
-        allowed = ("reviewer", "analyst", "admin")
-        if current_user.get("role") not in allowed:
+    role = current_user.get("role")
+    kwargs = body.model_dump(exclude_unset=True)
+
+    # Status change requires reviewer/analyst/admin
+    if kwargs.get("status"):
+        if role not in ("reviewer", "analyst", "admin"):
             raise HTTPException(
                 status_code=403,
                 detail="修改提案状态需要 reviewer/analyst/admin 权限",
+            )
+
+    # Content fields (anything other than status) require analyst/admin
+    content_keys = {k: v for k, v in kwargs.items() if k != "status"}
+    if content_keys:
+        if role not in ("analyst", "admin"):
+            raise HTTPException(
+                status_code=403,
+                detail="编辑提案内容需要 analyst/admin 权限",
             )
 
     ds = _ds()
     ws = await ds.get_workspace(workspace_id)
     if ws is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    kwargs = body.model_dump(exclude_unset=True)
+    await _require_workspace_member(workspace_id, current_user)
     if not kwargs:
         raise HTTPException(status_code=400, detail="No fields to update")
     proposal = await ds.update_proposal(proposal_id, **kwargs)
@@ -787,3 +798,72 @@ async def ws_list_members(
     await _require_workspace_member(workspace_id, current_user)
     members = await ds.list_workspace_members(workspace_id)
     return {"success": True, "members": members, "total": len(members)}
+
+
+# ── Proposal Refine ──
+
+
+@router.post("/workspaces/{workspace_id}/proposals/{proposal_id}/refine")
+async def ws_proposal_refine(
+    workspace_id: str,
+    proposal_id: str,
+    current_user: dict = Depends(require_role("analyst", "admin")),
+):
+    """Create a chat session seeded with the proposal's context for AI-assisted refining.
+
+    Returns the new session_id. The session's first system message carries
+    meta.refine_proposal_id so ChatView can detect it and offer "apply to proposal".
+    """
+    import uuid
+
+    ds = _ds()
+    ws = await ds.get_workspace(workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    await _require_workspace_member(workspace_id, current_user)
+    proposal = await ds.get_proposal(proposal_id)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+
+    session_id = f"refine-{uuid.uuid4().hex[:12]}"
+    await ds.create_session(
+        session_id,
+        user_id=current_user["id"],
+        project_name=f"完善提案: {proposal.get('title') or '未命名提案'}",
+        workspace_id=workspace_id,
+    )
+
+    pain_points = proposal.get("pain_points") or []
+    if isinstance(pain_points, list):
+        pp_text = "\n".join(f"- {p}" for p in pain_points) or "- （暂无）"
+    else:
+        pp_text = str(pain_points) or "- （暂无）"
+
+    context = (
+        "你正在协助产品经理完善需求提案。当前提案内容如下：\n\n"
+        f"标题：{proposal.get('title', '')}\n"
+        f"背景：{proposal.get('background', '')}\n"
+        f"核心痛点：\n{pp_text}\n"
+        f"期望效果：{proposal.get('desired_outcome', '')}\n"
+        f"范围说明：{proposal.get('scope_note', '')}\n\n"
+        "请与产品经理对话，补充完善上述字段。重点挖掘：业务背景的细节、"
+        "痛点的具体表现与影响、期望效果的可衡量目标、范围的边界与假设。"
+    )
+    await ds.save_message(
+        session_id, "system", context,
+        event_type="context",
+        meta={
+            "refine_proposal_id": proposal_id,
+            "refine_workspace_id": workspace_id,
+        },
+    )
+    logger.info(
+        f"Refine session created: {session_id} for proposal {proposal_id} "
+        f"by {current_user.get('username', '?')}"
+    )
+    return {
+        "success": True,
+        "session_id": session_id,
+        "proposal_id": proposal_id,
+        "workspace_id": workspace_id,
+    }
